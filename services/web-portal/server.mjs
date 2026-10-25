@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createProxyMiddleware } from 'http-proxy-middleware';
+import { NYRA_CONFIG, NYRA_RESPONSES, resolveTopic } from './nyra-sales-engine.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -33,6 +34,109 @@ app.use('/api/crm', createProxyMiddleware({
 
 // Parse JSON bodies for inquiries
 app.use(express.json());
+
+// ===================================================================
+// NYRA AI SALES BOT & TOUR API (/api/nyra/v1/*)
+// ===================================================================
+
+app.get('/api/nyra/v1/config', (req, res) => {
+  res.json(NYRA_CONFIG);
+});
+
+app.post('/api/nyra/v1/respond', (req, res) => {
+  const { language = 'en', topic, question } = req.body || {};
+  const lang = language === 'es' ? 'es' : 'en';
+  let targetTopic = topic;
+
+  if (!targetTopic && question) {
+    targetTopic = resolveTopic(question);
+  }
+  if (!targetTopic || !NYRA_RESPONSES[targetTopic]) {
+    targetTopic = 'intro';
+  }
+
+  const topicData = NYRA_RESPONSES[targetTopic][lang] || NYRA_RESPONSES[targetTopic]['en'];
+  res.json({
+    topic: targetTopic,
+    text: topicData.text,
+    href: topicData.href,
+    selector: topicData.selector,
+    notice: '',
+    audio: null
+  });
+});
+
+app.post('/api/nyra/v1/conversation', async (req, res) => {
+  const { language = 'en', question = '', topic = 'intro' } = req.body || {};
+  const lang = language === 'es' ? 'es' : 'en';
+  const targetTopic = resolveTopic(question) || topic;
+  const topicData = NYRA_RESPONSES[targetTopic]?.[lang] || NYRA_RESPONSES.intro[lang];
+
+  // If OPENAI_API_KEY is configured, call OpenAI for natural conversational intelligence
+  const apiKey = process.env.OPENAI_API_KEY || process.env.OPENROUTER_API_KEY;
+  if (apiKey && question) {
+    try {
+      const openAiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: `You are Nyra, the friendly AI guide for Nyrava Home. Explain that Nyrava Home connects licensed Realtors with verified buyer and seller opportunities across 60 US metro territories. Pricing is $349/year (first month included) + $89/mo Basic or $149/mo Pro. Keep your response under 3 concise sentences.`
+            },
+            { role: 'user', content: question }
+          ],
+          max_tokens: 150
+        })
+      });
+      if (openAiRes.ok) {
+        const aiJson = await openAiRes.json();
+        const aiText = aiJson.choices?.[0]?.message?.content;
+        if (aiText) {
+          return res.json({
+            mode: 'AI conversation',
+            topic: targetTopic,
+            text: aiText,
+            href: topicData.href,
+            selector: topicData.selector
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('[Nyra OpenAI Fallback]', e.message);
+    }
+  }
+
+  // Built-in intelligent response
+  res.json({
+    mode: 'AI conversation',
+    topic: targetTopic,
+    text: topicData.text,
+    href: topicData.href,
+    selector: topicData.selector
+  });
+});
+
+app.post('/api/nyra/v1/greeting', (req, res) => {
+  const { name = '', language = 'en', consent = false } = req.body || {};
+  if (!consent || !name) {
+    return res.status(400).json({ error: 'Consent and name required' });
+  }
+  const cleanName = name.replace(/[^\w\s-]/g, '').trim().slice(0, 30);
+  const text = language === 'es'
+    ? `¡Hola ${cleanName}! Bienvenido a Nyrava Home. ¿En qué puedo ayudarte a hacer crecer tu negocio inmobiliario hoy?`
+    : `Hello ${cleanName}! Welcome to Nyrava Home. How can I assist you with your real estate business today?`;
+
+  res.json({
+    text,
+    stored: false
+  });
+});
 
 // Direct route for Find a Realtor modal iframe
 app.get('/find-a-realtor', (req, res) => {
