@@ -640,6 +640,9 @@ app.MapGet("/api/admin/realtors", async (CrmDb db, HttpContext http) => {
     return Results.Ok(realtors);
 }).RequireAuthorization();
 
+app.MapGet("/admin", () => Results.Redirect("/index.html"));
+app.MapGet("/admin/login", () => Results.Redirect("/index.html"));
+
 app.MapPost("/api/admin/dispatch-lead/{contactId:long}", async (long contactId, AdminLeadAssignInput input, CrmDb db, HttpContext http) => {
     var actor = await CurrentUser(db, http);
     var isPlatformAdmin = actor.Email == "admin@nyrava.com" || actor.Email == "testadmin@example.test";

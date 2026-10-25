@@ -171,6 +171,19 @@ app.get('/meet', (req, res) => {
   res.redirect(MEET_SERVICE_URL);
 });
 
+// Admin direct access (never linked on front of site)
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+app.get('/admin/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin-signin.html'));
+});
+
+app.get(['/admin/diagnostics', '/admin/acquisition', '/admin/leads'], (req, res) => {
+  res.redirect('/admin');
+});
+
 // Territory ZIP availability check
 app.get('/api/territories/check/:zip', (req, res) => {
   const zip = req.params.zip || '78701';
