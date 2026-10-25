@@ -217,11 +217,11 @@ const server = http.createServer(async (req, res) => {
           propertyType: data.propertyType || 'Single Family'
         };
       }
-      if (!contact && (data.leadName || data.leadEmail || data.leadPhone)) {
+      if (!contact && (data.leadName || data.leadEmail || data.leadPhone || data.fullName || data.name || data.email || data.phone)) {
         contact = {
-          fullName: data.leadName,
-          email: data.leadEmail,
-          phone: data.leadPhone,
+          fullName: data.leadName || data.fullName || data.name,
+          email: data.leadEmail || data.email,
+          phone: data.leadPhone || data.phone,
           timeframe: data.timeframe || 'Exploring'
         };
       }

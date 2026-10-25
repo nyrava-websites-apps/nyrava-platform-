@@ -468,41 +468,9 @@ app.MapPost("/api/v1/inbound-leads", async (InboundLeadInput input, CrmDb db, Ht
         return Results.BadRequest(new { error = "Lead is missing a valid source ID, name, contact, ZIP code, verified contact and intent, consent evidence, or required external-FSBO Admin review." });
 
     var externalLeadId = input.ExternalLeadId!.Trim();
+    bool isSystemAdmin = owner.Email == "admin@nyrava.com" || owner.Email == "testadmin@example.test";
 
-    // 1. Master Admin Bank: Ensure the admin always holds the master copy for review
-    var existingAdminContact = await db.Contacts.SingleOrDefaultAsync(c => c.UserId == owner.Id && c.Source == source && c.ExternalLeadId == externalLeadId);
-    CrmContact? primaryContact = existingAdminContact;
-    if (primaryContact is null) {
-        var adminContact = new CrmContact {
-            UserId = owner.Id,
-            AssignedToUserId = owner.Id,
-            Name = name!,
-            Email = Clean(email, 320),
-            Phone = Clean(phone, 40),
-            Company = Clean(input.Company, 160),
-            LeadType = leadType!,
-            Stage = "New",
-            Notes = $"[In Master Bank - Unassigned] FSBO Lead for ZIP {zip}. Verified direct homeowner.",
-            Source = source!,
-            ExternalLeadId = externalLeadId,
-            PropertyZipCode = zip!,
-            ContactVerificationMethod = method!,
-            ContactVerifiedAt = input.ContactVerifiedAt,
-            IntentVerifiedAt = input.IntentVerifiedAt,
-            ConsentCapturedAt = input.ConsentCapturedAt,
-            ConsentRecipient = consentRecipient!,
-            ConsentText = consentText!,
-            ExternalFsbo = input.ExternalFsbo,
-            FsboAdminReviewReference = input.ExternalFsbo ? reviewReference : null,
-            FsboAdminReviewedAt = input.ExternalFsbo ? input.FsboAdminReviewedAt : null,
-            SourceUrl = Clean(sourceUrl, 2000),
-            UpdatedAt = now
-        };
-        db.Contacts.Add(adminContact);
-        primaryContact = adminContact;
-    }
-
-    // 2. Route lead to subscribed realtors covering this ZIP code (up to 2 leads max per day per zip code per realtor)
+    // Find subscribed realtors covering this ZIP code
     var activeRealtors = await db.Users
         .Where(u => u.Role == "Owner" && u.WorkspaceId == u.Id && u.Email != "admin@nyrava.com" && u.Email != "testadmin@example.test")
         .ToListAsync();
@@ -511,63 +479,108 @@ app.MapPost("/api/v1/inbound-leads", async (InboundLeadInput input, CrmDb db, Ht
         .Where(r => GeographicService.MatchesZipCoverage(r, zip!))
         .ToList();
 
-    var startOfDay = new DateTimeOffset(now.UtcDateTime.Date, TimeSpan.Zero);
-    int dispatchedCount = 0;
-    string dispatchedTo = "";
-
-    foreach (var targetRealtor in matchingRealtors) {
-        // Enforce daily subscription cap: Maximum 2 leads per zip code per day for each realtor
-        var realtorZipContacts = await db.Contacts
-            .Where(c => c.UserId == targetRealtor.Id && c.PropertyZipCode == zip)
-            .ToListAsync();
-        var leadsTodayForZip = realtorZipContacts.Count(c => c.UpdatedAt >= startOfDay);
-
-        if (leadsTodayForZip >= 2) {
-            continue; // Daily limit reached for this ZIP code for this realtor; lead remains in admin bank
+    CrmUser targetRecipient = owner;
+    if (!isSystemAdmin) {
+        if (GeographicService.MatchesZipCoverage(owner, zip!)) {
+            targetRecipient = owner;
+        } else if (matchingRealtors.Count > 0) {
+            targetRecipient = matchingRealtors[0];
+        } else {
+            targetRecipient = owner;
         }
-
-        var existing = await db.Contacts.SingleOrDefaultAsync(c => c.UserId == targetRealtor.Id && c.Source == source && c.ExternalLeadId == externalLeadId);
-        if (existing is not null) continue;
-
-        var realtorLead = new CrmContact {
-            UserId = targetRealtor.Id,
-            AssignedToUserId = targetRealtor.Id,
-            Name = name!,
-            Email = Clean(email, 320),
-            Phone = Clean(phone, 40),
-            Company = Clean(input.Company, 160),
-            LeadType = leadType!,
-            Stage = "New",
-            Notes = $"FSBO Lead for ZIP {zip}. Verified direct homeowner.",
-            Source = source!,
-            ExternalLeadId = externalLeadId,
-            PropertyZipCode = zip!,
-            ContactVerificationMethod = method!,
-            ContactVerifiedAt = input.ContactVerifiedAt,
-            IntentVerifiedAt = input.IntentVerifiedAt,
-            ConsentCapturedAt = input.ConsentCapturedAt,
-            ConsentRecipient = consentRecipient!,
-            ConsentText = consentText!,
-            ExternalFsbo = input.ExternalFsbo,
-            FsboAdminReviewReference = input.ExternalFsbo ? reviewReference : null,
-            FsboAdminReviewedAt = input.ExternalFsbo ? input.FsboAdminReviewedAt : null,
-            SourceUrl = Clean(sourceUrl, 2000),
-            UpdatedAt = now
-        };
-        db.Contacts.Add(realtorLead);
-        dispatchedCount++;
-        dispatchedTo = targetRealtor.Email;
     }
 
-    if (dispatchedCount > 0) {
-        primaryContact!.Notes = $"[Dispatched to {dispatchedTo}] FSBO Lead for ZIP {zip}. Verified direct homeowner.";
-    } else {
-        primaryContact!.Notes = $"[In Master Bank - Unassigned] FSBO Lead for ZIP {zip}. Waiting for realtor coverage or daily quota.";
+    // Check for idempotency on target recipient
+    var existingLead = await db.Contacts.SingleOrDefaultAsync(c => c.UserId == targetRecipient.Id && c.Source == source && c.ExternalLeadId == externalLeadId);
+    if (existingLead is not null) {
+        integrationKey.LastUsedAt = now;
+        await db.SaveChangesAsync();
+        return Results.Ok(existingLead);
+    }
+
+    // 1. Create primary lead for target recipient
+    var primaryContact = new CrmContact {
+        UserId = targetRecipient.Id,
+        AssignedToUserId = targetRecipient.Id,
+        Name = name!,
+        Email = Clean(email, 320),
+        Phone = Clean(phone, 40),
+        Company = Clean(input.Company, 160),
+        LeadType = leadType!,
+        Stage = "New",
+        Notes = isSystemAdmin ? $"[In Master Bank - Unassigned] FSBO Lead for ZIP {zip}. Verified direct homeowner." : $"FSBO Lead for ZIP {zip}. Verified direct homeowner.",
+        Source = source!,
+        ExternalLeadId = externalLeadId,
+        PropertyZipCode = zip!,
+        ContactVerificationMethod = method!,
+        ContactVerifiedAt = input.ContactVerifiedAt,
+        IntentVerifiedAt = input.IntentVerifiedAt,
+        ConsentCapturedAt = input.ConsentCapturedAt,
+        ConsentRecipient = consentRecipient!,
+        ConsentText = consentText!,
+        ExternalFsbo = input.ExternalFsbo,
+        FsboAdminReviewReference = input.ExternalFsbo ? reviewReference : null,
+        FsboAdminReviewedAt = input.ExternalFsbo ? input.FsboAdminReviewedAt : null,
+        SourceUrl = Clean(sourceUrl, 2000),
+        UpdatedAt = now
+    };
+    db.Contacts.Add(primaryContact);
+
+    // 2. If called by System Admin, also dispatch to matching territory realtors
+    if (isSystemAdmin && matchingRealtors.Count > 0) {
+        var startOfDay = new DateTimeOffset(now.UtcDateTime.Date, TimeSpan.Zero);
+        int dispatchedCount = 0;
+        string dispatchedTo = "";
+
+        foreach (var targetRealtor in matchingRealtors) {
+            var realtorZipContacts = await db.Contacts
+                .Where(c => c.UserId == targetRealtor.Id && c.PropertyZipCode == zip)
+                .ToListAsync();
+            var leadsTodayForZip = realtorZipContacts.Count(c => c.UpdatedAt >= startOfDay);
+
+            if (leadsTodayForZip >= 2) continue;
+
+            var existing = await db.Contacts.SingleOrDefaultAsync(c => c.UserId == targetRealtor.Id && c.Source == source && c.ExternalLeadId == externalLeadId);
+            if (existing is not null) continue;
+
+            var realtorLead = new CrmContact {
+                UserId = targetRealtor.Id,
+                AssignedToUserId = targetRealtor.Id,
+                Name = name!,
+                Email = Clean(email, 320),
+                Phone = Clean(phone, 40),
+                Company = Clean(input.Company, 160),
+                LeadType = leadType!,
+                Stage = "New",
+                Notes = $"FSBO Lead for ZIP {zip}. Verified direct homeowner.",
+                Source = source!,
+                ExternalLeadId = externalLeadId,
+                PropertyZipCode = zip!,
+                ContactVerificationMethod = method!,
+                ContactVerifiedAt = input.ContactVerifiedAt,
+                IntentVerifiedAt = input.IntentVerifiedAt,
+                ConsentCapturedAt = input.ConsentCapturedAt,
+                ConsentRecipient = consentRecipient!,
+                ConsentText = consentText!,
+                ExternalFsbo = input.ExternalFsbo,
+                FsboAdminReviewReference = input.ExternalFsbo ? reviewReference : null,
+                FsboAdminReviewedAt = input.ExternalFsbo ? input.FsboAdminReviewedAt : null,
+                SourceUrl = Clean(sourceUrl, 2000),
+                UpdatedAt = now
+            };
+            db.Contacts.Add(realtorLead);
+            dispatchedCount++;
+            dispatchedTo = targetRealtor.Email;
+        }
+
+        if (dispatchedCount > 0) {
+            primaryContact.Notes = $"[Dispatched to {dispatchedTo}] FSBO Lead for ZIP {zip}. Verified direct homeowner.";
+        }
     }
 
     integrationKey.LastUsedAt = now;
     await db.SaveChangesAsync();
-    return Results.Created($"/api/contacts/{primaryContact!.Id}", primaryContact);
+    return Results.Created($"/api/contacts/{primaryContact.Id}", primaryContact);
 }).AllowAnonymous();
 
 app.MapGet("/api/admin/area-intelligence", async (CrmDb db, HttpContext http) => {

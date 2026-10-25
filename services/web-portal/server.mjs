@@ -138,9 +138,37 @@ app.post('/api/nyra/v1/greeting', (req, res) => {
   });
 });
 
-// Direct route for Find a Realtor modal iframe
+// Direct routes and aliases for seamless navigation
 app.get('/find-a-realtor', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'intake.html'));
+});
+
+app.get('/subscriber-login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'subscriber-login.html'));
+});
+
+app.get('/dashboard/home', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'dashboard-home.html'));
+});
+
+app.get('/dashboard', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'dashboard-home.html'));
+});
+
+app.get('/legal.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'privacy.html'));
+});
+
+app.get('/billing-policy.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'terms.html'));
+});
+
+app.get('/privacy-choices.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'privacy.html'));
+});
+
+app.get('/meet', (req, res) => {
+  res.redirect(MEET_SERVICE_URL);
 });
 
 // Territory ZIP availability check
@@ -151,6 +179,40 @@ app.get('/api/territories/check/:zip', (req, res) => {
     maxSlots: 2,
     availableSlots: 1,
     status: 'AVAILABLE'
+  });
+});
+
+// Platform plans and pricing specifications
+app.get('/api/plans', (req, res) => {
+  res.json({
+    currency: "USD",
+    annualSetupAndLicense: 349,
+    annualRenewal: true,
+    firstMonthIncluded: true,
+    recurringMonthlyStartsMonth: 2,
+    firstPaymentBasic: 349,
+    firstPaymentPro: 349,
+    basic: {
+      monthly: 89,
+      zipLimit: 5,
+      dailyMaximum: 2,
+      rolling30DayMaximum: 10
+    },
+    pro: {
+      monthly: 149,
+      zipLimit: 20,
+      dailyMaximum: 3,
+      rolling30DayMaximum: 20
+    },
+    billingStatus: "CHECKOUT_AVAILABLE",
+    disclaimer: "Allow approximately 3–5 days after adding ZIP codes for leads to begin arriving. Timing and quantities are not guaranteed. Leads arrive as qualified opportunities become available, not daily. Limits are maximum allowances, not guaranteed volumes."
+  });
+});
+
+// Nyra AI locked speech endpoint (graceful voice fallback)
+app.post('/api/nyra/v1/speech', (req, res) => {
+  res.status(503).json({
+    error: "Nyra locked voice synthesis is unavailable. Using browser assistant."
   });
 });
 
@@ -214,7 +276,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
 }));
 
 // Health check
-app.get('/health', (req, res) => {
+app.get(['/health', '/api/health'], (req, res) => {
   res.json({
     status: 'online',
     service: 'nyrava-web-portal',
