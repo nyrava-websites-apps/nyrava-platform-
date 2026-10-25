@@ -1,0 +1,90 @@
+<!doctype html><html data-nh-team-ui="2" data-ny-page="team.html" lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nyrava Home | Business & Team</title><link rel="stylesheet" href="/team.css?v=20261019-theme-1"><style id="team-layout-stability">
+html { overflow-y: scroll; }
+*, *::before, *::after { box-sizing: border-box; }
+body { overflow-x: hidden; }
+</style>
+<link rel="stylesheet" href="/design-20261019/theme.css?v=20261019-theme-1" data-nyrava-theme="20261019-theme-1"><link rel="stylesheet" href="/team-chat-launcher.css?v=1"><link rel="stylesheet" href="/team-workspace-style.css?v=2"><link rel="stylesheet" href="/team-meetings-popup.css?v=2"><link rel="stylesheet" href="/site-navigation.css?v=1"><script defer src="/site-navigation.js?v=1"></script><link rel="stylesheet" href="/call-workspace.css?v=1"><script defer src="/call-workspace.js?v=1"></script></head><body><div class="workspace-layout"><aside class="workspace-sidebar">
+  <div class="workspace-brand">
+    <strong>NYRAVA HOME</strong>
+    <small>REALTOR WORKSPACE</small>
+  </div>
+  <nav aria-label="Realtor Workspace">
+    <a href="/dashboard/home#overview">Overview</a>
+    <a href="/dashboard/home#leads">My Leads</a>
+    <a href="/dashboard/home#crm">Contacts &amp; CRM</a>
+    <a href="/team.html" class="active" aria-current="page">My Team</a>
+    <a href="/dashboard/home#calendar">Calendar &amp; Tasks</a>
+    <a href="/dashboard/home#zips">ZIP Territories</a>
+    <a href="/dashboard/home#notifications">Notifications</a>
+    <a href="/dashboard/home#performance">Performance</a>
+    <a href="/dashboard/home#account">Account &amp; Billing</a>
+  </nav>
+</aside>
+<div class="workspace-content">
+<header>
+  <div>
+    <strong>My Team</strong>
+    <p>Your real estate business, all in one place.</p>
+  </div>
+  <span>Business &amp; Team</span>
+</header><main><h1>Business & Team</h1><p id="message" role="status"></p><section><h2>Business profile</h2><form id="profile" class="grid"></form></section><section><h2>Employees</h2><p>Invite employees, then allocate leads below. The business keeps permanent lead ownership. Disabled members immediately lose access.</p><form id="staffForm" class="grid"><label>Full name<input name="fullName" maxlength="160" required></label><label>Employee email<input name="email" type="email" maxlength="320" required></label><button>Add employee</button></form><div id="staff"></div><h3>Invitation history</h3><div id="invites"></div></section><section><h2>Internal lead assignments</h2><p>Only activated employee accounts can receive work. Each lead has at most one assigned employee.</p><div id="assignments"></div></section></main></div></div><script src="/team-common.js?v=20261019-theme-1"></script><script>
+const fields={businessName:'Business name',contactName:'Contact name',phone:'Phone',website:'Website',address:'Street address',city:'City',state:'State',zipCode:'ZIP code',licenseNumber:'License number',timeZone:'Time zone'};
+let workspace;
+async function load(){try{const me=await api('/api/auth/me');if(me.role!=='RealtorSubscriber'){location.href='/dashboard';return}const [profile,team,crm,invites]=await Promise.all([api('/api/team/profile'),api('/api/team/workspace'),api('/api/crm/workspace'),api('/api/team/invitations')]);workspace=team;
+document.querySelector('#profile').innerHTML=Object.entries(fields).map(([key,label])=>`<label>${label}<input name="${key}" maxlength="300" value="${esc(profile[key])}" ${key==='businessName'?'required':''}></label>`).join('')+'<button>Save profile</button>';
+document.querySelector('#staff').innerHTML=team.staff.filter(s=>!s.archived).map(s=>`<article><strong>${esc(s.fullName)}</strong> · ${esc(s.email)} · ${s.active?(s.userId?'Login active':'Awaiting invitation acceptance'):'Disabled'} <button data-active="${s.id}">${s.active?'Disable':'Reactivate'}</button> ${s.active&&!s.userId?`<button data-invite="${s.id}">Send email invitation</button>`:''} ${s.active&&s.userId?`<span data-nh-member-actions="${s.userId}"><button type="button" data-nh-team-meet>Meet now</button><button type="button" data-nh-team-chat>Chat</button></span>`:''}</article>`).join('')||'<p>No employees added.</p>';
+document.querySelector('#invites').innerHTML=invites.map(i=>`<article>${esc(team.staff.find(s=>s.id===i.staffId)?.email)} · ${i.acceptedAt?'Accepted':i.revokedAt?'Revoked':new Date(i.expiresAt)<new Date()?'Expired':'Pending'} · expires ${esc(new Date(i.expiresAt).toLocaleString())} ${!i.acceptedAt&&!i.revokedAt?`<button data-revoke="${i.id}">Revoke link</button>`:''}</article>`).join('')||'<p>No invitations yet.</p>';
+document.querySelector('#assignments').innerHTML=crm.leads.map(l=>`<article><label>${esc(l.fullName)} · ZIP ${esc(l.zipCode)}<select data-lead="${l.id}"><option value="">Business owner</option>${team.staff.filter(s=>s.active&&s.userId).map(s=>`<option value="${s.id}" ${team.assignments.some(a=>a.inquiryId===l.id&&a.staffId===s.id)?'selected':''}>${esc(s.fullName)}</option>`).join('')}</select></label>${team.assignments.some(a=>a.inquiryId===l.id&&!team.staff.some(s=>s.id===a.staffId&&s.active))?'<small>Previous assignee is disabled. Choose an active member or owner.</small>':''}</article>`).join('')||'<p>No assigned leads yet.</p>';
+document.querySelectorAll('[data-active]').forEach(b=>b.onclick=()=>run(async()=>{const s=team.staff.find(s=>s.id===b.dataset.active);await post('/api/team/staff/'+s.id+'/active',{active:!s.active});await load()}));
+document.querySelectorAll('[data-invite]').forEach(b=>b.onclick=()=>run(async()=>{if(b.disabled)return;b.disabled=true;try{const r=await post('/api/team/staff/'+b.dataset.invite+'/invite',{});if(r.emailAccepted!==true)throw Error('Invitation email was not confirmed. The running server may still use the older link-only invitation endpoint.');await load();message('Invitation email accepted for delivery. Your employee can open the emailed link and create their account. The link expires in 72 hours.')}finally{b.disabled=false}}));
+document.querySelectorAll('[data-revoke]').forEach(b=>b.onclick=()=>run(async()=>{await post('/api/team/invitations/'+b.dataset.revoke+'/revoke',{});await load()}));
+document.querySelectorAll('[data-lead]').forEach(s=>s.onchange=()=>run(async()=>{await post('/api/team/leads/'+s.dataset.lead+'/assign',{staffId:s.value||null});message('Internal assignment saved.')}));
+}catch(e){message(e.message)}}
+document.querySelector('#profile').onsubmit=e=>{e.preventDefault();run(async()=>{await post('/api/team/profile',Object.fromEntries(new FormData(e.target)));message('Business profile saved.')})};
+document.querySelector('#staffForm').onsubmit=e=>{e.preventDefault();run(async()=>{await post('/api/team/staff',Object.fromEntries(new FormData(e.target)));e.target.reset();await load();message('Employee added. Select Send email invitation to enable their account.')})};
+load();
+</script><script src="/session-controls.js?v=20261019-theme-1" defer></script><style id="nyrava-compact-team-v1">
+/* Compact team directory and employee workspace; existing actions stay intact. */
+#panel-team .headline{margin-bottom:16px}
+#panel-team .headline h2{font-size:20px;margin:0 0 4px}
+#panel-team .headline p,#panel-team .muted{font-size:12px;line-height:1.45}
+#panel-team .box{padding:16px 18px;margin-bottom:14px;border-radius:10px;box-shadow:none}
+#panel-team h3{font-size:15px;margin-bottom:12px}
+#panel-team .actions{gap:6px}
+#teamList{gap:0}
+#teamList>.item{padding:10px 0;border:0;border-bottom:1px solid #DFE6F0;border-radius:0;gap:12px;align-items:center}
+#teamList>.item:last-child{border-bottom:0}
+#teamList .item strong{font-size:13px;font-weight:650}
+#teamList .item small{font-size:11px;line-height:1.45;margin-top:2px}
+#teamList .item>.actions{flex-wrap:wrap;justify-content:flex-end}
+#panel-team button,#staff button,#staffForm button,#invites button,#workspace button{font:500 12px/1.25 system-ui;min-height:30px;padding:6px 10px;border:1px solid #DFE6F0;border-radius:6px;background:#fff;color:#0866FF;box-shadow:none;margin:0}
+#panel-team button:hover,#staff button:hover,#invites button:hover,#workspace button:hover{background:#F4F7FC;border-color:#596579}
+#teamForm>button,#staffForm>button,#workspace form>button{background:#0866FF;color:#fff;border-color:#0866FF}
+#teamForm>button:hover,#staffForm>button:hover,#workspace form>button:hover{background:#081A3A}
+#panel-team button[data-team-disable],#staff button[data-active],#staff button[data-remove]{color:#7b4c43}
+#panel-team .field,#staffForm input,#workspace input,#workspace select,#workspace textarea{font-size:12px;padding:8px 10px;border-radius:6px;min-width:0}
+#teamForm{display:grid;grid-template-columns:minmax(140px,1fr) minmax(180px,1.3fr) auto;align-items:center}
+#teamForm .field{width:100%;min-height:33px}
+#teamLeads .item{padding:9px 10px;border-radius:7px}
+#teamLeads strong{font-size:13px}
+#teamLeads small{font-size:11px}
+#employeeReview{font-size:13px}
+#employeeReview h3{font-size:16px}
+#employeeReview h4{font-size:13px;margin:18px 0 8px}
+#employeeReview .item{padding:9px 11px;border-radius:7px}
+#employeeReview .card-link{font-size:12px;margin-top:0}
+#staff article{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:10px 0;font-size:12px;line-height:1.45}
+#staff article strong{font-size:13px}
+#staffForm{grid-template-columns:minmax(130px,1fr) minmax(170px,1.3fr) auto;gap:10px}
+#staffForm label{font-size:12px}
+#staffForm input{margin:5px 0 0}
+#workspace>section{padding:16px 18px;border-radius:10px;margin:12px 0}
+#workspace h2{font-size:18px;margin:0 0 8px}
+#workspace h3{font-size:14px;margin:18px 0 8px}
+#workspace p,#workspace article{font-size:13px}
+#workspace label{font-size:12px}
+#workspace .grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+#workspace textarea{min-height:60px;resize:vertical}
+#workspace input,#workspace select,#workspace textarea{margin:5px 0 8px}
+@media(max-width:700px){#teamForm,#staffForm{grid-template-columns:1fr}#teamForm>button,#staffForm>button{justify-self:start}#teamList>.item{flex-direction:column;align-items:flex-start;gap:8px}#teamList .item>.actions{justify-content:flex-start}#workspace .grid{grid-template-columns:1fr}#panel-team button,#staff button,#staffForm button,#invites button,#workspace button{min-height:38px;padding:8px 12px}}
+</style><script defer src="/team-chat-launcher.js?v=sender1"></script><script defer src="/team-meetings-popup.js?v=call-work1"></script><script defer src="/workspace-operator.js?v=nyra-locked1"></script><script defer src="/team-member-actions.js?v=1"></script><script defer src="/nyra/v1/workspace-shell.js?v=1"></script><script defer src="/nyra/v1/embed.js?v=guided1" data-mode="support"></script></body></html>

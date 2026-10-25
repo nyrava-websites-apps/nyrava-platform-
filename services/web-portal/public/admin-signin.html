@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html data-ny-page="admin-signin.html" lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex,nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Administrator Login | Nyrava Home</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:#F4F7FC;color:#081A3A;font-family:Arial,sans-serif;padding:20px}
+.card{width:100%;max-width:440px;background:#fff;border-radius:18px;padding:35px;box-shadow:0 12px 45px #081A3A20}
+.brand{font-weight:800;font-size:20px;color:#081A3A;text-decoration:none}
+h1{font-size:27px;margin:25px 0 8px}
+p{color:#596579;line-height:1.5}
+label{display:block;font-weight:700;margin:18px 0 7px}
+input{width:100%;padding:13px;border:1px solid #DFE6F0;border-radius:9px;font-size:16px}
+button{width:100%;padding:14px;margin-top:24px;background:#081A3A;color:white;border:0;border-radius:9px;font-size:16px;font-weight:700;cursor:pointer}
+button:disabled{opacity:.65}
+#status{margin-top:16px;min-height:22px;text-align:center}
+.back{display:block;margin-top:23px;text-align:center;color:#081A3A}
+</style>
+<link rel="stylesheet" href="/design-20261019/theme.css?v=20261019-theme-1" data-nyrava-theme="20261019-theme-1"><link rel="stylesheet" href="/site-navigation.css?v=1"><script defer src="/site-navigation.js?v=1"></script><link rel="stylesheet" href="/password-controls.css?v=1"><script defer src="/password-controls.js?v=1"></script></head>
+<body>
+<main class="card">
+<a href="/" class="brand">NYRAVA HOME</a>
+<h1>Administrator Login</h1>
+<p>Sign in with your administrator account to manage Nyrava Home.</p>
+<form id="login">
+<label for="email">Email Address</label>
+<input id="email" type="email" autocomplete="username" required>
+<label for="password">Password</label>
+<input id="password" type="password" autocomplete="current-password" required>
+<button id="submit" type="submit">Sign In</button>
+<div id="status" role="status" aria-live="polite"></div>
+</form><p><a href="/password-recovery.html">Forgot password?</a></p>
+<a href="/" class="back">Back to Nyrava Home</a>
+</main>
+<script src="/admin-signin.js?v=20261019-theme-1" defer></script>
+</body>
+</html>

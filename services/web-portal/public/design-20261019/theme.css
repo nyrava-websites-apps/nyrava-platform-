@@ -1,0 +1,120 @@
+/* Nyrava Home shared design system. Last stylesheet in every HTML entry point. */
+:root{
+ --ny-navy:#081A3A;--ny-blue:#0866FF;--ny-blue-hover:#0052D6;--ny-white:#FFFFFF;
+ --ny-background:#F4F7FC;--ny-text:#101B35;--ny-secondary:#596579;--ny-border:#DFE6F0;
+ --ny-success:#167347;--ny-success-bg:#EAF7EF;--ny-warning:#845309;--ny-warning-bg:#FFF5DD;
+ --ny-error:#B42332;--ny-error-bg:#FFF0F1;--ny-radius:10px;--ny-focus:#0866FF;
+ --green:var(--ny-blue);--gold:var(--ny-blue);--navy:var(--ny-navy);--blue:var(--ny-blue);
+ --blue-hover:var(--ny-blue-hover);--white:var(--ny-white);--light:var(--ny-background);
+ --text:var(--ny-text);--muted:var(--ny-secondary);--secondary:var(--ny-secondary);
+ --border:var(--ny-border);--line:var(--ny-border);--brand:var(--ny-blue);
+ --primary:var(--ny-blue);--accent:var(--ny-blue);--bg:var(--ny-background);
+ --surface:var(--ny-white);--card:var(--ny-white);--ink:var(--ny-text);
+ color-scheme:light;font-family:Inter,"Segoe UI",Arial,sans-serif;color:var(--ny-text);background:var(--ny-background)
+}
+*,*::before,*::after{box-sizing:border-box}
+html{font-family:Inter,"Segoe UI",Arial,sans-serif;-webkit-text-size-adjust:100%}
+body:not(.home-page){background:var(--ny-background);color:var(--ny-text);font-family:Inter,"Segoe UI",Arial,sans-serif}
+body:not(.home-page) :where(h1,h2,h3,h4){color:var(--ny-navy)}
+body:not(.home-page) :where(p,small,.muted,.caption,.sub,.hint,.help,.no-technical){color:var(--ny-secondary)}
+body:not(.home-page) :where(a){color:var(--ny-blue)}
+:where(button,input,select,textarea){font:inherit}
+:where(button,a,summary){touch-action:manipulation}
+:where(button,input,select,textarea,a,summary):focus-visible{outline:3px solid var(--ny-focus)!important;outline-offset:3px!important}
+:where(button,input,select,textarea){border-radius:7px}
+body:not(.home-page) :where(input:not([type=checkbox]):not([type=radio]):not([type=file]),select,textarea){
+ background:var(--ny-white);border:1px solid var(--ny-border);color:var(--ny-text);min-height:40px;line-height:1.45;padding:10px 12px;max-width:100%
+}
+:where(input,textarea)::placeholder{color:var(--ny-secondary);opacity:1}
+:where(input[type=checkbox],input[type=radio]){accent-color:var(--ny-blue)}
+:where(input[type=file]){max-width:100%;color:var(--ny-secondary)}
+:where(input[type=file])::file-selector-button{background:var(--ny-background);border:1px solid var(--ny-border);padding:8px 12px;margin-right:10px;color:var(--ny-text);border-radius:6px}
+:where(input[readonly],input:disabled,textarea:disabled,select:disabled){background:var(--ny-background)!important;color:var(--ny-secondary)!important}
+body:not(.home-page) :where(button,.button,.btn){border-radius:7px;line-height:1.4;min-height:36px}
+body:not(.home-page) :where(.primary,.btn-primary,.button-primary,.button-green,.button-gold,button[type=submit]){
+ background:var(--ny-blue);border-color:var(--ny-blue);color:white
+}
+body:not(.home-page) :where(.primary,.btn-primary,.button-primary,.button-green,.button-gold,button[type=submit]):hover:not(:disabled){background:var(--ny-blue-hover);border-color:var(--ny-blue-hover)}
+body:not(.home-page) :where(.secondary,.outline,.quiet,.btn-secondary,.button-ghost){
+ border-color:var(--ny-border);color:var(--ny-blue);background:var(--ny-white)
+}
+body:not(.home-page) :where(.secondary,.outline,.quiet,.btn-secondary,.button-ghost):hover:not(:disabled){background:#EDF3FF;color:var(--ny-blue-hover)}
+:where(button:disabled,[aria-disabled=true]){cursor:not-allowed;opacity:.6}
+body:not(.home-page) :where(.card,.panel,.box,.kpi,.metric,.stat,.profile-card,.surface,.contact-list,.contact-detail){border-color:var(--ny-border);border-radius:var(--ny-radius)}
+body:not(.home-page) :where(.card,.box,.kpi,.metric,.stat,.profile-card,.surface){background:var(--ny-white);box-shadow:0 2px 14px #081A3A05}
+body:not(.home-page) :where(label){color:var(--ny-text);line-height:1.5}
+body:not(.home-page) :where(table){color:var(--ny-text);border-color:var(--ny-border);border-collapse:collapse}
+body:not(.home-page) :where(th){background:var(--ny-background);color:var(--ny-secondary);font-weight:650}
+body:not(.home-page) :where(td,th){border-color:var(--ny-border);padding-top:12px;padding-bottom:12px}
+body:not(.home-page) :where(tbody tr:hover){background:#F1F6FF}
+body:not(.home-page) :where(.table-wrap,.scroll,.table-scroll){overflow-x:auto;-webkit-overflow-scrolling:touch}
+body:not(.home-page) :where(.rail,body>aside){
+ background:var(--ny-navy);color:white;border-color:#263B5D
+}
+body:not(.home-page) :where(.rail,body>aside) :where(.brand,.brand span,.brand b,.rail-label,.nav-label,small,.identity){color:#DAE6FB}
+body:not(.home-page) :where(.rail,body>aside) :where(a,button,p){color:#DAE6FB}
+body:not(.home-page) :where(.rail,body>aside) :where(nav button,.menu button){background:transparent;border-color:transparent}
+body:not(.home-page) :where(.rail,body>aside) :where(nav button.active,.menu button.active,nav button:hover,.menu button:hover){background:var(--ny-blue);color:white;border-color:var(--ny-blue)}
+body:not(.home-page) :where(.rail,body>aside) :where(a:hover){color:white}
+body:not(.home-page) :where(.brand){color:var(--ny-navy);font-weight:800}
+body:not(.home-page) :where(.brand small,.brand span){color:var(--ny-secondary)}
+body:not(.home-page) :where(header,.topbar,.top){border-color:var(--ny-border)}
+body:not(.home-page) :where(.tabs,.toolbar,.section-title,.drawer-head,.realtor-modal-head){border-color:var(--ny-border)}
+body:not(.home-page) :where(.tabs button.active,.contact-item.active){background:#EDF3FF;color:var(--ny-blue);border-color:#BCD3FF}
+body:not(.home-page) :where(dialog){color:var(--ny-text);background:var(--ny-white);border:1px solid var(--ny-border);border-radius:12px;max-width:calc(100vw - 24px)}
+dialog::backdrop{background:#081A3A99}
+body:not(.home-page) :where(.notice,.status,.pill,.chip,.zip){background:#EDF3FF;border-color:#C5D9FF;color:#174C97}
+body :where(.error,.danger,.bad,.negative,.status.error,.notice.error,.tag.bad){background:var(--ny-error-bg)!important;color:var(--ny-error)!important;border-color:#F2C2C7!important}
+body :where(.success,.ok,.good,.positive,.status.success,.notice.success,.tag.good){background:var(--ny-success-bg)!important;color:var(--ny-success)!important;border-color:#BDDCC9!important}
+body :where(.warning,.warn,.overdue,.tag.warn){background:var(--ny-warning-bg)!important;color:var(--ny-warning)!important;border-color:#EBD6A8!important}
+body :where(button.danger,button.destructive,.btn-danger){background:var(--ny-error)!important;color:white!important;border-color:var(--ny-error)!important}
+body :where(button.danger,button.destructive,.btn-danger):hover:not(:disabled){background:#8D1E2A!important}
+#nyrava-global-nav summary,#nyrava-global-nav nav{background:var(--ny-navy)!important;border-color:#33496B!important}
+#nyrava-global-nav a,#nyrava-global-nav button{color:white!important}
+#nyrava-global-nav a:hover,#nyrava-global-nav button:hover{background:var(--ny-blue)!important}
+#intake-success-notice{background:var(--ny-navy)!important;color:white!important}#intake-success-notice button{color:var(--ny-navy)!important;background:white!important}
+#providerCards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr));gap:20px}
+#providerCards>form{background:var(--ny-white);border:1px solid var(--ny-border);border-radius:12px;padding:22px}
+#providerCards>form>label{display:block;margin:15px 0 8px}#providerCards button{margin:7px 7px 0 0}
+#providerCards input[type=checkbox]{width:auto;display:inline-block;margin-left:10px}
+body.home-page{background:white;color:var(--ny-text)}
+@media(max-width:800px){body:not(.home-page) :where(.topbar,.top-actions,.headline,.intro){flex-wrap:wrap}body:not(.home-page) :where(.rail){height:auto;position:relative}body:not(.home-page) :where(main){min-width:0}body:not(.home-page) :where(button,.button,.btn){min-height:40px}body:not(.home-page) :where(table){font-size:12px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto!important}*,*::before,*::after{transition:none!important;animation:none!important}}
+@media(forced-colors:active){:where(button,a,input,select,textarea,summary):focus-visible{outline:3px solid Highlight!important}}
+@media print{body:not(.home-page){background:white!important;color:#101B35!important}:where(.rail,#nyrava-global-nav){display:none!important}body :where(.card,.panel,.box){box-shadow:none!important}}
+
+/* Readable, consistent compact account controls. */
+body:not(.home-page){font-size:14px;line-height:1.5}
+body:not(.home-page) :where(p){line-height:1.65}
+body:not(.home-page) :where(label){font-size:13px}
+body:not(.home-page) :where(td){font-size:13px}
+body:not(.home-page) :where(th){font-size:11px}
+body:not(.home-page) :where(button,.button,.btn){font-size:13px}
+html[data-ny-page="valuation-preview/index.html"] body :where(main>header){background:var(--ny-navy);color:white}
+html[data-ny-page="valuation-preview/index.html"] body :where(main>header h1,main>header h2,main>header p,main>header .eyebrow){color:white}
+body:not(.home-page) :where(.cover-caption,.cover-caption small,.cover-caption strong){color:white}
+
+/* Ensure platform branding and account actions remain readable on the navy rail. */
+body:not(.home-page) .rail .brand,body:not(.home-page)>aside .brand{color:white}
+body:not(.home-page) .rail .brand span,body:not(.home-page)>aside .brand span{color:#DAE6FB}
+body:not(.home-page) .rail nav button.active,body:not(.home-page)>aside nav button.active{background:var(--ny-blue);color:white;border-color:var(--ny-blue)}
+body:not(.home-page) .rail nav button.active span{color:white}
+@media(max-width:800px){
+ body:not(.home-page)>header{flex-wrap:wrap;gap:15px}
+ body:not(.home-page)>header>*{min-width:0;max-width:100%}
+ body:not(.home-page) .rail nav>*{flex:none;white-space:nowrap;min-height:40px;display:flex;align-items:center}
+ body:not(.home-page) .rail .brand{display:block;color:white}
+ body:not(.home-page) .rail-footer{display:flex!important;align-items:center;flex-wrap:wrap;gap:12px;margin-top:16px;padding-top:12px}
+ body:not(.home-page) .rail-footer #identity{flex:1;color:#DAE6FB;min-width:150px}
+ body:not(.home-page) .rail #management:not([hidden]){display:flex!important;flex-wrap:wrap;gap:4px;margin-top:8px}
+ body:not(.home-page) .rail #management[hidden]{display:none!important}
+}
+
+/* Buyer/seller hero keeps accessible text against its dark brand gradient. */
+html[data-ny-page="intake.html"] .hero :is(h1,p){color:var(--ny-white)!important}
+html[data-ny-page="intake.html"] .hero .pills button:not(.active){color:var(--ny-white)!important;background:transparent!important}
+html[data-ny-page="intake.html"] .hero .pills button.active{color:var(--ny-navy)!important;background:var(--ny-white)!important}
+
+body:not(.home-page) .workspace-sidebar a{color:var(--ny-white)!important}
+body:not(.home-page) .workspace-sidebar a.active,
+body:not(.home-page) .workspace-sidebar a[aria-current="page"]{background:var(--ny-blue)!important;color:var(--ny-white)!important}

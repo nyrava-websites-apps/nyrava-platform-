@@ -1,0 +1,78 @@
+<!doctype html>
+<html data-ny-page="business-calendar.html" lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="same-origin">
+<title>Nyrava Home | CRM Calendar</title>
+
+<link rel="stylesheet" href="/business-calendar.css?v=20261019-theme-1">
+<link rel="stylesheet" href="/design-20261019/theme.css?v=20261019-theme-1" data-nyrava-theme="20261019-theme-1"><link rel="stylesheet" href="/crm-calendar.css?v=clarity-nav1"><link rel="stylesheet" href="/calendar-client-meetings.css?v=1"><link rel="stylesheet" href="/site-navigation.css?v=1"><script defer src="/site-navigation.js?v=1"></script><link rel="stylesheet" href="/team-chat-launcher.css?v=guest1"><link rel="stylesheet" href="/call-workspace.css?v=1"><script defer src="/call-workspace.js?v=1"></script><link rel="stylesheet" href="/calendar-workspace.css?v=1"></head>
+<body><div class="cal-nav-mobile"><button type="button" id="calNavToggle" aria-controls="calAppSidebar" aria-expanded="false">☰ Menu</button><span>Nyrava Home</span></div>
+<button type="button" id="calNavBackdrop" class="cal-nav-backdrop" aria-label="Close navigation" hidden></button>
+<aside id="calAppSidebar" class="cal-app-sidebar" aria-label="Workspace navigation"><div class="cal-nav-brand"><a href="/dashboard/home">NYRAVA HOME<small>REALTOR WORKSPACE</small></a><button type="button" id="calNavClose" aria-label="Close menu">×</button></div><nav>
+<a href="/dashboard/home" data-cal-home>Overview</a>
+<a href="/dashboard/home#profile" data-cal-owner hidden>My Profile</a>
+<a href="/dashboard/home#leads" data-cal-owner hidden>My Leads</a>
+<a href="/crm.html" data-cal-crm>Contacts &amp; CRM</a>
+<a href="/business-calendar.html" class="active" aria-current="page">Calendar &amp; results</a>
+<a href="/professional-ai.html">AI Work Assistant ↗</a>
+<a href="/professional-valuation.html">Private Valuation ↗</a>
+<a href="/personal-reminders.html">Appointments &amp; Reminders ↗</a>
+<a href="/team.html" data-cal-owner hidden>My Team</a>
+<a href="/team-chat.html">Team Chat</a>
+<a href="/dashboard/home#zips" data-cal-owner hidden>ZIP Territories</a>
+<a href="/dashboard/home#notifications" data-cal-owner hidden>Notifications</a>
+<a href="/dashboard/home#performance" data-cal-owner hidden>Performance</a>
+<a href="/dashboard/home#account" data-cal-owner hidden>Account &amp; Billing</a>
+</nav><p class="cal-nav-foot">Your clients, your team, your workspace.</p></aside>
+
+<header class="header">
+ <a class="brand" href="/dashboard/home"><span class="brand-icon">⌂</span><span>NYRAVA <strong>HOME</strong><small>REALTOR WORKSPACE</small></span></a>
+ <nav><a href="/dashboard/home">Dashboard</a><a href="/dashboard/home#crm">Contacts & CRM</a><a href="/team.html">My Team</a></nav>
+</header>
+<main>
+ <section class="hero cal-hero"><div><p class="eyebrow">NYRAVA HOME WORKSPACE</p><h1>Calendar</h1><p>Your clients, appointments and follow-ups in one place.</p></div><div class="actions"><button id="newContact" class="outline">Add contact</button><button id="newTask" class="outline">New task</button><button id="startClientMeetingNow" class="primary" type="button">Start meeting now</button><button id="newEvent" class="outline">+ Appointment</button></div></section>
+ <p id="calendarError" class="notice error" role="alert"></p>
+ <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+ <section class="stats" aria-label="Schedule overview"><div><small>Appointments in view</small><strong id="appointmentCount">—</strong></div><div><small>Personal follow-ups</small><strong id="taskCount">—</strong></div><div><small>Contacts available</small><strong id="contactCount">—</strong></div></section>
+ <section class="layout">
+  <div class="calendar-card">
+   <div class="calendar-toolbar"><div class="calendar-nav"><button id="prev" aria-label="Previous period">‹</button><button id="today" class="small">Today</button><button id="next" aria-label="Next period">›</button><h2 id="calendarTitle"></h2></div>
+   <div class="view-switch" role="group" aria-label="Calendar view"><button data-view="month" class="selected">Month</button><button data-view="week">Week</button><button data-view="day">Day</button><button data-view="agenda">Agenda</button></div></div>
+   <div class="cal-controls"><select id="calendarStaff" aria-label="Filter by employee" hidden><option value="">Whole team</option></select><button id="productionToggle" class="outline" hidden>Team production</button><details><summary>Filter appointments</summary><div class="cal-filter-columns"><fieldset id="attendanceFilters"><legend>Attendance</legend></fieldset><fieldset id="dispositionFilters"><legend>Client outcome</legend></fieldset></div></details></div><div class="legend"><span><i class="dot green"></i> Personal / CRM appointments</span><span><i class="dot teal"></i> Team meetings</span></div>
+   <div id="calendar" aria-live="polite"></div>
+  </div>
+  <aside class="side">
+   <section class="panel"><div class="panel-head"><h2 id="agendaTitle">Upcoming</h2><button id="addForDate" class="small">+ Add</button></div><div id="dayList" class="agenda-list"></div></section>
+   <section class="panel"><div class="panel-head"><h2>Personal contacts</h2><button id="addContactSide" class="small">+ Add</button></div><input id="contactSearch" type="search" placeholder="Search your contacts" aria-label="Search own contacts"><div id="contactsList" class="contact-list"></div></section>
+  </aside>
+ </section>
+<p id="meetingFeedStatus" class="field-help" aria-live="polite"></p>
+ <section id="productionPanel" class="panel" hidden><h2>Team production</h2><p class="field-help">Visible calendar dates · attendance by appointment date · reported closings by result date. Results are reported by your team, not independently verified. Legacy appointments without results use current allocation; recorded results retain their employee attribution.</p><div class="cal-table-scroll"><table><thead><tr><th>Team member</th><th>Set</th><th>Kept</th><th>Missed</th><th>Cancelled</th><th>Callbacks</th><th>Follow-ups</th><th>Sold</th><th>Bought</th></tr></thead><tbody id="productionBody"></tbody></table></div></section>
+</main>
+<dialog id="eventDialog" class="modal"><form id="eventForm"><div class="modal-head"><h2 id="eventHeading">New Appointment</h2><button type="button" data-close="eventDialog" class="close" aria-label="Close">×</button></div>
+ <input type="hidden" id="eventId">
+ <label>Appointment title <input id="eventTitle" maxlength="180" required placeholder="Listing consultation"></label>
+ <label>Contact or lead (optional) <select id="eventContact"></select></label>
+ <label>Appointment date &amp; time <input id="eventStart" type="datetime-local" required></label><input id="eventEnd" type="hidden"><p id="eventDurationNote" class="field-help">A 30-minute slot is reserved automatically.</p>
+ <label>Location / video meeting link <input id="eventLocation" maxlength="300" placeholder="Property address, office or video call"></label>
+ <label>Notes <textarea id="eventNotes" maxlength="4000" rows="3" placeholder="What to prepare or discuss"></textarea></label>
+ <p class="field-help">New appointments can be completely independent or attached to an existing contact or Nyrava lead.</p>
+ <div class="modal-actions"><button type="button" id="cancelEvent" class="danger" hidden>Cancel appointment</button><span class="fill"></span><button type="button" data-close="eventDialog" class="outline">Close</button><button type="submit" class="primary" id="saveEvent">Save Appointment</button></div></form></dialog>
+<dialog id="taskDialog" class="modal"><form id="taskForm"><div class="modal-head"><h2 id="taskHeading">New Follow-up Task</h2><button type="button" data-close="taskDialog" class="close" aria-label="Close">×</button></div><input type="hidden" id="taskId">
+ <label>Task title <input id="taskTitle" maxlength="180" required placeholder="Call homeowner about appraisal"></label>
+ <label>Contact or lead (optional) <select id="taskContact"></select></label>
+ <label>Due date and time <input id="taskDue" type="datetime-local" required></label>
+ <label>Notes <textarea id="taskNotes" maxlength="4000" rows="3"></textarea></label>
+ <div class="modal-actions"><button type="button" id="completeTask" class="outline" hidden>Mark completed</button><span class="fill"></span><button type="button" data-close="taskDialog" class="outline">Close</button><button type="submit" class="primary">Save Task</button></div></form></dialog>
+<dialog id="contactDialog" class="modal"><form id="contactForm"><div class="modal-head"><h2 id="contactHeading">Add Your Contact</h2><button type="button" data-close="contactDialog" class="close" aria-label="Close">×</button></div><input type="hidden" id="contactId">
+ <label>Full name <input id="contactName" maxlength="160" required placeholder="Client or contact name"></label>
+ <label>Email <input id="contactEmail" type="email" maxlength="320" placeholder="name@example.com"></label>
+ <label>Phone <input id="contactPhone" type="tel" maxlength="64" placeholder="Phone number"></label>
+ <label>Notes <textarea id="contactNotes" maxlength="2000" rows="3"></textarea></label>
+ <div class="modal-actions"><button id="archiveContact" type="button" class="danger" hidden>Archive contact</button><span class="fill"></span><button type="button" data-close="contactDialog" class="outline">Close</button><button type="submit" class="primary">Save Contact</button></div></form></dialog>
+<dialog id="resultsDialog" class="modal cal-result-dialog"><form id="resultForm"><div class="modal-head"><div><small id="resultDay"></small><h2>Appointment results</h2></div><button type="button" data-cal-close="resultsDialog" class="close" aria-label="Close results">×</button></div><label>Appointment<select id="resultAppointment"></select></label><p id="resultClient"></p><div class="cal-result-actions"><button type="button" id="resultNotesButton" class="outline">Notes</button><button type="button" id="resultSettings" class="outline">Appointment settings</button></div><div class="form-grid"><label>Attendance<select id="resultAttendance"><option value="SET">Appointment set</option><option value="KEPT">Appointment kept</option><option value="MISSED">Missed / no-show</option><option value="CANCELLED">Cancelled</option><option value="RESCHEDULED">Rescheduled</option></select></label><label>Client outcome<select id="resultDisposition"><option value="NONE">No outcome yet</option><option value="CALLBACK">Callback needed</option><option value="FOLLOW_UP">Follow-up needed</option><option value="NOT_INTERESTED">Not interested</option><option value="SOLD">Sold by team</option><option value="BOUGHT">Bought with team</option><option value="ALREADY_SOLD">Already sold elsewhere</option><option value="ALREADY_BOUGHT">Already bought elsewhere</option></select></label></div><div id="rescheduleFields" class="form-grid" hidden><label>New start<input id="resultNewStart" type="datetime-local"></label><label>New end<input id="resultNewEnd" type="datetime-local"></label></div><label id="followUpLabel" hidden>Follow-up date and time<input id="resultFollowUp" type="datetime-local"></label><label>Result note<textarea id="resultNotes" rows="2" maxlength="4000"></textarea></label><p id="resultNotice" role="alert"></p><div class="modal-actions"><button type="button" data-cal-close="resultsDialog" class="outline">Close</button><button type="submit" id="saveResult" class="primary">Save result</button></div><details><summary>Result history</summary><div id="resultHistory"></div></details></form></dialog>
+<dialog id="clientNotesDialog" class="modal cal-notes-dialog"><form id="clientNoteForm"><div class="modal-head"><div><small>CLIENT NOTES</small><h2 id="notesClient"></h2></div><button type="button" data-cal-close="clientNotesDialog" class="close" aria-label="Close notes">×</button></div><div id="savedClientNotes" class="cal-notes-history"></div><label>Add a note<textarea id="clientNoteText" rows="3" maxlength="4000" required></textarea></label><p id="notesNotice" role="alert"></p><div class="modal-actions"><button type="button" data-cal-close="clientNotesDialog" class="outline">Close</button><button type="submit" id="saveClientNote" class="primary">Save note</button></div></form></dialog>
+<script src="/crm-calendar-model.js?v=1" defer></script><script src="/business-calendar.js?v=start-only-1" defer></script><script src="/crm-calendar.js?v=start-only-1" defer></script>
+<script defer src="/calendar-sidebar.js?v=1"></script><script defer src="/calendar-grid-align.js?v=1"></script><script src="/client-meeting-call.js?v=call-work1"></script><script src="/calendar-client-meetings.js?v=call-work1"></script><script defer src="/workspace-operator.js?v=nyra-locked1"></script><script defer src="/instant-client-meeting.js?v=call-work1"></script><link rel="stylesheet" href="/calendar-quick-entry.css?v=1"><script defer src="/calendar-quick-entry.js?v=1"></script><script defer src="/team-chat-launcher.js?v=sender1"></script><script defer src="/nyra/v1/workspace-shell.js?v=1"></script><script defer src="/nyra/v1/embed.js?v=guided1" data-mode="support"></script><script defer src="/calendar-workspace.js?v=1"></script></body></html>

@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#073b2b">
+  <meta name="description" content="Nyrava Home is being rebuilt as a real-estate intelligence workspace for licensed professionals.">
+  <title>Nyrava Home | Real Estate Intelligence for Realtors</title>
+  <link rel="icon" href="/v2-homepage-0945e1e/assets/nyrava-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/v2-homepage-0945e1e/styles.css">
+  <script src="/v2-homepage-0945e1e/site.js" defer></script>
+</head>
+<body>
+  <header class="site-header" id="top">
+    <a class="brand" href="#top" aria-label="Nyrava Home home">
+      <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><path d="M10 30 32 9l22 21v25H39V38H25v17H10z"/><path class="mark-gold" d="m7 29 25-24 25 24"/><path class="mark-window" d="M29 42h7v13h-7z"/></svg>
+      <span class="brand-copy"><strong>NYRAVA <span>HOME</span></strong><small>REAL ESTATE INTELLIGENCE FOR REAL OPPORTUNITIES</small></span>
+    </a>
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="main-nav" aria-label="Open navigation"><span></span><span></span><span></span></button>
+    <nav class="main-nav" id="main-nav" aria-label="Main navigation">
+      <a href="#buy-sell">Find a Realtor</a>
+      <a href="#buy-sell">Buy / Sell</a>
+      <a href="#how-it-works">How It Works</a>
+      <a href="#territory-model">Territory Model</a>
+      <a href="#business-insights">Business Insights</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#realtor-crm">Realtor CRM</a>
+      <a class="button button-outline button-small" href="/subscriber-login">Subscriber Login</a>
+      <a class="button button-green button-small" href="/admin">Super Admin</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-backdrop" aria-hidden="true"></div>
+      <div class="hero-content">
+        <div class="hero-copy">
+          <p class="eyebrow eyebrow-gold">Built for licensed real estate professionals</p>
+          <h1 id="hero-title">Real Estate<br>Listing Intelligence<br><span>Built for Realtors</span></h1>
+          <p class="hero-description">Discover motivated buyers and sellers, manage your pipeline, track opportunities by territory, and grow your business with real data and verified intent.</p>
+          <ul class="promise-list" aria-label="Product principles">
+            <li><span class="check">✓</span> Evidence-based leads</li>
+            <li><span class="check">✓</span> Verified buyer &amp; seller intent</li>
+            <li><span class="check">✓</span> Permission first</li>
+            <li><span class="check">✓</span> Exclusive territory opportunities</li>
+          </ul>
+          <div class="hero-actions">
+            <button class="button button-gold button-large" type="button" data-open-realtor>Find a Realtor / Buy / Sell <span aria-hidden="true">→</span></button>
+            <a class="button button-ghost button-large" href="#how-it-works">See How It Works <span class="play-icon" aria-hidden="true">▶</span></a>
+          </div>
+        </div>
+
+        <aside class="hero-card" id="buy-sell" aria-label="Nyrava Home product overview">
+          <p class="eyebrow">Buying or selling?</p>
+          <div class="card-cta-group">
+            <button class="button button-green card-cta" type="button" data-open-realtor>⌂<span>Find a Realtor</span></button>
+            <button class="button button-green card-cta" type="button" data-open-valuation>▦<span>Free Home Valuation</span></button>
+          </div>
+          <p class="card-note">No account or password needed. The inquiry form is not active yet, so no information is collected or sent.</p>
+          <hr>
+          <p class="eyebrow">Realtor workspace · planned</p>
+          <h2>Manage Listings,<br>Not Leads</h2>
+          <p class="card-description">A secure workspace for listing opportunities, assigned inquiries, appointments, and follow-ups is planned for a later phase.</p>
+          <ul class="benefit-list">
+            <li><span class="benefit-check">✓</span> Exclusive assignment of eligible inquiries</li>
+            <li><span class="benefit-check">✓</span> ZIP territory availability and management</li>
+            <li><span class="benefit-check">✓</span> Listings pipeline, CRM tasks and appointments</li>
+            <li><span class="benefit-check">✓</span> Evidence and consent required before delivery</li>
+          </ul>
+          <span class="status-pill">V2 PREVIEW · NOT YET AVAILABLE</span>
+        </aside>
+      </div>
+    </section>
+
+    <section class="feature-strip" aria-label="Planned product areas">
+      <a class="feature-item" href="#territory-model"><span class="feature-icon" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M16 29s10-10.6 10-17A10 10 0 0 0 6 12c0 6.4 10 17 10 17Z"/><circle cx="16" cy="12" r="3.5"/></svg></span><span><strong>Territory Based</strong><small>ZIP planning · planned</small></span></a>
+      <a class="feature-item" href="#business-insights"><span class="feature-icon" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M5 26V16h6v10M13 26V7h6v19M21 26V12h6v14M3 28h26"/></svg></span><span><strong>Business Insights</strong><small>Reporting · planned</small></span></a>
+      <a class="feature-item" href="#realtor-crm"><span class="feature-icon" aria-hidden="true"><svg viewBox="0 0 32 32"><circle cx="11" cy="11" r="4"/><circle cx="22" cy="12" r="3.2"/><path d="M3 26c0-5 3.5-8 8-8s8 3 8 8M19 19c4.8-1 9 1.8 10 6"/></svg></span><span><strong>Realtor CRM</strong><small>Workspace · planned</small></span></a>
+      <a class="feature-item" href="#security"><span class="feature-icon" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M16 3 27 7v8c0 7-4.7 11.4-11 14-6.3-2.6-11-7-11-14V7z"/><path d="m10.5 15.5 3.7 3.7 7.5-8"/></svg></span><span><strong>Privacy by Design</strong><small>Security foundation · in progress</small></span></a>
+    </section>
+
+    <section class="preview-sections" aria-label="Homepage information">
+      <div class="section-heading">
+        <p class="eyebrow">A clean start</p>
+        <h2>Built carefully, one useful feature at a time.</h2>
+        <p>This preview presents the Nyrava Home direction. Account access, inquiry forms, and workspace features will be enabled only after their secure implementations are ready.</p>
+      </div>
+      <div class="preview-grid">
+        <article class="preview-card" id="how-it-works"><span class="preview-number">01</span><p class="eyebrow">How it works</p><h3>Designed around real intent</h3><p>Future inquiry workflows will be built to verify contact details and capture clear permission before a Realtor can follow up.</p><span class="status-label">Not active yet</span></article>
+        <article class="preview-card" id="territory-model"><span class="preview-number">02</span><p class="eyebrow">Territory model</p><h3>Local by design</h3><p>ZIP territory tools are planned. This preview does not check availability or reserve any territory.</p><span class="status-label">Not active yet</span></article>
+        <article class="preview-card" id="business-insights"><span class="preview-number">03</span><p class="eyebrow">Business insights</p><h3>Useful information, not guesses</h3><p>Reporting will be added after the underlying data and access rules are implemented and tested.</p><span class="status-label">Not active yet</span></article>
+        <article class="preview-card" id="pricing"><span class="preview-number">04</span><p class="eyebrow">Pricing</p><h3>Plans are not offered in this preview</h3><p>No subscription can be purchased here. Plan and billing details will be shown when the V2 account flow is ready.</p><span class="status-label">Unavailable</span></article>
+        <article class="preview-card" id="realtor-crm"><span class="preview-number">05</span><p class="eyebrow">Realtor CRM</p><h3>Workspace coming in a later phase</h3><p>No leads, contacts, appointments, or CRM records are available in this homepage preview.</p><span class="status-label">Not active yet</span></article>
+        <article class="preview-card" id="security"><span class="preview-number">06</span><p class="eyebrow">Security</p><h3>Privacy comes first</h3><p>This static page has no login, database, analytics, email, AI, payment, or lead-collection integration.</p><span class="status-label">Static preview</span></article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <a class="footer-brand" href="#top"><span class="footer-mark" aria-hidden="true">⌂</span> Nyrava Home</a>
+    <p>Real Estate Intelligence for Real Opportunities</p>
+    <span class="footer-preview">V2 HOMEPAGE PREVIEW</span>
+  </footer>
+
+  <dialog class="notice-dialog" id="notice-dialog" aria-labelledby="dialog-title">
+    <form method="dialog"><button class="dialog-close" aria-label="Close notice">×</button></form>
+    <p class="eyebrow">Nyrava Home V2</p>
+    <h2 id="dialog-title">Not available in this preview</h2>
+    <p id="dialog-message">This feature will be enabled after its V2 implementation is built and tested. Nothing has been submitted.</p>
+    <button class="button button-green" type="button" id="dialog-ok">Understood</button>
+  </dialog>
+<dialog id="realtor-intake-dialog" aria-label="Find a Realtor">
+  <div class="realtor-modal-head">
+    <strong>Find a Realtor · Buy or Sell</strong>
+    <button type="button" id="close-realtor-dialog" aria-label="Close">×</button>
+  </div>
+  <iframe
+    id="realtor-intake-frame"
+    title="Nyrava Home Buyer and Seller Inquiry"
+    loading="lazy"
+    referrerpolicy="strict-origin-when-cross-origin"></iframe>
+</dialog>
+<dialog id="valuation-preview-dialog" aria-label="Free Home Valuation preview">
+  <div class="realtor-modal-head">
+    <strong>NYRAVA HOME | Free Home Valuation</strong>
+    <button type="button" id="close-valuation-dialog" aria-label="Close valuation popup" title="Close">&#215;</button>
+  </div>
+  <iframe id="valuation-preview-frame" title="Free Home Valuation preview (submissions disabled)" loading="lazy"></iframe>
+</dialog>
+</body>
+</html>

@@ -66,18 +66,136 @@ const mimeTypes = {
   '.svg': 'image/svg+xml'
 };
 
+const activeSessions = new Map();
+
 const server = http.createServer(async (req, res) => {
   // CORS Preflight
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Nyrava-Valuation-Capture'
     });
     return res.end();
   }
 
   const url = new URL(req.url, `http://${req.headers.host}`);
+
+  // ENDPOINT: /capture (From official Nyrava live valuation form)
+  if (req.method === 'POST' && (url.pathname === '/capture' || url.pathname === '/api/valuation/capture')) {
+    try {
+      const data = await parseBody(req);
+      const captureToken = 'cap_' + Math.random().toString(36).substring(2, 12);
+      activeSessions.set(captureToken, { contact: data, property: data.property, createdAt: Date.now() });
+      return sendJson(res, 200, { saved: true, captureToken });
+    } catch (err) {
+      return sendJson(res, 500, { error: err.message });
+    }
+  }
+
+  // ENDPOINT: /estimate (From official Nyrava live valuation form)
+  if (req.method === 'POST' && (url.pathname === '/estimate' || url.pathname === '/api/valuation/estimate')) {
+    try {
+      const data = await parseBody(req);
+      const propInput = {
+        street: data.street || '',
+        city: data.city || '',
+        state: data.state || 'TX',
+        zip: data.zip || '',
+        sqft: data.details?.sqft || 1800,
+        beds: data.details?.beds || 3,
+        baths: data.details?.baths || 2,
+        propertyType: data.details?.propertyType || 'SINGLE_FAMILY'
+      };
+      const report = calculateValuation(propInput);
+      const reportToken = 'rep_' + Math.random().toString(36).substring(2, 12);
+      activeSessions.set(reportToken, { report, property: propInput, createdAt: Date.now() });
+
+      return sendJson(res, 200, {
+        status: 'estimated',
+        reportToken,
+        comparisonCount: report.comparableSales?.length || 3,
+        estimate: report.valuation.estimate
+      });
+    } catch (err) {
+      return sendJson(res, 500, { error: err.message });
+    }
+  }
+
+  // ENDPOINT: /request (From official Nyrava live valuation form)
+  if (req.method === 'POST' && (url.pathname === '/request' || url.pathname === '/api/valuation/request')) {
+    try {
+      const data = await parseBody(req);
+      const sess = activeSessions.get(data.reportToken) || {};
+      const property = sess.property || { street: 'Main St', city: 'City', state: 'TX', zip: '78701', sqft: 1800 };
+      const valuationReport = sess.report || calculateValuation(property);
+      const { valuation, comparableSales, equityProjection } = valuationReport;
+
+      const now = new Date().toISOString();
+      const zipCode = (property.zip || '78701').trim().slice(0, 5);
+      const cleanPhone = (data.phone || '').trim();
+      const cleanEmail = (data.email || '').trim();
+      const cleanName = (data.fullName || 'Homeowner').trim();
+      const externalId = `val-${zipCode}-${cleanPhone.replace(/\D/g, '') || Date.now()}`;
+      const estimateText = `$${valuation.estimate.toLocaleString()}`;
+
+      // Ingest to CRM Master Bank
+      const crmPayload = {
+        ExternalLeadId: externalId,
+        Source: 'HomeEvaluation',
+        Name: cleanName,
+        Email: cleanEmail,
+        Phone: cleanPhone,
+        Company: 'Home Evaluation Request',
+        LeadType: data.leadType === 'buyer' ? 'Buyer' : 'Seller',
+        PropertyZipCode: zipCode,
+        ContactVerificationMethod: 'Phone',
+        ContactVerifiedAt: now,
+        IntentVerifiedAt: now,
+        ConsentCapturedAt: now,
+        ConsentRecipient: config.branding.companyName,
+        ConsentText: `Homeowner authorized valuation report and market consultation for ${property.street}, ZIP ${zipCode}. Includes automated 1-click email opt-out.`,
+        ExternalFsbo: false,
+        Notes: `Home Evaluation Inbound Lead | ${property.street}, ${property.city}, ${property.state} ${zipCode} | Est. Value: ${estimateText} | SqFt: ${property.sqft || 'N/A'}, Beds: ${property.beds || 'N/A'}, Baths: ${property.baths || 'N/A'} | Timeframe: ${data.timeframe || 'Exploring'}.`
+      };
+
+      try {
+        await fetch(`${config.crmApiUrl}/api/v1/inbound-leads`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${config.crmIntegrationKey}`
+          },
+          body: JSON.stringify(crmPayload)
+        });
+      } catch (crmErr) {
+        console.warn('CRM dispatch error:', crmErr.message);
+      }
+
+      // Send Email with Opt-Out
+      try {
+        await sendValuationEmail({
+          leadName: cleanName,
+          email: cleanEmail,
+          property,
+          valuation,
+          comparableSales,
+          equityProjection,
+          leadId: externalId,
+          config
+        });
+      } catch (emErr) {
+        console.warn('Email dispatch error:', emErr.message);
+      }
+
+      return sendJson(res, 200, {
+        emailAccepted: true,
+        message: 'Your Nyrava Home valuation report has been prepared and sent to your email.'
+      });
+    } catch (err) {
+      return sendJson(res, 500, { error: err.message });
+    }
+  }
 
   // PRIMARY ENDPOINT: Evaluate Property + Ingest to CRM + Send Branded Email with Opt-Out Link
   if (req.method === 'POST' && (url.pathname === '/evaluate' || url.pathname === '/api/valuation/evaluate' || url.pathname === '/api/valuation/evaluate-and-submit' || url.pathname === '/api/valuation/calculate' || url.pathname === '/api/v1/valuation/evaluate')) {

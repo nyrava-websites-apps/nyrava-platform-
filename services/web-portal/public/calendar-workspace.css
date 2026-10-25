@@ -1,0 +1,13 @@
+/* Calendar stays in its own document; its global selectors cannot restyle the dashboard. */
+#nh-calendar-frame{display:block;width:100%;height:calc(100dvh - 160px);min-height:650px;border:0;background:#fff;color-scheme:light}
+#panel-unified-calendar{min-width:0}
+html[data-calendar-embedded] body{padding-left:0!important;background:#fff}
+html[data-calendar-embedded] #calAppSidebar,html[data-calendar-embedded] .cal-nav-mobile,html[data-calendar-embedded] #calNavBackdrop,html[data-calendar-embedded] body>.header{display:none!important}
+html[data-calendar-embedded] body>main{max-width:none;margin:0;padding:10px 2px 28px}
+html[data-calendar-embedded] .cal-hero h1{font-size:24px}
+html[data-calendar-embedded] .cal-hero .eyebrow{display:none}
+html[data-calendar-embedded] .stats{margin:14px 0}
+@media(max-width:700px){#nh-calendar-frame{height:calc(100dvh - 140px);min-height:600px}html[data-calendar-embedded] body>main{padding:8px 0 24px}}
+
+#menu a[data-nh-calendar-link].active{background:#0866ff;color:#fff}
+html[data-calendar-embedded] .ny-op-launch,html[data-calendar-embedded] .ny-op{display:none!important}

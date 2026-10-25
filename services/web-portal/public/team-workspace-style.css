@@ -1,0 +1,17 @@
+/* Scoped workspace typography; no public homepage or admin-global overrides. */
+html[data-nh-team-ui],html[data-nh-team-ui] body{font-family:Inter,"Segoe UI",Arial,sans-serif;font-synthesis:none}
+html[data-nh-team-ui] .rail,html[data-nh-team-ui] .workspace-sidebar{font-family:inherit;color:#e7edf7}
+html[data-nh-team-ui] .rail .brand,html[data-nh-team-ui] .workspace-brand strong{font-family:inherit;font-size:19px;font-weight:600;line-height:1.3;letter-spacing:.015em;text-decoration:none;color:#fff}
+html[data-nh-team-ui] .brand span,html[data-nh-team-ui] .workspace-brand small{font-family:inherit;font-size:10px;font-weight:500;letter-spacing:.1em;line-height:1.6;color:#a9c9ff}
+html[data-nh-team-ui] .rail nav a,html[data-nh-team-ui] .rail nav button,html[data-nh-team-ui] .workspace-sidebar nav a,html[data-nh-team-ui] .workspace-sidebar nav button{font-family:inherit;font-size:13px!important;font-weight:450!important;line-height:1.5!important;letter-spacing:0!important;text-decoration:none!important;color:#e0e8f5;min-width:0;overflow-wrap:anywhere}
+html[data-nh-team-ui] .rail nav a{display:block;padding:10px 12px;border-radius:8px}
+html[data-nh-team-ui] .rail nav button,html[data-nh-team-ui] .workspace-sidebar nav button{padding:10px 12px}
+html[data-nh-team-ui] .rail nav button.active,html[data-nh-team-ui] .rail nav button[aria-expanded=true],html[data-nh-team-ui] .workspace-sidebar nav .active{background:#0866ff;color:#fff;font-weight:500!important}
+html[data-nh-team-ui] .rail nav a:hover,html[data-nh-team-ui] .rail nav button:hover,html[data-nh-team-ui] .workspace-sidebar nav a:hover{background:#17385e;color:#fff}
+html[data-nh-team-ui] .rail .crm-submenu{font-size:12px;line-height:1.5;min-width:0}
+html[data-nh-team-ui] .rail .crm-submenu button,html[data-nh-team-ui] .rail .crm-submenu a{font-size:12px!important;font-weight:400!important}
+html[data-nh-team-ui] .rail label,html[data-nh-team-ui] .rail p,html[data-nh-team-ui] .rail .rail-label,html[data-nh-team-ui] .rail .rail-footer,html[data-nh-team-ui] .workspace-sidebar small{color:#bdcce1;font-family:inherit;font-size:11px;line-height:1.6;font-weight:400}
+html[data-nh-team-ui] .rail input:not([type=checkbox]),html[data-nh-team-ui] .rail select{font-family:inherit;font-size:12px;color:#172c4b;background:white;max-width:100%;min-width:0}
+html[data-nh-team-ui] .rail nav .tc-widget-launcher{color:#075bc6;background:#f4f8ff}
+html[data-nh-team-ui] .rail :is(a,button,input,select):focus-visible,html[data-nh-team-ui] .workspace-sidebar :is(a,button):focus-visible{outline:3px solid #7daeff;outline-offset:2px}
+html[data-nh-team-ui] .top h1,html[data-nh-team-ui] .topbar h1,html[data-nh-team-ui] .headline h2{font-family:inherit;font-weight:500;letter-spacing:-.02em}

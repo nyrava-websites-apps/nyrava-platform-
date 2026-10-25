@@ -1,0 +1,67 @@
+:root{font:16px "Segoe UI",Arial,sans-serif;color:#101B35;background:#F4F7FC}
+.ai-workspace{margin:0;padding:28px 24px 40px}
+.ai-workspace main{max-width:1240px;margin:auto;background:transparent;padding:0}
+.ai-workspace [hidden]{display:none!important}
+.ai-workspace .tool-navigation{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 0 26px;font-size:.88rem}
+.ai-workspace .tool-navigation a{text-decoration:none;padding:9px 12px;border-radius:8px}
+.ai-workspace .tool-navigation a:hover{background:#E8F0FF}
+.ai-workspace .tool-current{padding:9px 12px;background:#081A3A;color:#fff;border-radius:8px;font-weight:650}
+.ai-workspace .assistant-header{display:flex;align-items:center;justify-content:space-between;gap:24px;margin:0 0 22px;padding:32px 36px;background:white;border:1px solid #DFE6F0;border-radius:18px}
+.ai-workspace h1{font-size:clamp(2rem,3vw,2.7rem);line-height:1.12;letter-spacing:-1.2px;margin:12px 0 14px}
+.ai-workspace h2{font-size:1.3rem;line-height:1.3;margin:0 0 8px}
+.ai-workspace h3{font-size:1.05rem;margin:0 0 20px}
+.ai-workspace p{line-height:1.6;margin:8px 0}
+.ai-workspace .eyebrow{font-size:.69rem;font-weight:750;letter-spacing:.15em;color:#0866FF}
+.ai-workspace .assistant-header p:not(.eyebrow){max-width:640px}
+.ai-workspace .draft-badge{display:inline-block;white-space:nowrap;background:#EDF3FF;border:1px solid #D4E2FF;padding:8px 12px;border-radius:24px;color:#174C97;font-size:.77rem;font-weight:650}
+.ai-workspace .assistant-layout{display:grid;grid-template-columns:310px minmax(0,1fr);gap:24px;align-items:start}
+.ai-workspace .lead-picker,.ai-workspace .assistant-stage{background:white;border:1px solid #DFE6F0;border-radius:16px;min-width:0}
+.ai-workspace .lead-picker{padding:22px}
+.ai-workspace .picker-heading{padding-bottom:10px;border-bottom:1px solid #DFE6F0}
+.ai-workspace .picker-heading p,.ai-workspace .help{font-size:.83rem}
+.ai-workspace label{display:block;font-size:.83rem;font-weight:650;margin:20px 0 8px}
+.ai-workspace input:not([type=checkbox]),.ai-workspace select,.ai-workspace textarea{font:inherit;width:100%;border:1px solid #DFE6F0;border-radius:9px;padding:12px;color:#101B35;background:white;min-width:0}
+.ai-workspace textarea{resize:vertical;line-height:1.65}
+.ai-workspace button{font:inherit;padding:11px 14px;border:1px solid transparent;border-radius:9px;background:#0866FF;color:white;cursor:pointer;font-size:.86rem;font-weight:650}
+.ai-workspace button:hover:not(:disabled){background:#0052D6}
+.ai-workspace button.secondary{background:#F4F7FC;color:#101B35;border-color:#DFE6F0}
+.ai-workspace button.secondary:hover:not(:disabled){background:#EAF0FA}
+.ai-workspace button:disabled{opacity:.5;cursor:not-allowed}
+.ai-workspace .search-row{display:flex;gap:8px}
+.ai-workspace .search-row input{width:0;flex:1;font-size:.82rem}
+.ai-workspace #contacts{display:grid;gap:8px;margin:20px 0;max-height:560px;overflow:auto}
+.ai-workspace #contacts button{display:block;width:100%;text-align:left;padding:14px;background:white;color:#101B35;border:1px solid #DFE6F0;overflow-wrap:anywhere}
+.ai-workspace #contacts button strong{display:block;font-size:.9rem;margin-bottom:6px}
+.ai-workspace #contacts button small{display:block;font-size:.74rem;line-height:1.5}
+.ai-workspace #contacts button:hover,.ai-workspace #contacts button[aria-pressed=true]{border-color:#0866FF;background:#EEF4FF}
+.ai-workspace .contact-pager{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;font-size:.74rem}
+.ai-workspace .contact-pager button{font-size:.72rem;padding:8px}
+.ai-workspace .selection-empty{text-align:center;padding:65px 40px;min-height:460px;display:flex;align-items:center;flex-direction:column;justify-content:center}
+.ai-workspace .selection-empty p{max-width:470px}
+.ai-workspace .empty-symbol{color:#0866FF;background:#EEF4FF;border-radius:18px;padding:12px 20px;font-size:2.4rem;margin-bottom:20px}
+.ai-workspace .capability-list{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:22px 0}
+.ai-workspace .capability-list span{font-size:.77rem;padding:8px 12px;background:#F4F7FC;border-radius:20px}
+.ai-workspace .selection-empty small{max-width:440px;line-height:1.6}
+.ai-workspace .client-heading{padding:26px 30px;display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid #DFE6F0}
+.ai-workspace .client-heading p:not(.eyebrow){font-size:.8rem}
+.ai-workspace .compose-section,.ai-workspace .draft-section{padding:26px 30px}
+.ai-workspace .compose-section{border-bottom:1px solid #DFE6F0}
+.ai-workspace .research-option{display:flex;align-items:flex-start;gap:10px;font-weight:400;line-height:1.5}
+.ai-workspace .research-option input{margin:4px 0}
+.ai-workspace .research-option small{display:block}
+.ai-workspace .signature-settings{border:1px solid #DFE6F0;border-radius:9px;padding:14px;margin:20px 0}
+.ai-workspace .signature-settings summary{font-size:.84rem;cursor:pointer}
+.ai-workspace .signature-settings button{margin-top:10px}
+.ai-workspace .generate-button{width:100%;min-height:48px}
+.ai-workspace .draft-heading,.ai-workspace .draft-actions{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.ai-workspace .draft-heading h3{margin:0}
+.ai-workspace .draft-heading span{font-size:.73rem;color:#596579}
+.ai-workspace .draft-actions{justify-content:flex-end;margin-top:14px}
+.ai-workspace .sources article,.ai-workspace .suggested-tasks article{margin:0 30px 20px;padding:18px;background:#F4F7FC;border:1px solid #DFE6F0;border-radius:10px;overflow-wrap:anywhere}
+.ai-workspace .assistant-notice:empty{display:none}
+.ai-workspace .assistant-notice{background:#EDF3FF;border:1px solid #C5D9FF;color:#174C97;padding:14px 18px;border-radius:10px;margin:0 0 20px;white-space:pre-wrap}
+.ai-workspace .assistant-footer{font-size:.78rem;color:#596579;line-height:1.6;padding:22px 4px}
+.ai-workspace .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+@media(max-width:800px){.ai-workspace{padding:16px 12px}.ai-workspace .assistant-header{padding:24px;align-items:flex-start;flex-direction:column}.ai-workspace .assistant-layout{grid-template-columns:1fr}.ai-workspace #contacts{max-height:220px}.ai-workspace .selection-empty{min-height:300px;padding:35px 22px}.ai-workspace .client-heading{align-items:flex-start;flex-direction:column}.ai-workspace .client-heading,.ai-workspace .compose-section,.ai-workspace .draft-section{padding:22px}.ai-workspace .draft-actions button{width:100%}.ai-workspace .tool-navigation{gap:4px;font-size:.78rem}}
+
+.ai-workspace h1,.ai-workspace h2,.ai-workspace h3,.ai-workspace summary,.ai-workspace label{font-family:system-ui,sans-serif}

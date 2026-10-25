@@ -1,0 +1,209 @@
+<!doctype html>
+<html class="ny-form-page" data-ny-page="intake.html" lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Nyrava Home | Buyer & Seller Move Planner</title>
+  <meta name="description" content="Request home buying or selling assistance on your terms.">
+  <link rel="canonical" href="https://home.nyrava.com/intake">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Nyrava Home">
+  <meta property="og:title" content="Find a Realtor | Buyer and Seller Inquiry — Nyrava Home">
+  <meta property="og:description" content="Share your home buying or selling goals, verify your contact, then choose whether to authorize the named Realtor.">
+  <meta property="og:url" content="https://home.nyrava.com/intake">
+  <meta property="og:image" content="https://home.nyrava.com/hero-house-reference.webp">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Find a Realtor | Nyrava Home">
+  <meta name="twitter:description" content="Share your home buying or selling goals with privacy and contact control.">
+  <meta name="twitter:image" content="https://home.nyrava.com/hero-house-reference.webp">
+  <meta name="robots" content="index,follow,max-image-preview:large">
+  <style>
+    :root{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#081A3A;background:#F4F7FC}
+    *{box-sizing:border-box}body{margin:0}
+    header{padding:18px 5vw;background:#081A3A;color:white;display:flex;justify-content:space-between;align-items:center}
+    header strong{font-size:1.25rem}header span{color:#DFE6F0}
+    main{max-width:1080px;margin:auto;padding:34px 18px}
+    .hero{padding:40px 36px;border-radius:22px;background:linear-gradient(110deg,#0866FF,#0866FF);color:white}
+    .hero h1{font-size:clamp(2rem,4.5vw,3.5rem);line-height:1.1;margin:0 0 14px}
+    .hero p{color:#F4F7FC;max-width:660px;line-height:1.6}
+    .pills{display:flex;gap:12px;margin:24px 0}
+    .pills button{padding:12px 22px;border:1px solid #DFE6F0;border-radius:30px;background:transparent;color:white;cursor:pointer;font-weight:600}
+    .pills button.active{background:white;color:#081A3A}
+    .panel{background:white;border:1px solid #DFE6F0;padding:28px;border-radius:20px;box-shadow:0 16px 30px #081A3A0b;margin-top:25px}
+    h2{margin-top:0}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+    label{display:block;font-size:.9rem;font-weight:600;margin-bottom:6px}
+    input,select,textarea{width:100%;padding:11px;border:1px solid #DFE6F0;border-radius:9px;font:inherit;background:white}
+    textarea{min-height:90px}.wide{grid-column:1/-1}
+    .action{background:#0866FF;color:white;border:0;border-radius:9px;padding:14px 20px;font-weight:700;cursor:pointer}
+    small{color:#0866FF;line-height:1.5}.check{display:flex;gap:10px;align-items:flex-start;margin:12px 0}
+    .check input{width:auto;margin-top:4px}
+    .strip{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:25px 0}
+    .strip article{padding:20px;border-radius:14px;background:white;border:1px solid #DFE6F0}
+    .strip b{display:block;margin-bottom:7px}
+    #result{margin-top:15px;white-space:pre-line;font-weight:600}
+    footer{text-align:center;color:#0866FF;padding:30px}
+    @media(max-width:640px){.grid,.strip{grid-template-columns:1fr}.hero{padding:28px 20px}}
+  </style>
+<style id="nyrava-green-theme">
+:root {
+  --primary: #081A3A;
+  --accent: #0866FF;
+  --navy: #081A3A;
+  --blue: #081A3A;
+}
+body { color: #081A3A; }
+header, .topbar, .site-header {
+  background: #081A3A !important;
+}
+.hero {
+  background: linear-gradient(120deg,#081A3A,#0866FF) !important;
+}
+a { color: #0866FF; }
+button.action, .action {
+  background: #0866FF !important;
+  color: white !important;
+}
+button.action:hover {
+  background: #081A3A !important;
+}
+input:focus, select:focus, textarea:focus {
+  outline-color: #0866FF;
+  border-color: #0866FF;
+}
+</style>
+<link rel="stylesheet" href="/design-20261019/theme.css?v=20261019-theme-1" data-nyrava-theme="20261019-theme-1"><link rel="stylesheet" href="/platform-forms.css?v=1"><script defer src="/platform-forms.js?v=1"></script><link rel="stylesheet" href="/buy-sell-dialog.css?v=1"><link rel="stylesheet" href="/site-navigation.css?v=1"><script defer src="/site-navigation.js?v=1"></script></head>
+<body>
+  <header>
+    <strong>⌂ Nyrava Home <span>Find a Realtor · Buy / Sell</span></strong>
+    <div>
+      <a href="/" style="color:#DFE6F0;text-decoration:none;font-size:0.9rem;margin-right:15px;">← Home</a>
+      <a href="/subscriber-login" style="color:white;text-decoration:none;font-size:0.9rem;">Subscriber Login</a>
+    </div>
+  </header>
+  <main>
+    <section class="hero">
+      <h1>Make your next move with confidence.</h1>
+      <p>Thinking about selling, upgrading, downsizing or buying? Tell us what you're looking for. We'll organize your request with complete privacy control.</p>
+      <div class="pills">
+        <button class="active" type="button" data-type="seller">I want to sell</button>
+        <button type="button" data-type="buyer">I want to buy</button>
+      </div>
+    </section>
+    <div class="strip">
+      <article><b>Know your options</b><small>Start with your location, valuation, and purchase goals.</small></article>
+      <article><b>Your timing matters</b><small>Whether you're exploring or ready to move within 30 days.</small></article>
+      <article><b>You're in control</b><small>Confirm your contact and choose whether to authorize the named Realtor.</small></article>
+    </div>
+    <section class="panel">
+      <h2 id="formTitle">Tell us about the home you may sell</h2>
+      <p><small>Voluntary inquiry form. Submissions are stored for review; contact verification and recipient-specific permission are required before a realtor can receive them.</small></p>
+      <form id="form">
+        <div class="grid">
+          <div><label for="fullName">Full name</label><input id="fullName" required maxlength="150" autocomplete="name"></div>
+          <div><label for="email">Email</label><input id="email" maxlength="254" autocomplete="email" type="email" required></div>
+          <div><label for="phone">Phone</label><input id="phone" maxlength="16" placeholder="+16025550123" pattern="\+[1-9][0-9]{7,14}" autocomplete="tel" type="tel" required></div>
+          <div><label for="zip">Property / desired area ZIP code</label><input id="zip" required pattern="[0-9]{5}" maxlength="5" inputmode="numeric"></div>
+          <div class="seller"><label for="value">Estimated home value, USD</label><input type="number" min="0" id="value" placeholder="e.g. 350000"></div>
+          <div class="buyer" hidden><label for="budget">Maximum buying budget, USD</label><input type="number" min="0" id="budget" placeholder="e.g. 400000"></div>
+          <div>
+            <label for="timeframe">When are you thinking of moving?</label>
+            <select id="timeframe">
+              <option value="exploring">Just exploring</option>
+              <option value="30-days">Within 30 days</option>
+              <option value="90-days">Within 90 days</option>
+              <option value="6-months">Within 6 months</option>
+            </select>
+          </div>
+          <div><label for="confirmationChannel">Send my confirmation by</label><select id="confirmationChannel"><option value="EMAIL">Email</option><option value="SMS">Text message</option></select></div>
+          <div class="wide">
+            <label for="statement">Tell us what you're hoping to do</label>
+            <textarea id="statement" required minlength="8" maxlength="4000" placeholder="For example: We need a bigger house and are considering moving this summer."></textarea>
+          </div>
+        </div>
+        <label class="check"><input id="represented" type="checkbox">I'm currently working with a real estate agent.</label>
+        <label class="check"><input id="consent" type="checkbox" required>I request follow-up about this inquiry. I understand that contact verification and a separate disclosure of the designated agent are required before my information is sent to that agent.</label>
+        <button class="action" type="submit">Submit my inquiry</button>
+        <div role="status" aria-live="polite" id="result"></div>
+      </form>
+    </section>
+  </main>
+  <footer>Nyrava Home · First-Party Intake Pipeline · Protected by Consent Gate 2026-10-v1</footer>
+  <script>
+    let type='seller';
+    document.querySelectorAll('[data-type]').forEach(btn=>btn.addEventListener('click',()=>{
+      type=btn.dataset.type;
+      document.querySelectorAll('[data-type]').forEach(b=>b.classList.toggle('active',b===btn));
+      document.querySelectorAll('.seller').forEach(x=>x.hidden=type!=='seller');
+      document.querySelectorAll('.buyer').forEach(x=>x.hidden=type!=='buyer');
+      document.querySelector('#formTitle').textContent=type==='seller'?'Tell us about the home you may sell':'Tell us about the home you want to buy';
+    }));
+    const requestedType=new URLSearchParams(location.search).get('type');
+    if(requestedType==='buyer'||requestedType==='seller'){
+      document.querySelector('[data-type="'+requestedType+'"]').click();
+    }
+    document.getElementById('form').addEventListener('submit',async e=>{
+      e.preventDefault();
+      const submit=e.currentTarget.querySelector('[type=submit]');
+      if(submit.disabled)return;
+      const g=id=>document.getElementById(id).value;
+      const res=document.getElementById('result');
+      if(!g('email')&&!g('phone')){res.textContent='Provide an email address or an international-format phone number.';return}
+      if(g('confirmationChannel')==='EMAIL'&&!g('email')||g('confirmationChannel')==='SMS'&&!g('phone')){res.textContent='Provide contact details for your selected confirmation channel.';return}
+      submit.disabled=true;
+      res.textContent='Submitting securely…';
+      const payload={
+        leadType:type,
+        intentStatement:g('statement'),
+        fullName:g('fullName'),
+        email:g('email')||null,
+        phone:g('phone')||null,
+        confirmationChannel:g('confirmationChannel'),
+        zipCode:g('zip'),
+        budgetMin:null,
+        budgetMax:type==='buyer'&&g('budget')?Number(g('budget')):null,
+        estimatedPropertyValue:type==='seller'&&g('value')?Number(g('value')):null,
+        propertyAddress:null,
+        timeframe:g('timeframe'),
+        currentlyRepresented:document.getElementById('represented').checked,
+        contactConsent:document.getElementById('consent').checked,
+        consentVersion:'2026-10-v1',
+        sourceCampaign:campaignSource(),
+        website:location.origin
+      };
+      try{
+        const r=await fetch('/api/inquiries',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload),credentials:'omit'});
+        const j=await r.json();
+        if(r.ok && j.inquiryId){
+          const sent=j.confirmation?.ok===true&&j.confirmation.status==='CONFIRMATION_SENT';
+          const message=sent
+            ? (payload.confirmationChannel==='EMAIL'?'Your inquiry is saved. Check your email, including spam, and click the confirmation link.':'Your inquiry is saved. Check your text messages and open the confirmation link.')
+            : (j.status==='DUPLICATE_HELD'?'Your submission matches an existing inquiry and is held for review. No new confirmation was sent.':j.confirmation?.message||'Your inquiry is saved, but confirmation sending could not be confirmed. Please contact support before submitting again.');
+          res.textContent=message;
+          res.style.color='#0866FF';
+          if(window.parent!==window){
+            window.parent.postMessage({type:'NYRAVA_INQUIRY_SUCCESS',message},window.location.origin);
+          }else{
+            document.getElementById('form').hidden=true;
+            const notice=document.createElement('p');notice.setAttribute('role','status');notice.textContent=message;
+            document.getElementById('form').after(notice);
+          }
+        }else{
+          res.textContent=j.error||JSON.stringify(j.errors)||"Unable to submit.";
+        }
+      }catch(err){
+        res.textContent='Submission could not be confirmed. Please contact support before submitting again.';
+      }finally{
+        submit.disabled=false;
+      }
+    });
+    function campaignSource(){
+      const params=new URLSearchParams(location.search);
+      const allowed=['utm_source','utm_medium','utm_campaign','utm_content','utm_term','ref'];
+      const values=allowed.map(key=>[key,params.get(key)]).filter(([,value])=>value&&value.trim()).map(([key,value])=>`${key}=${encodeURIComponent(value.trim().slice(0,120))}`);
+      const source=values.length?values.join('&'):'first-party-route';
+      return source.slice(0,500);
+    }
+  </script>
+</body>
+</html>

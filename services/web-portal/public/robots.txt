@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+Allow: /intake
+Allow: /find-a-realtor
+Disallow: /admin
+Disallow: /admin-
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /crm
+Disallow: /employee
+Disallow: /team
+Disallow: /team-invite
+Disallow: /intelligence
+Disallow: /realtor
+Disallow: /subscriber-login
+Disallow: /confirm
+Sitemap: https://home.nyrava.com/sitemap.xml
