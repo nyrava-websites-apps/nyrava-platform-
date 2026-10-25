@@ -1,265 +1,408 @@
-// WebRTC Peer Connection & Nyra Meet Client Logic
-const urlParams = new URLSearchParams(window.location.search);
-const roomId = urlParams.get('room') || 'NYR-' + Math.floor(100 + Math.random() * 900);
-document.getElementById('roomIndicator').innerText = `Room: ${roomId}`;
+// Nyrava Team Meet WebRTC Engine & Consultation Client
+(function () {
+  'use strict';
 
-let localStream = null;
-let ws = null;
-const peers = new Map(); // id -> RTCPeerConnection
-const config = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' }
-  ]
-};
+  // 1. Parse Room & User Parameters
+  const urlParams = new URLSearchParams(window.location.search);
+  const pathParts = window.location.pathname.split('/').filter(Boolean);
+  let room = urlParams.get('room') || (pathParts[0] === 'room' ? pathParts[1] : (pathParts[0] || 'general'));
+  const userName = urlParams.get('name') || 'Participant-' + Math.floor(1000 + Math.random() * 9000);
+  const isEmbed = urlParams.get('embed') === '1';
 
-// UI Elements
-const localVideo = document.getElementById('localVideo');
-const videoGrid = document.getElementById('videoGrid');
-const btnToggleMic = document.getElementById('btnToggleMic');
-const btnToggleCam = document.getElementById('btnToggleCam');
-const btnScreenShare = document.getElementById('btnScreenShare');
-const btnToggleChat = document.getElementById('btnToggleChat');
-const sidePanel = document.getElementById('sidePanel');
-const btnCopyInvite = document.getElementById('btnCopyInvite');
-
-btnCopyInvite.addEventListener('click', () => {
-  const inviteUrl = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
-  navigator.clipboard.writeText(inviteUrl);
-  btnCopyInvite.innerText = 'Copied!';
-  setTimeout(() => btnCopyInvite.innerText = '🔗 Copy Invite Link', 2000);
-});
-
-// Setup Media
-async function initMedia() {
-  try {
-    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    localVideo.srcObject = localStream;
-  } catch (err) {
-    console.warn('Camera/Mic permission denied, operating in receive-only mode.', err);
+  // In embed mode, compact the header if needed
+  if (isEmbed) {
+    const hdr = document.getElementById('meetHeader');
+    if (hdr) hdr.style.display = 'none';
   }
-  connectSignaling();
-}
 
-function connectSignaling() {
+  const roomIndicator = document.getElementById('roomIndicator');
+  if (roomIndicator) roomIndicator.textContent = `Room: ${room}`;
+  const localLabel = document.getElementById('localLabelName');
+  if (localLabel) localLabel.textContent = `${userName} (You)`;
+
+  // 2. WebRTC Peer & Media Setup
+  let localStream = null;
+  let screenStream = null;
+  let isMicActive = true;
+  let isCamActive = true;
+  let isScreenSharing = false;
+
+  const peerConnections = new Map(); // peerId -> RTCPeerConnection
+  const rtcConfig = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' }
+    ]
+  };
+
+  // 3. Connect to Signaling Server
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  ws = new WebSocket(`${protocol}//${window.location.host}`);
+  const ws = new WebSocket(`${protocol}//${window.location.host}`);
 
-  ws.onopen = () => {
+  ws.onopen = async () => {
+    console.log('[Nyrava Team Meet] Connected to signaling server');
+    await startLocalMedia();
     ws.send(JSON.stringify({
       type: 'join',
-      room: roomId,
-      name: 'User ' + Math.floor(Math.random() * 100)
+      room: room,
+      name: userName
     }));
   };
 
   ws.onmessage = async (event) => {
-    const msg = JSON.parse(event.data);
+    try {
+      const data = JSON.parse(event.data);
 
-    if (msg.type === 'room-joined') {
-      // Connect to existing peers
-      for (const peer of msg.peers) {
-        initiatePeerConnection(peer.id, true);
+      if (data.type === 'room-joined') {
+        // Connect to existing peers
+        for (const peer of data.peers) {
+          await createPeerConnection(peer.id, peer.name, true);
+        }
       }
-    } else if (msg.type === 'peer-joined') {
-      initiatePeerConnection(msg.id, false);
-    } else if (msg.type === 'signal') {
-      handleSignal(msg.sender, msg.data);
-    } else if (msg.type === 'peer-left') {
-      removePeer(msg.id);
-    } else if (msg.type === 'chat') {
-      appendChatMessage(msg.sender, msg.text, msg.timestamp);
+
+      if (data.type === 'peer-joined') {
+        addSysMessage(`${data.name} joined the meeting.`);
+        await createPeerConnection(data.peerId, data.name, false);
+      }
+
+      if (data.type === 'offer') {
+        const pc = peerConnections.get(data.from);
+        if (pc) {
+          await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          ws.send(JSON.stringify({
+            type: 'answer',
+            target: data.from,
+            answer: answer
+          }));
+        }
+      }
+
+      if (data.type === 'answer') {
+        const pc = peerConnections.get(data.from);
+        if (pc) {
+          await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+        }
+      }
+
+      if (data.type === 'ice-candidate') {
+        const pc = peerConnections.get(data.from);
+        if (pc && data.candidate) {
+          await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+        }
+      }
+
+      if (data.type === 'peer-left') {
+        removePeer(data.peerId);
+      }
+
+      if (data.type === 'chat') {
+        appendChatMessage(data.name, data.text, data.from === ws.clientId, data.timestamp);
+      }
+    } catch (e) {
+      console.warn('[Signaling message error]', e);
     }
   };
-}
 
-function initiatePeerConnection(peerId, isInitiator) {
-  const pc = new RTCPeerConnection(config);
-  peers.set(peerId, pc);
-
-  if (localStream) {
-    localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+  // 4. Local Media Initializer
+  async function startLocalMedia() {
+    try {
+      localStream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: true
+      });
+      const localVid = document.getElementById('localVideo');
+      if (localVid) localVid.srcObject = localStream;
+    } catch (err) {
+      console.warn('[Media Error] Could not access camera/mic:', err.message);
+      addSysMessage('Camera or microphone access denied. You are joined in listen-only mode.');
+    }
   }
 
-  pc.onicecandidate = (event) => {
-    if (event.candidate) {
-      ws.send(JSON.stringify({
-        type: 'signal',
-        target: peerId,
-        data: { candidate: event.candidate }
-      }));
-    }
-  };
+  // 5. Create Peer Connection (Mesh WebRTC)
+  async function createPeerConnection(peerId, peerName, isInitiator) {
+    if (peerConnections.has(peerId)) return;
 
-  pc.ontrack = (event) => {
-    let remoteCard = document.getElementById(`card_${peerId}`);
-    if (!remoteCard) {
-      remoteCard = document.createElement('div');
-      remoteCard.className = 'video-card';
-      remoteCard.id = `card_${peerId}`;
-      const video = document.createElement('video');
-      video.autoplay = true;
-      video.playsInline = true;
-      video.srcObject = event.streams[0];
-      const label = document.createElement('div');
-      label.className = 'participant-label';
-      label.innerText = 'Client';
-      remoteCard.appendChild(video);
-      remoteCard.appendChild(label);
-      videoGrid.appendChild(remoteCard);
-    }
-  };
+    const pc = new RTCPeerConnection(rtcConfig);
+    peerConnections.set(peerId, pc);
 
-  if (isInitiator) {
-    pc.onnegotiationneeded = async () => {
+    if (localStream) {
+      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+    }
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        ws.send(JSON.stringify({
+          type: 'ice-candidate',
+          target: peerId,
+          candidate: event.candidate
+        }));
+      }
+    };
+
+    pc.ontrack = (event) => {
+      renderRemoteVideo(peerId, peerName, event.streams[0]);
+    };
+
+    if (isInitiator) {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
       ws.send(JSON.stringify({
-        type: 'signal',
+        type: 'offer',
         target: peerId,
-        data: { sdp: pc.localDescription }
-      }));
-    };
-  }
-}
-
-async function handleSignal(senderId, data) {
-  let pc = peers.get(senderId);
-  if (!pc) {
-    initiatePeerConnection(senderId, false);
-    pc = peers.get(senderId);
-  }
-
-  if (data.sdp) {
-    await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-    if (data.sdp.type === 'offer') {
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      ws.send(JSON.stringify({
-        type: 'signal',
-        target: senderId,
-        data: { sdp: pc.localDescription }
+        offer: offer
       }));
     }
-  } else if (data.candidate) {
-    await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
   }
-}
 
-function removePeer(peerId) {
-  const pc = peers.get(peerId);
-  if (pc) {
-    pc.close();
-    peers.delete(peerId);
+  function renderRemoteVideo(peerId, peerName, stream) {
+    let card = document.getElementById(`card-${peerId}`);
+    if (!card) {
+      card = document.createElement('div');
+      card.className = 'video-card';
+      card.id = `card-${peerId}`;
+
+      const video = document.createElement('video');
+      video.autoplay = true;
+      video.playsInline = true;
+      video.srcObject = stream;
+
+      const label = document.createElement('div');
+      label.className = 'participant-label';
+      label.innerHTML = `<span class="status-dot"></span><span>${peerName}</span>`;
+
+      card.appendChild(video);
+      card.appendChild(label);
+      document.getElementById('videoGrid').appendChild(card);
+    } else {
+      const video = card.querySelector('video');
+      if (video) video.srcObject = stream;
+    }
   }
-  const card = document.getElementById(`card_${peerId}`);
-  if (card) card.remove();
-}
 
-// Media Controls
-btnToggleMic.addEventListener('click', () => {
-  if (!localStream) return;
-  const audioTrack = localStream.getAudioTracks()[0];
-  if (audioTrack) {
-    audioTrack.enabled = !audioTrack.enabled;
-    btnToggleMic.classList.toggle('active', audioTrack.enabled);
+  function removePeer(peerId) {
+    const pc = peerConnections.get(peerId);
+    if (pc) {
+      pc.close();
+      peerConnections.delete(peerId);
+    }
+    const card = document.getElementById(`card-${peerId}`);
+    if (card) card.remove();
+    addSysMessage('A participant left the meeting.');
   }
-});
 
-btnToggleCam.addEventListener('click', () => {
-  if (!localStream) return;
-  const videoTrack = localStream.getVideoTracks()[0];
-  if (videoTrack) {
-    videoTrack.enabled = !videoTrack.enabled;
-    btnToggleCam.classList.toggle('active', videoTrack.enabled);
+  // 6. UI Controls & Event Listeners
+  const btnMic = document.getElementById('btnToggleMic');
+  const btnCam = document.getElementById('btnToggleCam');
+  const btnScreen = document.getElementById('btnScreenShare');
+  const btnChat = document.getElementById('btnToggleChat');
+  const btnAi = document.getElementById('btnToggleAi');
+  const btnEnd = document.getElementById('btnEndCall');
+  const sidePanel = document.getElementById('sidePanel');
+  const tabChat = document.getElementById('tabChat');
+  const tabNyra = document.getElementById('tabNyra');
+  const chatView = document.getElementById('chatView');
+  const nyraView = document.getElementById('nyraView');
+  const chatForm = document.getElementById('chatForm');
+  const chatInput = document.getElementById('chatInput');
+  const chatMessages = document.getElementById('chatMessages');
+
+  if (btnMic) {
+    btnMic.onclick = () => {
+      if (localStream) {
+        isMicActive = !isMicActive;
+        localStream.getAudioTracks().forEach(t => t.enabled = isMicActive);
+        btnMic.classList.toggle('active', isMicActive);
+        btnMic.innerHTML = isMicActive ? '&#127908;' : '&#127908;&#xFE0E; ✕';
+      }
+    };
   }
-});
 
-btnScreenShare.addEventListener('click', async () => {
-  try {
-    const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-    const screenTrack = screenStream.getVideoTracks()[0];
-    peers.forEach(pc => {
-      const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-      if (sender) sender.replaceTrack(screenTrack);
-    });
-    screenTrack.onended = () => {
-      const origTrack = localStream.getVideoTracks()[0];
-      peers.forEach(pc => {
+  if (btnCam) {
+    btnCam.onclick = () => {
+      if (localStream) {
+        isCamActive = !isCamActive;
+        localStream.getVideoTracks().forEach(t => t.enabled = isCamActive);
+        btnCam.classList.toggle('active', isCamActive);
+        btnCam.innerHTML = isCamActive ? '&#128249;' : '&#128249;&#xFE0E; ✕';
+      }
+    };
+  }
+
+  if (btnScreen) {
+    btnScreen.onclick = async () => {
+      if (!isScreenSharing) {
+        try {
+          screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+          const screenTrack = screenStream.getVideoTracks()[0];
+          
+          peerConnections.forEach(pc => {
+            const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+            if (sender) sender.replaceTrack(screenTrack);
+          });
+
+          const localVid = document.getElementById('localVideo');
+          if (localVid) localVid.srcObject = screenStream;
+
+          isScreenSharing = true;
+          btnScreen.classList.add('active');
+
+          screenTrack.onended = () => stopScreenShare();
+        } catch (e) {
+          console.warn('[Screen share canceled]', e);
+        }
+      } else {
+        stopScreenShare();
+      }
+    };
+  }
+
+  function stopScreenShare() {
+    if (screenStream) {
+      screenStream.getTracks().forEach(t => t.stop());
+      screenStream = null;
+    }
+    if (localStream) {
+      const camTrack = localStream.getVideoTracks()[0];
+      peerConnections.forEach(pc => {
         const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-        if (sender) sender.replaceTrack(origTrack);
+        if (sender && camTrack) sender.replaceTrack(camTrack);
+      });
+      const localVid = document.getElementById('localVideo');
+      if (localVid) localVid.srcObject = localStream;
+    }
+    isScreenSharing = false;
+    btnScreen.classList.remove('active');
+  }
+
+  if (btnChat) {
+    btnChat.onclick = () => {
+      sidePanel.classList.toggle('collapsed');
+      switchTab('chat');
+    };
+  }
+
+  if (btnAi) {
+    btnAi.onclick = () => {
+      sidePanel.classList.remove('collapsed');
+      switchTab('nyra');
+    };
+  }
+
+  if (btnEnd) {
+    btnEnd.onclick = () => {
+      if (confirm('Leave Nyrava Team Meet consultation?')) {
+        if (localStream) localStream.getTracks().forEach(t => t.stop());
+        if (screenStream) screenStream.getTracks().forEach(t => t.stop());
+        window.location.href = '/';
+      }
+    };
+  }
+
+  function switchTab(target) {
+    if (target === 'chat') {
+      tabChat.classList.add('active');
+      tabNyra.classList.remove('active');
+      chatView.hidden = false;
+      nyraView.hidden = true;
+    } else {
+      tabNyra.classList.add('active');
+      tabChat.classList.remove('active');
+      nyraView.hidden = false;
+      chatView.hidden = true;
+    }
+  }
+
+  if (tabChat) tabChat.onclick = () => switchTab('chat');
+  if (tabNyra) tabNyra.onclick = () => switchTab('nyra');
+
+  // In-Room Chat Form
+  if (chatForm) {
+    chatForm.onsubmit = (e) => {
+      e.preventDefault();
+      const text = chatInput.value.trim();
+      if (!text) return;
+      ws.send(JSON.stringify({
+        type: 'chat',
+        name: userName,
+        text: text
+      }));
+      chatInput.value = '';
+    };
+  }
+
+  function appendChatMessage(senderName, text, isMine, time) {
+    const bubble = document.createElement('div');
+    bubble.className = `chat-bubble ${isMine ? 'mine' : 'other'}`;
+    bubble.innerHTML = `
+      <div class="chat-author">${senderName} <span class="chat-time">${time}</span></div>
+      <div>${escapeHtml(text)}</div>
+    `;
+    chatMessages.appendChild(bubble);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  function addSysMessage(text) {
+    const msg = document.createElement('div');
+    msg.className = 'sys-msg';
+    msg.textContent = text;
+    chatMessages.appendChild(msg);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  // Copy Meeting Link Button
+  const btnCopy = document.getElementById('btnCopyInvite');
+  if (btnCopy) {
+    btnCopy.onclick = () => {
+      const inviteUrl = `${window.location.origin}/room/${encodeURIComponent(room)}`;
+      navigator.clipboard.writeText(inviteUrl).then(() => {
+        const orig = btnCopy.textContent;
+        btnCopy.textContent = '✓ Link Copied!';
+        btnCopy.style.background = '#10b981';
+        btnCopy.style.color = '#fff';
+        setTimeout(() => {
+          btnCopy.textContent = orig;
+          btnCopy.style.background = '';
+          btnCopy.style.color = '';
+        }, 3000);
       });
     };
-  } catch (err) {
-    console.error('Screen sharing cancelled', err);
   }
-});
 
-// Chat
-const chatForm = document.getElementById('chatForm');
-const chatInput = document.getElementById('chatInput');
-const chatMessages = document.getElementById('chatMessages');
-
-chatForm.addEventListener('submit', (e) => {
-  e.preventDefault();
-  const text = chatInput.value.trim();
-  if (!text) return;
-  ws.send(JSON.stringify({ type: 'chat', text }));
-  chatInput.value = '';
-});
-
-function appendChatMessage(sender, text, time) {
-  const bubble = document.createElement('div');
-  bubble.className = 'chat-bubble';
-  bubble.innerHTML = `<div class="chat-sender">${sender} <span style="font-weight:normal;color:#64748b;margin-left:6px;">${time}</span></div><div>${text}</div>`;
-  chatMessages.appendChild(bubble);
-  chatMessages.scrollTop = chatMessages.scrollHeight;
-}
-
-// Tabs
-const tabChat = document.getElementById('tabChat');
-const tabNyra = document.getElementById('tabNyra');
-const chatView = document.getElementById('chatView');
-const nyraView = document.getElementById('nyraView');
-
-tabChat.addEventListener('click', () => {
-  tabChat.classList.add('active');
-  tabNyra.classList.remove('active');
-  chatView.hidden = false;
-  nyraView.hidden = true;
-});
-
-tabNyra.addEventListener('click', () => {
-  tabNyra.classList.add('active');
-  tabChat.classList.remove('active');
-  nyraView.hidden = false;
-  chatView.hidden = true;
-});
-
-btnToggleChat.addEventListener('click', () => {
-  sidePanel.hidden = !sidePanel.hidden;
-});
-
-// AI Nyra Interaction
-window.askNyra = (prompt) => {
-  const container = document.getElementById('nyraResponses');
-  const card = document.createElement('div');
-  card.className = 'nyra-card';
-  card.innerHTML = `<strong>Q: ${prompt}</strong><p style="margin-top:6px; color:#a7f3d0;">Nyra is calculating response...</p>`;
-  container.appendChild(card);
-  container.scrollTop = container.scrollHeight;
-
-  setTimeout(() => {
-    let answer = "Analyzing market parameters based on nationwide 60-ZIP index...";
-    if (prompt.includes('mortgage')) {
-      answer = "Current 30-Year Fixed Mortgage Rates average 6.62%. On a $400k loan, estimated monthly principal & interest is approx. $2,559.";
-    } else if (prompt.includes('appraisal')) {
-      answer = "An appraisal is an official lender-ordered property valuation conducted by a licensed appraiser. A market valuation is a comparative analysis based on recent arm's-length sales and market momentum.";
-    } else if (prompt.includes('net-sheet')) {
-      answer = "Seller Net Sheet: Typical deductions include broker commission (5-6%), title/escrow fees (1%), transfer taxes (0.5-1.5%), and pro-rated property taxes.";
+  // 7. Nyra AI Assistant Prompts
+  window.askNyra = function (question) {
+    const responses = document.getElementById('nyraResponses');
+    const msg = document.createElement('div');
+    msg.className = 'nyra-msg';
+    
+    let answer = '';
+    if (question.includes('mortgage')) {
+      answer = 'As of late 2026, the national average 30-year fixed conforming mortgage rate is approximately 6.25% - 6.50%. On a $400,000 loan with 20% down, monthly principal & interest is approx. $2,462.';
+    } else if (question.includes('appraisal')) {
+      answer = 'Market valuation is an estimate of what a buyer is willing to pay based on current neighborhood supply and demand. An appraisal is a formal, lender-required valuation conducted by a licensed appraiser to protect the loan.';
+    } else {
+      answer = 'A seller net sheet estimates proceeds after deducting remaining mortgage payoff, title & escrow fees, transfer taxes, and agreed commissions. Keep closing costs estimated at 1.5% - 2% of sale price.';
     }
-    card.querySelector('p').innerText = answer;
-  }, 900);
-};
 
-initMedia();
+    msg.innerHTML = `<strong>Q: ${escapeHtml(question)}</strong><br><br>${answer}`;
+    responses.prepend(msg);
+  };
+
+  // 8. Listen for Plugin postMessage commands from NyravaTeamMeet embed API
+  window.addEventListener('message', (event) => {
+    if (event.data && event.data.source === 'nyrava-team-meet-api') {
+      const { command } = event.data;
+      if (command === 'toggleAudio' && btnMic) btnMic.click();
+      if (command === 'toggleVideo' && btnCam) btnCam.click();
+      if (command === 'shareScreen' && btnScreen) btnScreen.click();
+      if (command === 'leave' && btnEnd) btnEnd.click();
+    }
+  });
+
+})();

@@ -13,19 +13,39 @@ const wss = new WebSocketServer({ server });
 
 const PORT = process.env.PORT || 5000;
 
+// Enable CORS for external embedding (like Jitsi external API)
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  // Allow iframing by parent origins
+  res.removeHeader('X-Frame-Options');
+  res.setHeader('Content-Security-Policy', "frame-ancestors *;");
+  next();
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Health check endpoint
 app.get('/health', (req, res) => {
   res.json({
-    service: 'nyrava-meet-consultation',
+    service: 'nyrava-team-meet',
     status: 'online',
     port: PORT,
-    activeRooms: rooms.size
+    activeRooms: rooms.size,
+    time: new Date().toISOString()
   });
 });
 
-// WebRTC Signaling Rooms
-const rooms = new Map(); // roomId -> Set of ws clients
+// Direct room routes: /room/:roomId or /:roomId
+app.get(['/room/:roomId', '/:roomId([a-zA-Z0-9_-]{3,64})'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// ===================================================================
+// WebRTC Signaling Server for Multi-Party Mesh Calls
+// ===================================================================
+const rooms = new Map(); // roomId -> Map of clientId -> { ws, name }
 
 wss.on('connection', (ws) => {
   let currentRoom = null;
@@ -43,7 +63,7 @@ wss.on('connection', (ws) => {
         const roomPeers = rooms.get(currentRoom);
         roomPeers.set(clientId, { ws, name: data.name || 'Participant' });
 
-        // Notify client of current participants
+        // Notify newcomer of all active peers in room
         const participants = [];
         roomPeers.forEach((peer, id) => {
           if (id !== clientId) {
@@ -58,48 +78,55 @@ wss.on('connection', (ws) => {
           peers: participants
         }));
 
-        // Broadcast to existing peers that a new user arrived
+        // Notify existing peers of the newcomer
         roomPeers.forEach((peer, id) => {
           if (id !== clientId && peer.ws.readyState === WebSocket.OPEN) {
             peer.ws.send(JSON.stringify({
               type: 'peer-joined',
-              id: clientId,
+              peerId: clientId,
               name: data.name || 'Participant'
             }));
           }
         });
-      } else if (data.type === 'signal') {
-        // Forward signaling message (offer, answer, candidate) to target peer
-        const targetId = data.target;
+
+        console.log(`[Nyrava Team Meet] Client ${clientId} joined room "${currentRoom}" (Total: ${roomPeers.size})`);
+      }
+
+      // Relay WebRTC SDP Offers, Answers, and ICE candidates
+      if (['offer', 'answer', 'ice-candidate'].includes(data.type)) {
         const roomPeers = rooms.get(currentRoom);
-        if (roomPeers && roomPeers.has(targetId)) {
-          const targetPeer = roomPeers.get(targetId);
+        if (roomPeers && roomPeers.has(data.target)) {
+          const targetPeer = roomPeers.get(data.target);
           if (targetPeer.ws.readyState === WebSocket.OPEN) {
             targetPeer.ws.send(JSON.stringify({
-              type: 'signal',
-              sender: clientId,
-              data: data.data
+              ...data,
+              from: clientId
             }));
           }
         }
-      } else if (data.type === 'chat') {
-        // Broadcast chat to all peers in room
+      }
+
+      // Relay in-room chat messages
+      if (data.type === 'chat') {
         const roomPeers = rooms.get(currentRoom);
         if (roomPeers) {
+          const chatMsg = JSON.stringify({
+            type: 'chat',
+            from: clientId,
+            name: data.name || 'Participant',
+            text: data.text || '',
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          });
           roomPeers.forEach((peer) => {
             if (peer.ws.readyState === WebSocket.OPEN) {
-              peer.ws.send(JSON.stringify({
-                type: 'chat',
-                sender: data.name || 'Participant',
-                text: data.text,
-                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-              }));
+              peer.ws.send(chatMsg);
             }
           });
         }
       }
-    } catch (err) {
-      console.error('[Signaling Error]', err);
+
+    } catch (e) {
+      console.warn('[Signaling Error]', e.message);
     }
   });
 
@@ -107,23 +134,29 @@ wss.on('connection', (ws) => {
     if (currentRoom && rooms.has(currentRoom)) {
       const roomPeers = rooms.get(currentRoom);
       roomPeers.delete(clientId);
+
+      // Notify others in room
+      roomPeers.forEach((peer) => {
+        if (peer.ws.readyState === WebSocket.OPEN) {
+          peer.ws.send(JSON.stringify({
+            type: 'peer-left',
+            peerId: clientId
+          }));
+        }
+      });
+
       if (roomPeers.size === 0) {
         rooms.delete(currentRoom);
-      } else {
-        // Notify others
-        roomPeers.forEach((peer) => {
-          if (peer.ws.readyState === WebSocket.OPEN) {
-            peer.ws.send(JSON.stringify({
-              type: 'peer-left',
-              id: clientId
-            }));
-          }
-        });
       }
+      console.log(`[Nyrava Team Meet] Client ${clientId} left room "${currentRoom}"`);
     }
   });
 });
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`[Nyrava Meet & Video Consultation] Server listening on http://0.0.0.0:${PORT}`);
+  console.log(`=================================================================`);
+  console.log(`   NYRAVA TEAM MEET SERVER (STANDALONE)`);
+  console.log(`   Running at: http://localhost:${PORT}`);
+  console.log(`   Embed API: http://localhost:${PORT}/external_api.js`);
+  console.log(`=================================================================`);
 });

@@ -1,12 +1,23 @@
 {
-  "name": "nyrava-meet-consultation",
-  "version": "2.0.0",
-  "description": "Nyrava Video Consultation & AI Nyra Meeting Server",
+  "name": "nyrava-team-meet",
+  "version": "1.0.0",
+  "description": "Nyrava Team Meet - Self-Hosted Private Video Consultation & Collaboration Engine",
   "main": "server.mjs",
   "type": "module",
   "scripts": {
-    "start": "node server.mjs"
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs"
   },
+  "keywords": [
+    "webrtc",
+    "video-conferencing",
+    "nyrava",
+    "team-meet",
+    "real-estate",
+    "screen-sharing"
+  ],
+  "author": "Nyrava Technologies",
+  "license": "Proprietary",
   "dependencies": {
     "express": "^4.19.2",
     "ws": "^8.17.0"
