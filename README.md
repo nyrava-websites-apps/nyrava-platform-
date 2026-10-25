@@ -16,15 +16,15 @@ A production-ready, turn-key real estate intelligence ecosystem uniting public w
          ┌─────────────────┬──────────┴────────┬─────────────────┐
          │                 │                   │                 │
          ▼                 ▼                   ▼                 ▼
-┌──────────────────┐ ┌───────────┐ ┌───────────────────┐ ┌───────────────┐
-│   Web Portal     │ │Nyrava CRM │ │  Home Evaluation  │ │ Nyra Video    │
-│(home.nyrava.com) │ │ & Leads   │ │ (value.nyrava.com)│ │     Meet      │
-│   Port 3000      │ │ Port 5180 │ │    Port 5190      │ │  Port 5000    │
-│                  │ │           │ │                   │ │               │
-│ • Nyra AI Bot    │ │ • 60 ZIPs │ │ • 50-State AVM    │ │ • WebRTC Video│
-│ • Move Planner   │ │ • Master  │ │ • Verified Comps  │ │ • Screen Share│
-│ • Territory Check│ │   Bank    │ │ • 1-Click Opt-Out │ │ • Room Chat   │
-└──────────────────┘ └───────────┘ └───────────────────┘ └───────────────┘
+┌──────────────────┐ ┌───────────┐ ┌───────────────────┐ ┌───────────────────┐
+│   Web Portal     │ │Nyrava CRM │ │  Home Evaluation  │ │ Nyrava Team Meet  │
+│(home.nyrava.com) │ │ & Leads   │ │ (value.nyrava.com)│ │ (meet.nyrava.com) │
+│   Port 3000      │ │ Port 5180 │ │    Port 5190      │ │    Port 5000      │
+│                  │ │           │ │                   │ │                   │
+│ • Nyra AI Bot    │ │ • 60 ZIPs │ │ • 50-State AVM    │ │ • Multi-Party WebRTC
+│ • Move Planner   │ │ • Master  │ │ • Verified Comps  │ │ • Screen Share    │
+│ • Territory Check│ │   Bank    │ │ • 1-Click Opt-Out │ │ • Embed SDK API   │
+└──────────────────┘ └───────────┘ └───────────────────┘ └───────────────────┘
          │                 ▲                   │
          │                 │                   │
          └─────────────────┴───────────────────┘
