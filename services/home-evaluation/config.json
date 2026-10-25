@@ -1,0 +1,20 @@
+{
+  "port": 5190,
+  "publicUrl": "http://localhost:5190",
+  "crmApiUrl": "http://localhost:5180",
+  "crmIntegrationKey": "nycrm_JVsFAh7zwIJo-iejVRvl3UZ7APQ1zyNC7_0ai7c9a9A",
+  "smtp": {
+    "host": "smtp.gmail.com",
+    "port": 587,
+    "user": "your-email@gmail.com",
+    "pass": "your-16-character-app-password",
+    "from": "\"Nyrava Home Evaluation\" <your-email@gmail.com>"
+  },
+  "branding": {
+    "appName": "Nyrava Home Evaluation",
+    "companyName": "Nyrava Technologies",
+    "supportEmail": "valuations@nyrava.com",
+    "supportPhone": "(800) 555-0199",
+    "accentColor": "#059669"
+  }
+}

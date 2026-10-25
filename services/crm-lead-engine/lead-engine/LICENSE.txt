@@ -1,0 +1,21 @@
+Nyrava Lead Generator — Proprietary / Internal Use Notice
+
+Copyright 2026 the respective rights holders. All rights reserved except as expressly stated below.
+
+1. Scope
+This notice applies only to original materials whose copyright is owned or controlled by the person or entity operating Nyrava Websites & Apps ("Nyrava"). It does not assert ownership of third-party software, customer materials, or materials contributed without the necessary rights.
+
+2. Free internal Nyrava use
+The relevant Nyrava rights holder permits authorized Nyrava personnel and contractors acting solely on Nyrava's behalf to access, run, copy, and modify Nyrava-owned materials for internal Nyrava business operations without an internal license fee. Contractors must protect confidential source code and have no independent reuse rights. This permission does not grant customer, resale, redistribution, or sublicensing rights.
+
+3. Paid commercial licensing
+External customer deployments, distribution, resale, sublicensing, white-label offerings, and delivery of source code to customers require a separate paid written agreement signed by the relevant rights holder and customer. That agreement must identify the legal parties, deliverables, permitted use, term, fees, deployment limits, modification rights, support, and any resale rights. No prices or customer license rights are granted by this notice alone.
+
+4. Restrictions and branding
+Except as expressly permitted above, agreed in writing, or required by applicable law, no permission is granted to publish, distribute, sublicense, sell, or independently reuse these materials. Preserve copyright and licensing notices. Nyrava branding remains reserved; no independent trademark license is granted.
+
+5. Third-party rights and existing agreements
+Third-party components retain their own licenses and notices. This notice does not override mandatory legal rights, previously granted licenses, or existing signed agreements. A contributor may grant only rights they hold.
+
+6. Warranty and legal identity
+No warranty, service-level commitment, support obligation, or performance guarantee is created by this repository notice. Commercial terms must be specified in the executed customer agreement. Before executing that agreement, identify the legal person or registered entity behind the Nyrava brand and complete the applicable jurisdiction and transaction terms.

@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "Nyrava CRM App": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "applicationUrl": "http://localhost:5180",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "Crm__CookieSecure": "false"
+      }
+    },
+    "Nyrava CRM Demo (Subscriber, Admin, Team Member)": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "applicationUrl": "http://localhost:5181",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "CRM_DEMO_MODE": "true",
+        "Database__Provider": "Sqlite",
+        "Crm__TeamInvitationsEnabled": "true",
+        "Crm__CookieSecure": "false"
+      }
+    }
+  }
+}

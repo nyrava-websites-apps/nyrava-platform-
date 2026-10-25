@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nyrava Home | Real Estate Intelligence & Instant Home Valuations</title>
+  <meta name="description" content="Nyrava Home connects homeowners with accurate AI valuations and empowers licensed Realtors with territory intelligence and verified leads.">
+  <link rel="icon" href="/assets/nyrava-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Top ticker banner -->
+  <div class="top-banner">
+    <div class="container top-banner-content">
+      <span class="live-dot"></span>
+      <span><strong>Live Intelligence Active:</strong> Monitoring 60 High-Growth US Metro Markets across 50 States</span>
+      <a href="#territories" class="banner-link">View Territory Coverage &rarr;</a>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header class="site-header">
+    <div class="container header-container">
+      <a href="/" class="brand">
+        <svg class="brand-logo" viewBox="0 0 64 64" aria-hidden="true">
+          <path d="M10 30 32 9l22 21v25H39V38H25v17H10z" fill="#073b2b"/>
+          <path d="m7 29 25-24 25 24" fill="none" stroke="#d4af37" stroke-width="4"/>
+          <path d="M29 42h7v13h-7z" fill="#d4af37"/>
+        </svg>
+        <div class="brand-text">
+          <span class="brand-title">NYRAVA <span>HOME</span></span>
+          <span class="brand-tag">REAL ESTATE INTELLIGENCE</span>
+        </div>
+      </a>
+
+      <nav class="nav-links">
+        <a href="#valuation-tool">Home Valuation</a>
+        <a href="#how-it-works">How It Works</a>
+        <a href="#territories">Territories</a>
+        <a href="#video-meet">Video Meet</a>
+        <a href="http://localhost:5180" id="crm-portal-link" target="_blank" class="btn btn-gold">
+          <span class="lock-icon">&#128274;</span> Realtor CRM Portal
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <main>
+    <section class="hero-section" id="valuation-tool">
+      <div class="container hero-grid">
+        <div class="hero-text">
+          <div class="badge-tag">&#10024; Nyrava V2 Automated Valuation Model</div>
+          <h1>What Is Your Home <br><span class="highlight">Really Worth</span> Today?</h1>
+          <p class="hero-desc">
+            Discover your property's real market value, projected equity growth, and recent comps using our localized valuation engine. No gimmicks, no spam, and complete privacy control.
+          </p>
+          <div class="hero-bullets">
+            <div class="bullet-item">
+              <span class="bullet-check">&#10003;</span>
+              <span>50-State Real-Time Pricing Index</span>
+            </div>
+            <div class="bullet-item">
+              <span class="bullet-check">&#10003;</span>
+              <span>3-Year Equity & Appreciation Forecast</span>
+            </div>
+            <div class="bullet-item">
+              <span class="bullet-check">&#10003;</span>
+              <span>1-Click Realtor Contact Opt-Out</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Valuation Card -->
+        <div class="hero-card">
+          <div class="card-header">
+            <h3>Instant Property Valuation</h3>
+            <p>Get a precise estimation based on local comps & trends</p>
+          </div>
+          <form id="valuationForm" class="valuation-form">
+            <div class="form-group">
+              <label for="address">Street Address</label>
+              <input type="text" id="address" placeholder="e.g. 742 Evergreen Terrace" required>
+            </div>
+            <div class="form-row">
+              <div class="form-group col-2">
+                <label for="city">City</label>
+                <input type="text" id="city" placeholder="e.g. Springfield" required>
+              </div>
+              <div class="form-group col-1">
+                <label for="state">State</label>
+                <input type="text" id="state" placeholder="OR" maxlength="2" style="text-transform: uppercase;" required>
+              </div>
+              <div class="form-group col-1">
+                <label for="zipCode">ZIP Code</label>
+                <input type="text" id="zipCode" placeholder="97477" maxlength="5" required>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group col-1">
+                <label for="bedrooms">Beds</label>
+                <input type="number" id="bedrooms" min="1" max="15" value="3" required>
+              </div>
+              <div class="form-group col-1">
+                <label for="bathrooms">Baths</label>
+                <input type="number" id="bathrooms" step="0.5" min="1" max="15" value="2" required>
+              </div>
+              <div class="form-group col-2">
+                <label for="squareFeet">Square Footage</label>
+                <input type="number" id="squareFeet" min="400" max="25000" value="1850" required>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-submit" id="btnCalculate">
+              <span>&#9889; Calculate Estimated Value</span>
+            </button>
+          </form>
+          <div class="card-footer-note">
+            <span class="shield-icon">&#128737;</span> 256-bit encrypted data protection. Submissions audited in real time.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Valuation Result Modal / Overlay -->
+    <div id="valuationModal" class="modal-backdrop" hidden>
+      <div class="modal-dialog">
+        <button type="button" class="modal-close" id="closeModal">&times;</button>
+        
+        <div id="stepLeadCapture">
+          <div class="modal-badge">&#128142; Valuation Analysis Ready</div>
+          <h2 class="modal-title">Where Should We Send Your Official Report?</h2>
+          <p class="modal-sub">To deliver your complete valuation dossier, recent comps, and 3-year equity forecast, please verify your contact details below.</p>
+          
+          <form id="leadCaptureForm" class="lead-form">
+            <div class="form-group">
+              <label for="leadName">Your Full Name</label>
+              <input type="text" id="leadName" placeholder="e.g. John Doe" required>
+            </div>
+            <div class="form-group">
+              <label for="leadEmail">Your Email Address</label>
+              <input type="email" id="leadEmail" placeholder="e.g. john@example.com" required>
+            </div>
+            <div class="form-group">
+              <label for="leadPhone">Your Phone Number</label>
+              <input type="tel" id="leadPhone" placeholder="e.g. (555) 019-2834" required>
+            </div>
+            
+            <div class="guarantee-box">
+              <span class="guarantee-icon">&#10004;</span>
+              <div>
+                <strong>Nyrava Privacy Guarantee:</strong>
+                <p>Your valuation report is delivered instantly. Every communication includes a 1-click button to opt out of Realtor follow-ups at any time.</p>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-submit" id="btnUnlockValuation">
+              <span>Unlock Report &amp; View Valuation &rarr;</span>
+            </button>
+          </form>
+        </div>
+
+        <div id="stepResults" hidden>
+          <div class="result-header">
+            <div class="property-tag" id="resAddress">742 Evergreen Terrace, Springfield, OR 97477</div>
+            <div class="value-highlight">
+              <span class="value-label">Estimated Market Value</span>
+              <span class="value-number" id="resEstimatedValue">$0</span>
+            </div>
+            <div class="range-bar">
+              <span id="resRangeLow">$0</span>
+              <span class="confidence-pill" id="resConfidence">High Confidence</span>
+              <span id="resRangeHigh">$0</span>
+            </div>
+          </div>
+
+          <div class="result-grid">
+            <div class="metric-card">
+              <span class="metric-label">Price per Sq. Ft.</span>
+              <span class="metric-val" id="resPricePerSqFt">$0</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">3-Yr Projected Equity</span>
+              <span class="metric-val text-green" id="resEquity">+$0</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Local Market Trend</span>
+              <span class="metric-val" id="resTrend">+4.8% / yr</span>
+            </div>
+          </div>
+
+          <div class="comps-section">
+            <h4>Recent Local Comparable Properties</h4>
+            <div id="compsList" class="comps-list">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+
+          <div class="lead-success-note">
+            &#9993; A complete PDF summary has been queued to your email address. You can download or print it anytime.
+          </div>
+
+          <button type="button" class="btn btn-outline" id="btnDoneValuation">Close Window</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- How It Works Section -->
+    <section class="section" id="how-it-works">
+      <div class="container">
+        <div class="section-title text-center">
+          <span class="eyebrow">The Nyrava Platform</span>
+          <h2>Intelligent Technology for Modern Real Estate</h2>
+          <p>Whether you're exploring your home's equity or a Realtor scaling your business, Nyrava delivers verified precision.</p>
+        </div>
+
+        <div class="grid-3">
+          <div class="feature-card">
+            <div class="icon-circle">&#128202;</div>
+            <h3>Localized AVM Engine</h3>
+            <p>Our valuation algorithm leverages actual neighborhood comps, square footage ratios, and regional inflation indices across all 50 US states.</p>
+          </div>
+          <div class="feature-card">
+            <div class="icon-circle">&#128506;&#65039;</div>
+            <h3>Exclusive Territories</h3>
+            <p>Realtors secure exclusive rights to their ZIP code territories. Verified buyer and seller inquiries are directly assigned with full transparency.</p>
+          </div>
+          <div class="feature-card">
+            <div class="icon-circle">&#127916;</div>
+            <h3>Instant Video Consultations</h3>
+            <p>Connect with clients directly through secure, high-definition video rooms ("Nyra Meet") without downloading third-party software.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Territory Section -->
+    <section class="section bg-light" id="territories">
+      <div class="container">
+        <div class="section-title text-center">
+          <span class="eyebrow">Area Intelligence</span>
+          <h2>Active Territory Coverage</h2>
+          <p>Our Master Bank is continuously scanning 60 high-demand metro ZIP codes across the United States.</p>
+        </div>
+
+        <div class="territory-grid">
+          <div class="territory-pill"><strong>Austin, TX</strong> <span>78701 · 78704 · 78745</span></div>
+          <div class="territory-pill"><strong>Denver, CO</strong> <span>80202 · 80205 · 80211</span></div>
+          <div class="territory-pill"><strong>Phoenix, AZ</strong> <span>85004 · 85016 · 85251</span></div>
+          <div class="territory-pill"><strong>Miami, FL</strong> <span>33139 · 33129 · 33131</span></div>
+          <div class="territory-pill"><strong>Nashville, TN</strong> <span>37203 · 37206 · 37212</span></div>
+          <div class="territory-pill"><strong>Seattle, WA</strong> <span>98101 · 98103 · 98109</span></div>
+          <div class="territory-pill"><strong>Atlanta, GA</strong> <span>30309 · 30305 · 30308</span></div>
+          <div class="territory-pill"><strong>Chicago, IL</strong> <span>60611 · 60614 · 60654</span></div>
+          <div class="territory-pill"><strong>San Diego, CA</strong> <span>92101 · 92109 · 92037</span></div>
+          <div class="territory-pill"><strong>Dallas, TX</strong> <span>75201 · 75204 · 75219</span></div>
+          <div class="territory-pill"><strong>Raleigh, NC</strong> <span>27601 · 27608 · 27513</span></div>
+          <div class="territory-pill"><strong>Tampa, FL</strong> <span>33602 · 33606 · 33701</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Video Consultation Callout -->
+    <section class="section video-section" id="video-meet">
+      <div class="container video-grid">
+        <div class="video-info">
+          <span class="eyebrow text-gold">Real-Time Client Engagement</span>
+          <h2>Face-to-Face Meetings Powered by Nyra Meet</h2>
+          <p>Host instant video consultations with homeowners right from your CRM. Share valuation reports, discuss neighborhood trends, and close listings with ease.</p>
+          <a href="http://localhost:5000" id="meet-service-link" target="_blank" class="btn btn-outline-white">
+            Launch Video Meeting Room &rarr;
+          </a>
+        </div>
+        <div class="video-preview-box">
+          <div class="mockup-window">
+            <div class="window-bar">
+              <span class="dot red"></span>
+              <span class="dot yellow"></span>
+              <span class="dot green"></span>
+              <span class="window-title">Nyra Private Meeting · Room #NYR-742</span>
+            </div>
+            <div class="window-body">
+              <div class="avatar-speaker">
+                <span class="speaker-icon">&#128100;</span>
+                <p>Private HD Audio &amp; Video Ready</p>
+                <small>Waiting room encryption active · No software download needed</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Realtor CTA Banner -->
+    <section class="section cta-banner">
+      <div class="container text-center">
+        <h2>Are You a Licensed Real Estate Agent?</h2>
+        <p>Take control of your territory. Access the Nyrava Master Bank, automatically receive high-intent valuation leads, and manage your deals with our streamlined CRM.</p>
+        <div class="cta-actions">
+          <a href="http://localhost:5180" id="crm-cta-link" target="_blank" class="btn btn-gold btn-large">
+            Open Realtor CRM Workspace &rarr;
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="container footer-content">
+      <div class="footer-left">
+        <div class="brand-text">
+          <span class="brand-title">NYRAVA <span>HOME</span></span>
+          <p class="footer-sub">Real Estate Intelligence for Real Opportunities</p>
+        </div>
+      </div>
+      <div class="footer-links">
+        <a href="#valuation-tool">Home Valuation</a>
+        <a href="#territories">Territories</a>
+        <a href="#video-meet">Nyra Meet</a>
+        <a href="http://localhost:5180" target="_blank">Realtor Portal</a>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2026 Nyrava Technologies. All rights reserved. Equal Housing Opportunity.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>

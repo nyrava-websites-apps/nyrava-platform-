@@ -1,0 +1,10 @@
+node_modules/
+bin/
+obj/
+*.log
+.DS_Store
+Thumbs.db
+.env
+data/
+outbox/
+*.tmp

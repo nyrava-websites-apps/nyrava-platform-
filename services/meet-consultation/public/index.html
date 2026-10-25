@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nyrava Meet | Private Video Consultation</title>
+  <link rel="icon" href="/nyrava-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/meet.css">
+</head>
+<body>
+  <div class="meet-app">
+    <!-- Top Bar -->
+    <header class="meet-header">
+      <div class="brand">
+        <strong>NYRAVA <span>MEET</span></strong>
+        <span class="room-pill" id="roomIndicator">Room: Loading...</span>
+      </div>
+      <div class="header-actions">
+        <button id="btnCopyInvite" class="btn btn-sm btn-outline">&#128279; Copy Invite Link</button>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <div class="meet-workspace">
+      <!-- Video Grid -->
+      <div class="video-container">
+        <div class="video-grid" id="videoGrid">
+          <div class="video-card local-card" id="localCard">
+            <video id="localVideo" autoplay playsinline muted></video>
+            <div class="participant-label">You (Local)</div>
+          </div>
+        </div>
+
+        <!-- Meeting Control Toolbar -->
+        <div class="controls-toolbar">
+          <button id="btnToggleMic" class="tool-btn active" title="Mute / Unmute Mic">&#127908;</button>
+          <button id="btnToggleCam" class="tool-btn active" title="Start / Stop Video">&#128249;</button>
+          <button id="btnScreenShare" class="tool-btn" title="Share Screen">&#128187;</button>
+          <button id="btnToggleChat" class="tool-btn" title="Toggle Chat">&#128172;</button>
+          <button id="btnEndCall" class="tool-btn btn-danger" title="Leave Consultation">&#128222;</button>
+        </div>
+      </div>
+
+      <!-- Side Panel: AI Assistant Nyra & Chat -->
+      <aside class="meet-sidepanel" id="sidePanel">
+        <div class="tabs">
+          <button class="tab-btn active" id="tabChat">Room Chat</button>
+          <button class="tab-btn" id="tabNyra">Nyra AI Assistant</button>
+        </div>
+
+        <!-- Chat View -->
+        <div class="tab-content" id="chatView">
+          <div class="messages-list" id="chatMessages">
+            <div class="sys-msg">Welcome to your Nyrava private consultation room. End-to-end encryption is active.</div>
+          </div>
+          <form id="chatForm" class="chat-input-row">
+            <input type="text" id="chatInput" placeholder="Send a message..." required>
+            <button type="submit" class="btn-send">&#10148;</button>
+          </form>
+        </div>
+
+        <!-- Nyra AI View -->
+        <div class="tab-content" id="nyraView" hidden>
+          <div class="nyra-intro">
+            <div class="nyra-avatar">&#10024;</div>
+            <h4>Nyra Real Estate AI</h4>
+            <p>I can provide instant property comp lookups, calculate mortgage amortization, or summarize key meeting points.</p>
+          </div>
+          <div class="nyra-actions">
+            <button class="nyra-pill" onclick="askNyra('What is the current 30-year fixed mortgage average?')">Mortgage Rates</button>
+            <button class="nyra-pill" onclick="askNyra('Explain the difference between appraisal and market valuation.')">Appraisal vs Market</button>
+            <button class="nyra-pill" onclick="askNyra('Generate a seller net-sheet overview.')">Seller Net Sheet</button>
+          </div>
+          <div id="nyraResponses" class="nyra-responses"></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script src="/meet.js"></script>
+</body>
+</html>

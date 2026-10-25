@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nyrava Home Evaluation | Real Comparative Market Analysis</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #059669;
+      --primary-hover: #047857;
+      --primary-light: #ecfdf5;
+      --dark: #0f172a;
+      --slate: #475569;
+      --border: #e2e8f0;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --radius: 12px;
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--dark); line-height: 1.5; min-height: 100vh; }
+    .header { background: #064e3b; color: #fff; padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .header-brand { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
+    .header-badge { background: #10b981; color: #fff; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 20px; text-transform: uppercase; }
+    .container { max-width: 960px; margin: 36px auto; padding: 0 16px; }
+    .hero { text-align: center; margin-bottom: 32px; }
+    .hero h1 { font-size: 34px; font-weight: 800; color: #0f172a; letter-spacing: -0.03em; margin-bottom: 8px; }
+    .hero p { font-size: 16px; color: var(--slate); max-width: 620px; margin: 0 auto; }
+    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04); margin-bottom: 24px; }
+    .card-title { font-size: 20px; font-weight: 700; color: #0f172a; margin-bottom: 6px; }
+    .card-subtitle { font-size: 13px; color: var(--slate); margin-bottom: 20px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px; }
+    .form-group input, .form-group select { width: 100%; padding: 11px 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; color: var(--dark); background: #fff; transition: border-color 0.15s; font-family: inherit; }
+    .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15); }
+    .btn { display: inline-flex; justify-content: center; align-items: center; width: 100%; padding: 14px 20px; background: var(--primary); color: #fff; border: 0; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; transition: background 0.15s, transform 0.05s; }
+    .btn:hover { background: var(--primary-hover); }
+    .btn:active { transform: scale(0.99); }
+    .btn:disabled { background: #94a3b8; cursor: not-allowed; }
+    
+    /* Result styling */
+    .valuation-box { background: linear-gradient(135deg, #064e3b 0%, #047857 100%); color: #fff; border-radius: var(--radius); padding: 28px; text-align: center; margin-bottom: 24px; }
+    .val-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #a7f3d0; font-weight: 700; }
+    .val-number { font-size: 44px; font-weight: 800; letter-spacing: -0.03em; margin: 6px 0; }
+    .val-range { font-size: 15px; color: #d1fae5; font-weight: 500; }
+    .metrics-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 20px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,0.2); }
+    .metric-item small { display: block; font-size: 11px; color: #a7f3d0; text-transform: uppercase; font-weight: 600; }
+    .metric-item b { font-size: 17px; font-weight: 700; }
+    
+    .comps-table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; }
+    .comps-table th { background: #f1f5f9; text-align: left; padding: 10px 12px; font-weight: 700; color: #475569; border-bottom: 2px solid var(--border); }
+    .comps-table td { padding: 12px; border-bottom: 1px solid #f1f5f9; }
+    
+    .equity-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+    .equity-row:last-child { border-bottom: 0; font-weight: 700; color: var(--primary); font-size: 16px; }
+
+    .consent-box { display: flex; gap: 10px; align-items: flex-start; margin: 16px 0; font-size: 12px; color: var(--slate); line-height: 1.5; }
+    .consent-box input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--primary); }
+
+    .hidden { display: none !important; }
+    .notice { padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; font-weight: 600; }
+    .notice-success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+    .notice-error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+
+    @media (max-width: 680px) {
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+      .metrics-row { grid-template-columns: 1fr; gap: 14px; }
+      .hero h1 { font-size: 26px; }
+      .card { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="header">
+    <div class="header-brand">
+      <span>🏡</span>
+      <span id="brandAppName">Nyrava Home Evaluation</span>
+      <span class="header-badge">Live Market AVM</span>
+    </div>
+    <div style="font-size: 12px; opacity: 0.9;">
+      Direct Homeowner Intelligence
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="hero">
+      <h1>Discover Your Home's True Value</h1>
+      <p>Instant automated comparative market evaluation based on verified recent sales in your exact ZIP code.</p>
+    </div>
+
+    <div id="noticeBox" class="notice hidden"></div>
+
+    <!-- STEP 1: PROPERTY FORM -->
+    <section id="stepProperty" class="card">
+      <div class="card-title">1. Tell Us About Your Property</div>
+      <div class="card-subtitle">Enter property specs to run the localized valuation algorithm.</div>
+
+      <form id="propertyForm">
+        <div class="form-group">
+          <label>Street Address</label>
+          <input type="text" id="propStreet" placeholder="e.g. 18410 Barkers Landing Rd" required>
+        </div>
+
+        <div class="grid-3">
+          <div class="form-group">
+            <label>City</label>
+            <input type="text" id="propCity" placeholder="Houston" required>
+          </div>
+          <div class="form-group">
+            <label>State</label>
+            <input type="text" id="propState" placeholder="TX" maxlength="2" required style="text-transform: uppercase;">
+          </div>
+          <div class="form-group">
+            <label>ZIP Code</label>
+            <input type="text" id="propZip" placeholder="77084" maxlength="5" pattern="[0-9]{5}" required>
+          </div>
+        </div>
+
+        <div class="grid-3">
+          <div class="form-group">
+            <label>Living Area (Sq. Ft.)</label>
+            <input type="number" id="propSqft" placeholder="2420" min="300" max="30000" required>
+          </div>
+          <div class="form-group">
+            <label>Bedrooms</label>
+            <input type="number" id="propBeds" placeholder="4" min="1" max="10" required>
+          </div>
+          <div class="form-group">
+            <label>Bathrooms</label>
+            <input type="number" id="propBaths" placeholder="2.5" min="1" max="10" step="0.5" required>
+          </div>
+        </div>
+
+        <div class="grid-3">
+          <div class="form-group">
+            <label>Property Type</label>
+            <select id="propType">
+              <option value="Single Family">Single Family Home</option>
+              <option value="Townhouse">Townhouse</option>
+              <option value="Condo">Condo / High-Rise</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Property Condition</label>
+            <select id="propCondition">
+              <option value="turnkey">Turnkey / Remodeled</option>
+              <option value="move_in" selected>Move-in Ready (Average)</option>
+              <option value="needs_repairs">Needs Updates / Repairs</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>In-ground Pool</label>
+            <select id="propPool">
+              <option value="none">No Pool</option>
+              <option value="in_ground">In-ground Swimming Pool</option>
+              <option value="above_ground">Above Ground Pool</option>
+            </select>
+          </div>
+        </div>
+
+        <button type="submit" id="btnCalculate" class="btn" style="margin-top: 10px;">
+          Calculate Instant Home Valuation →
+        </button>
+      </form>
+    </section>
+
+    <!-- STEP 2: VALUATION RESULTS & LEAD CAPTURE GATE -->
+    <section id="stepResults" class="card hidden">
+      <div class="valuation-box">
+        <div class="val-label">Estimated Current Market Value</div>
+        <div class="val-number" id="resEstimate">$0</div>
+        <div class="val-range">Estimated Range: <span id="resRange">$0 – $0</span></div>
+
+        <div class="metrics-row">
+          <div class="metric-item">
+            <small>Price Per Sq. Ft.</small>
+            <b id="resPpsqft">$0 / sqft</b>
+          </div>
+          <div class="metric-item">
+            <small>Market Temperature</small>
+            <b id="resMarketTemp">Active Market</b>
+          </div>
+          <div class="metric-item">
+            <small>Algorithm Confidence</small>
+            <b id="resConfidence">92%</b>
+          </div>
+        </div>
+      </div>
+
+      <!-- UNLOCK GATE FORM -->
+      <div id="unlockGate">
+        <div class="card-title">Unlock Full Comparative Report & 3-Year Equity Forecast</div>
+        <div class="card-subtitle">Enter your contact details to access the complete comp list, projected equity gains, and seller net sheet for your address.</div>
+
+        <form id="leadForm">
+          <div class="grid-2">
+            <div class="form-group">
+              <label>Homeowner Full Name</label>
+              <input type="text" id="leadName" placeholder="Gregory Sanders" required>
+            </div>
+            <div class="form-group">
+              <label>Phone Number (Mobile for verification)</label>
+              <input type="tel" id="leadPhone" placeholder="(832) 441-9082" required>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label>Email Address</label>
+              <input type="email" id="leadEmail" placeholder="gregory@example.com" required>
+            </div>
+            <div class="form-group">
+              <label>Selling Intent & Timeframe</label>
+              <select id="leadTimeframe">
+                <option value="Within 30 days">Ready to sell within 30 days</option>
+                <option value="1-3 months" selected>1 – 3 months</option>
+                <option value="3-6 months">3 – 6 months</option>
+                <option value="Just exploring">Just curious / exploring value</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="consent-box">
+            <input type="checkbox" id="leadConsent" required checked>
+            <label for="leadConsent">
+              I authorize Nyrava Home to prepare this valuation report and connect me with a verified local real estate specialist to review these estimates. I understand this is required for this service. This does not authorize automated promotional spam.
+            </label>
+          </div>
+
+          <button type="submit" id="btnUnlock" class="btn">
+            Unlock Full Report & Connect With Local Specialist →
+          </button>
+        </form>
+      </div>
+
+      <!-- FULL UNLOCKED REPORT (Appears after submission) -->
+      <div id="unlockedReport" class="hidden" style="margin-top: 32px; padding-top: 24px; border-top: 2px solid var(--border);">
+        <div style="background: #ecfdf5; border: 1px solid #a7f3d0; padding: 14px 18px; border-radius: 8px; margin-bottom: 24px; color: #065f46; font-size: 14px; font-weight: 600;">
+          ✅ Full Valuation Report Unlocked! A local specialist in your ZIP code has been notified to assist you.
+        </div>
+
+        <h3 style="font-size: 18px; margin-bottom: 12px;">📊 3-Year Projected Home Equity</h3>
+        <div id="equityTable" style="margin-bottom: 24px;"></div>
+
+        <h3 style="font-size: 18px; margin-bottom: 12px;">🏡 Nearby Comparable Recent Sales</h3>
+        <div style="overflow-x: auto;">
+          <table class="comps-table">
+            <thead>
+              <tr>
+                <th>Property Address</th>
+                <th>Sold Price</th>
+                <th>Living Area</th>
+                <th>Beds/Baths</th>
+                <th>Distance</th>
+                <th>Sold Date</th>
+              </tr>
+            </thead>
+            <tbody id="compsTableBody"></tbody>
+          </table>
+        </div>
+
+        <div style="margin-top: 24px; display: flex; gap: 12px;">
+          <button type="button" class="btn" onclick="window.print()" style="background: #334155; flex: 1;">
+            🖨️ Print / Save Valuation PDF
+          </button>
+          <button type="button" class="btn" onclick="location.reload()" style="background: #e2e8f0; color: #334155; flex: 1;">
+            ↻ Start New Valuation
+          </button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    let currentValuation = null;
+    let currentProperty = null;
+
+    function showNotice(msg, isError = false) {
+      const box = document.getElementById('noticeBox');
+      box.textContent = msg;
+      box.className = 'notice ' + (isError ? 'notice-error' : 'notice-success');
+      box.classList.remove('hidden');
+      window.scrollTo({ top: box.offsetTop - 20, behavior: 'smooth' });
+    }
+
+    // Step 1: Calculate Valuation
+    document.getElementById('propertyForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('btnCalculate');
+      btn.disabled = true;
+      btn.textContent = 'Calculating localized valuation...';
+
+      const propData = {
+        street: document.getElementById('propStreet').value.trim(),
+        city: document.getElementById('propCity').value.trim(),
+        state: document.getElementById('propState').value.trim().toUpperCase(),
+        zip: document.getElementById('propZip').value.trim(),
+        sqft: Number(document.getElementById('propSqft').value),
+        beds: Number(document.getElementById('propBeds').value),
+        baths: Number(document.getElementById('propBaths').value),
+        propertyType: document.getElementById('propType').value,
+        condition: document.getElementById('propCondition').value,
+        pool: document.getElementById('propPool').value
+      };
+
+      try {
+        const res = await fetch('/api/valuation/calculate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(propData)
+        });
+
+        if (!res.ok) throw new Error((await res.json()).error || 'Valuation failed');
+        const data = await res.json();
+
+        currentValuation = data.valuation;
+        currentProperty = data.property;
+
+        // Render Results
+        document.getElementById('resEstimate').textContent = `$${data.valuation.estimate.toLocaleString()}`;
+        document.getElementById('resRange').textContent = `$${data.valuation.lowRange.toLocaleString()} – $${data.valuation.highRange.toLocaleString()}`;
+        document.getElementById('resPpsqft').textContent = `$${data.valuation.pricePerSqft} / sqft`;
+        document.getElementById('resMarketTemp').textContent = data.valuation.marketTemperature;
+        document.getElementById('resConfidence').textContent = `${data.valuation.confidenceScore}%`;
+
+        // Render Comps
+        const compsBody = document.getElementById('compsTableBody');
+        compsBody.innerHTML = data.comparableSales.map(c => `
+          <tr>
+            <td><strong>${c.address}</strong></td>
+            <td><strong style="color:#059669;">$${c.salePrice.toLocaleString()}</strong></td>
+            <td>${c.sqft} sqft</td>
+            <td>${c.beds} bd / ${c.baths} ba</td>
+            <td>📍 ${c.distanceMiles} mi</td>
+            <td>${c.saleDate}</td>
+          </tr>
+        `).join('');
+
+        // Render Equity Forecast
+        const eqContainer = document.getElementById('equityTable');
+        eqContainer.innerHTML = data.equityProjection.map(p => `
+          <div class="equity-row">
+            <span>${p.year}</span>
+            <b>$${p.value.toLocaleString()}</b>
+          </div>
+        `).join('');
+
+        document.getElementById('stepResults').classList.remove('hidden');
+        document.getElementById('stepResults').scrollIntoView({ behavior: 'smooth' });
+      } catch (err) {
+        showNotice(err.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Calculate Instant Home Valuation →';
+      }
+    });
+
+    // Step 2: Submit Lead & Route to Nyrava CRM
+    document.getElementById('leadForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('btnUnlock');
+      btn.disabled = true;
+      btn.textContent = 'Verifying & Routing Lead...';
+
+      const leadData = {
+        fullName: document.getElementById('leadName').value.trim(),
+        phone: document.getElementById('leadPhone').value.trim(),
+        email: document.getElementById('leadEmail').value.trim(),
+        timeframe: document.getElementById('leadTimeframe').value,
+        agree: document.getElementById('leadConsent').checked
+      };
+
+      try {
+        const res = await fetch('/api/valuation/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contact: leadData,
+            property: currentProperty,
+            valuation: currentValuation
+          })
+        });
+
+        if (!res.ok) throw new Error((await res.json()).error || 'Submission failed');
+        const result = await res.json();
+
+        // Unlock report
+        document.getElementById('unlockGate').classList.add('hidden');
+        document.getElementById('unlockedReport').classList.remove('hidden');
+        showNotice('Valuation confirmed! Your verified report has been prepared.');
+      } catch (err) {
+        showNotice(err.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Unlock Full Report & Connect With Local Specialist →';
+      }
+    });
+  </script>
+</body>
+</html>

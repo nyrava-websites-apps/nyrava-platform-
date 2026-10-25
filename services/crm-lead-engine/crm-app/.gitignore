@@ -1,0 +1,21 @@
+# Build output
+bin/
+obj/
+publish/
+
+# Local CRM databases and generated backups
+data/
+*.db
+*.db-shm
+*.db-wal
+*.bak
+
+# Local secrets and developer state
+appsettings.*.local.json
+appsettings.Development.json
+secrets.json
+.vs/
+.idea/
+*.user
+*.suo
+*.log

@@ -1,0 +1,61 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "1. Start CRM (port 5180)",
+      "type": "shell",
+      "command": "dotnet run --urls http://localhost:5180",
+      "options": { "cwd": "${workspaceFolder}/crm-app" },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "label": "CRM App",
+        "group": "nyrava",
+        "panel": "dedicated",
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "2. Start Lead Engine (port 5173)",
+      "type": "shell",
+      "command": "npm install --silent && npm run dev",
+      "options": { "cwd": "${workspaceFolder}/lead-engine" },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "label": "Lead Engine",
+        "group": "nyrava",
+        "panel": "dedicated",
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "3. Start Bridge (syncs every 5 min)",
+      "type": "shell",
+      "command": "node sync-bridge.mjs",
+      "options": { "cwd": "${workspaceFolder}/bridge" },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "label": "Bridge",
+        "group": "nyrava",
+        "panel": "dedicated",
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "🚀 START NYRAVA SYSTEM",
+      "dependsOn": [
+        "1. Start CRM (port 5180)",
+        "2. Start Lead Engine (port 5173)",
+        "3. Start Bridge (syncs every 5 min)"
+      ],
+      "dependsOrder": "sequence",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}

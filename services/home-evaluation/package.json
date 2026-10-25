@@ -1,0 +1,22 @@
+{
+  "name": "nyrava-home-evaluation",
+  "version": "1.0.0",
+  "description": "Nyrava Home Evaluation — Standalone Automated Valuation Model (AVM) & High-Converting Lead Generation Software",
+  "main": "server.mjs",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "keywords": [
+    "home-valuation",
+    "avm",
+    "real-estate-leads",
+    "lead-generation",
+    "nyrava-crm"
+  ],
+  "author": "Nyrava Websites & Apps",
+  "license": "Commercial",
+  "dependencies": {
+    "nodemailer": "^10.2.1"
+  }
+}

@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  # Reverse Proxy with Automatic SSL via Let's Encrypt
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - PORTAL_DOMAIN=${PORTAL_DOMAIN:-localhost}
+      - CRM_DOMAIN=${CRM_DOMAIN:-crm.localhost}
+      - VALUATION_DOMAIN=${VALUATION_DOMAIN:-value.localhost}
+      - MEET_DOMAIN=${MEET_DOMAIN:-meet.localhost}
+    volumes:
+      - ./reverse-proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web-portal
+      - crm-lead-engine
+      - home-evaluation
+      - meet-consultation
+
+  # 1. Main Public Web Portal (Home, Buyer/Seller, Navigation)
+  web-portal:
+    build:
+      context: ./services/web-portal
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - CRM_SERVICE_URL=http://crm-lead-engine:5180
+      - VALUATION_SERVICE_URL=http://home-evaluation:5190
+      - MEET_SERVICE_URL=http://meet-consultation:5000
+
+  # 2. Nyrava CRM & Lead Engine (60 Metro ZIPs, Master Bank, Realtor Dispatch)
+  crm-lead-engine:
+    build:
+      context: ./services/crm-lead-engine
+    restart: unless-stopped
+    ports:
+      - "5180:5180"
+    volumes:
+      - crm_db_data:/app/data
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://0.0.0.0:5180
+
+  # 3. Nyrava Home Evaluation Engine (AVM, Lead Capture, Email, Opt-out)
+  home-evaluation:
+    build:
+      context: ./services/home-evaluation
+    restart: unless-stopped
+    ports:
+      - "5190:5190"
+    environment:
+      - PORT=5190
+      - CRM_URL=http://crm-lead-engine:5180
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - EMAIL_FROM=${EMAIL_FROM:-no-reply@nyrava.com}
+
+  # 4. Nyrava Meet & Video Consultation (WebRTC signaling + Nyra AI)
+  meet-consultation:
+    build:
+      context: ./services/meet-consultation
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+
+volumes:
+  caddy_data:
+  caddy_config:
+  crm_db_data:

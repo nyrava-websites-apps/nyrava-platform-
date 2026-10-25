@@ -1,0 +1,14 @@
+{
+  "name": "nyrava-web-portal",
+  "version": "2.0.0",
+  "description": "Nyrava Home Public Web Portal & Unified Gateway",
+  "main": "server.mjs",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "http-proxy-middleware": "^3.0.0"
+  }
+}
