@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Subscriber Login | Nyrava Home</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f4f7f3;color:#143d2d;font-family:Arial,sans-serif;padding:20px}
+.card{width:100%;max-width:440px;background:#fff;border-radius:18px;padding:35px;box-shadow:0 12px 45px #123b2d20}
+.brand{font-weight:800;font-size:20px;color:#145139;text-decoration:none}
+h1{font-size:27px;margin:25px 0 8px}
+p{color:#60736a;line-height:1.5}
+label{display:block;font-weight:700;margin:18px 0 7px}
+input{width:100%;padding:13px;border:1px solid #bccdc3;border-radius:9px;font-size:16px}
+button{width:100%;padding:14px;margin-top:24px;background:#145139;color:white;border:0;border-radius:9px;font-size:16px;font-weight:700;cursor:pointer}
+button:disabled{opacity:.65}
+#status{margin-top:16px;min-height:22px;text-align:center}
+.back{display:block;margin-top:23px;text-align:center;color:#145139}
+</style>
+</head>
+<body>
+<main class="card">
+<a href="/" class="brand">NYRAVA HOME</a>
+<h1>Subscriber Login</h1>
+<p>Sign in to access your Realtor dashboard, leads, territories, and profile.</p>
+<form id="login">
+<label for="email">Email Address</label>
+<input id="email" type="email" autocomplete="username" required>
+<label for="password">Password</label>
+<input id="password" type="password" autocomplete="current-password" required>
+<button id="submit" type="submit">Sign In</button>
+<div id="status" role="status" aria-live="polite"></div>
+</form>
+<a href="/" class="back">Back to Nyrava Home</a>
+</main>
+<script>
+document.getElementById('login').addEventListener('submit',async e=>{
+ e.preventDefault();
+ const button=document.getElementById('submit');
+ const status=document.getElementById('status');
+ button.disabled=true;
+ status.textContent='Signing in...';
+ try{
+  const res=await fetch('/api/auth/login',{
+   method:'POST',
+   credentials:'same-origin',
+   headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({
+    email:document.getElementById('email').value.trim(),
+    password:document.getElementById('password').value
+   })
+  });
+  if(!res.ok){status.textContent='Invalid login or authentication unavailable.';return;}
+  const data=await res.json();
+  if(!data.user || !data.user.role){status.textContent='Invalid authentication response.';return;}
+  localStorage.removeItem('hsi_token');
+  localStorage.setItem('hsi_user',JSON.stringify(data.user));
+  location.assign(data.user.role==='SuperAdmin'?'/admin':'/dashboard/home');
+ }catch(err){
+  status.textContent='Unable to contact authentication service.';
+ }finally{
+  button.disabled=false;
+ }
+});
+</script>
+</body>
+</html>

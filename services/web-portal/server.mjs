@@ -30,6 +30,11 @@ app.use('/api/crm', createProxyMiddleware({
   pathRewrite: { '^/api/crm': '/api/v1' }
 }));
 
+// Direct route for Find a Realtor modal iframe
+app.get('/find-a-realtor', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'find-a-realtor.html'));
+});
+
 // Static files
 app.use(express.static(path.join(__dirname, 'public'), {
   etag: true,

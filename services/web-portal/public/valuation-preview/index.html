@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nyrava Home | Free Home Valuation</title>
+  <style>
+    :root {
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #062d22;
+      background: #f4f7f5;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 0 0 40px 0; }
+    .nav {
+      background: #073b2b;
+      color: #fff;
+      padding: 16px 24px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 2px solid #d4af37;
+    }
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.1rem;
+      letter-spacing: 0.05em;
+    }
+    .nav-brand span { color: #d4af37; }
+    .badge-live {
+      background: rgba(212, 175, 55, 0.2);
+      color: #f6d28c;
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-weight: 600;
+      border: 1px solid rgba(212, 175, 55, 0.4);
+    }
+    .wrap {
+      max-width: 900px;
+      margin: 24px auto;
+      padding: 0 16px;
+    }
+    .hero {
+      background: linear-gradient(110deg, #073b2b, #0b5038);
+      color: #fff;
+      border-radius: 16px;
+      padding: 28px 32px;
+      margin-bottom: 24px;
+      box-shadow: 0 10px 30px rgba(7, 59, 43, 0.15);
+    }
+    .hero h1 {
+      font-size: clamp(24px, 3.5vw, 36px);
+      margin: 0 0 10px;
+      font-family: Georgia, serif;
+      letter-spacing: -0.02em;
+    }
+    .hero h1 span { color: #f2c779; }
+    .hero p {
+      margin: 0;
+      color: #e7f1e8;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #dbe5df;
+      border-radius: 16px;
+      margin-bottom: 24px;
+      padding: 28px 32px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    }
+    h2 {
+      font-size: 20px;
+      margin: 0 0 6px;
+      color: #073b2b;
+      font-weight: 700;
+    }
+    .hint {
+      font-size: 13px;
+      color: #65706a;
+      margin: 0 0 20px;
+      line-height: 1.5;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+    }
+    label {
+      font-size: 13px;
+      font-weight: 700;
+      color: #252a27;
+      margin-bottom: 6px;
+    }
+    input, select {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1px solid #c2d1c9;
+      border-radius: 8px;
+      font: inherit;
+      font-size: 14px;
+      color: #173d44;
+      background: #fff;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: #073b2b;
+      box-shadow: 0 0 0 3px rgba(7, 59, 43, 0.12);
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 15px 24px;
+      background: #073b2b;
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-weight: 700;
+      font-size: 15px;
+      cursor: pointer;
+      margin-top: 20px;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .btn:hover {
+      background: #0b5038;
+      transform: translateY(-1px);
+    }
+    .btn-gold {
+      background: #d8a64b;
+      color: #062d22;
+    }
+    .btn-gold:hover {
+      background: #f2c779;
+    }
+    .check {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin: 16px 0;
+      font-size: 13px;
+      color: #4b5550;
+      line-height: 1.5;
+    }
+    .check input {
+      width: 18px;
+      height: 18px;
+      margin-top: 2px;
+      cursor: pointer;
+      accent-color: #073b2b;
+    }
+    /* Results Display */
+    .results-card {
+      border: 2px solid #073b2b;
+      border-radius: 16px;
+      padding: 28px 32px;
+      background: #ffffff;
+      box-shadow: 0 12px 35px rgba(7, 59, 43, 0.1);
+      margin-top: 24px;
+    }
+    .results-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #e3e8e3;
+      padding-bottom: 16px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .val-main {
+      font-size: 38px;
+      font-weight: 800;
+      color: #073b2b;
+      line-height: 1;
+    }
+    .val-range {
+      font-size: 14px;
+      color: #65706a;
+      margin-top: 6px;
+    }
+    .conf-badge {
+      background: #e7f1e8;
+      color: #073b2b;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-weight: 700;
+      font-size: 13px;
+      border: 1px solid #c2d1c9;
+    }
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+    .metric-box {
+      background: #f5f7f3;
+      border: 1px solid #e3e8e3;
+      border-radius: 10px;
+      padding: 14px;
+      text-align: center;
+    }
+    .metric-title {
+      font-size: 12px;
+      color: #65706a;
+      text-transform: uppercase;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .metric-num {
+      font-size: 18px;
+      font-weight: 800;
+      color: #062d22;
+    }
+    .comps-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-top: 14px;
+    }
+    .comps-table th {
+      background: #f5f7f3;
+      padding: 10px 12px;
+      text-align: left;
+      font-weight: 700;
+      color: #073b2b;
+      border-bottom: 2px solid #e3e8e3;
+    }
+    .comps-table td {
+      padding: 11px 12px;
+      border-bottom: 1px solid #e8ebe7;
+    }
+    .success-alert {
+      background: #e7f1e8;
+      border: 1px solid #b5d7ca;
+      color: #073b2b;
+      padding: 14px 18px;
+      border-radius: 10px;
+      margin-top: 20px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    @media (max-width: 650px) {
+      .grid { grid-template-columns: 1fr; }
+      .metrics-row { grid-template-columns: 1fr; }
+      .card, .results-card { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="nav">
+    <div class="nav-brand">
+      <strong>NYRAVA <span>HOME</span></strong>
+      <small style="opacity:0.8; margin-left:8px;">FREE HOME VALUATION</small>
+    </div>
+    <span class="badge-live">● REAL-TIME AVM ENGINE</span>
+  </div>
+
+  <main class="wrap">
+    <div class="hero">
+      <h1>Discover What Your Home Is <span>Really Worth</span></h1>
+      <p>Powered by Nyrava's 50-state valuation algorithm and neighborhood comparable sales. Get an instant estimate with zero guesswork.</p>
+    </div>
+
+    <!-- Active Valuation & Contact Form -->
+    <form id="valuationForm">
+      <section class="card">
+        <h2>1. Property Details</h2>
+        <p class="hint">Enter the property's address and physical specifications.</p>
+        <div class="grid">
+          <div class="field" style="grid-column: span 2;">
+            <label for="street">Street Address *</label>
+            <input id="street" required maxlength="150" placeholder="e.g. 742 Evergreen Terrace" value="742 Evergreen Terrace">
+          </div>
+          <div class="field">
+            <label for="city">City *</label>
+            <input id="city" required maxlength="80" placeholder="e.g. Austin" value="Austin">
+          </div>
+          <div class="field">
+            <label for="state">State (2 letters) *</label>
+            <input id="state" required maxlength="2" placeholder="TX" value="TX" style="text-transform: uppercase;">
+          </div>
+          <div class="field">
+            <label for="zip">ZIP Code *</label>
+            <input id="zip" required minlength="5" maxlength="5" pattern="[0-9]{5}" inputmode="numeric" placeholder="78701" value="78701">
+          </div>
+          <div class="field">
+            <label for="sqft">Living Area (sq. ft.) *</label>
+            <input type="number" id="sqft" required min="300" max="30000" placeholder="1850" value="1850">
+          </div>
+          <div class="field">
+            <label for="beds">Bedrooms *</label>
+            <input type="number" id="beds" required min="1" max="20" value="3">
+          </div>
+          <div class="field">
+            <label for="baths">Bathrooms *</label>
+            <input type="number" id="baths" required min="1" max="20" step="0.5" value="2">
+          </div>
+          <div class="field" style="grid-column: span 2;">
+            <label for="type">Property Type</label>
+            <select id="type">
+              <option value="Single Family">Single Family Home</option>
+              <option value="Condo">Condo / Apartment</option>
+              <option value="Townhouse">Townhouse</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>2. Contact &amp; Report Delivery</h2>
+        <p class="hint">Where should we deliver your complete property evaluation dossier?</p>
+        <div class="grid">
+          <div class="field" style="grid-column: span 2;">
+            <label for="name">Your Full Name *</label>
+            <input id="name" required maxlength="120" placeholder="e.g. John Doe" value="John Doe">
+          </div>
+          <div class="field">
+            <label for="email">Email Address *</label>
+            <input id="email" type="email" required maxlength="254" placeholder="john@example.com" value="john@example.com">
+          </div>
+          <div class="field">
+            <label for="phone">Phone Number *</label>
+            <input id="phone" type="tel" required placeholder="(555) 019-2834" value="(555) 019-2834">
+          </div>
+          <div class="field">
+            <label for="timeframe">Selling Timeframe</label>
+            <select id="timeframe">
+              <option value="Just exploring">Just exploring market value</option>
+              <option value="Within 30 days">Ready to sell within 30 days</option>
+              <option value="1-3 months">In the next 1-3 months</option>
+              <option value="3-6 months">In the next 3-6 months</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="check">
+          <input type="checkbox" id="agree" required checked>
+          <label for="agree">
+            I authorize Nyrava Home to prepare my valuation analysis. A complete summary will be delivered to my email, with an instant 1-click option to opt out of Realtor contact at any time.
+          </label>
+        </div>
+
+        <button type="submit" class="btn btn-gold" id="btnSubmit">
+          <span>⚡ Calculate Instant Home Valuation &amp; Comps</span>
+        </button>
+      </section>
+    </form>
+
+    <!-- Results Section (Populated on Submit) -->
+    <div id="resultsArea" class="results-card" style="display: none;">
+      <div class="results-top">
+        <div>
+          <span style="font-size:12px; font-weight:700; color:#65706a; text-transform:uppercase;">Estimated Market Value</span>
+          <div class="val-main" id="resEstValue">$0</div>
+          <div class="val-range" id="resRange">Range: $0 - $0</div>
+        </div>
+        <div class="conf-badge" id="resConfidence">94% Confidence</div>
+      </div>
+
+      <div class="metrics-row">
+        <div class="metric-box">
+          <div class="metric-title">Price / Sq. Ft.</div>
+          <div class="metric-num" id="resPriceSqft">$0</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-title">3-Yr Projected Gain</div>
+          <div class="metric-num" id="resEquityGain" style="color:#1b774e;">+$0</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-title">Market Temperature</div>
+          <div class="metric-num" id="resMarket">Active Seller</div>
+        </div>
+      </div>
+
+      <h3 style="font-size:16px; color:#073b2b; margin: 18px 0 8px 0;">Recent Local Comparable Sales (ZIP Comps)</h3>
+      <table class="comps-table">
+        <thead>
+          <tr>
+            <th>Comparable Address</th>
+            <th>Distance</th>
+            <th>Beds/Baths</th>
+            <th>Sold Price</th>
+          </tr>
+        </thead>
+        <tbody id="compsBody">
+        </tbody>
+      </table>
+
+      <div class="success-alert">
+        <span>✓</span>
+        <div>
+          <strong>Evaluation Complete &amp; Queued to CRM!</strong>
+          <div>Lead ID <span id="resLeadId" style="font-family:monospace; font-weight:bold;"></span> has been delivered to your Nyrava CRM pipeline and a report email has been sent.</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const form = document.getElementById('valuationForm');
+    const btnSubmit = document.getElementById('btnSubmit');
+    const resultsArea = document.getElementById('resultsArea');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      btnSubmit.disabled = true;
+      btnSubmit.innerHTML = '<span>⏳ Calculating Local Comps &amp; Valuation...</span>';
+
+      const payload = {
+        street: document.getElementById('street').value.trim(),
+        city: document.getElementById('city').value.trim(),
+        state: document.getElementById('state').value.trim().toUpperCase(),
+        zip: document.getElementById('zip').value.trim(),
+        sqft: parseInt(document.getElementById('sqft').value, 10),
+        beds: parseInt(document.getElementById('beds').value, 10),
+        baths: parseFloat(document.getElementById('baths').value),
+        propertyType: document.getElementById('type').value,
+        leadName: document.getElementById('name').value.trim(),
+        leadEmail: document.getElementById('email').value.trim(),
+        leadPhone: document.getElementById('phone').value.trim(),
+        timeframe: document.getElementById('timeframe').value
+      };
+
+      try {
+        // Try proxy endpoint first, fallback to direct port 5190
+        let res;
+        try {
+          res = await fetch('/api/valuation/evaluate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+        } catch {
+          res = await fetch('http://' + window.location.hostname + ':5190/api/valuation/evaluate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+        }
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Server calculation error');
+
+        const rep = data.valuationReport;
+        const val = rep.valuation;
+        const comps = rep.comparableSales || [];
+        const eq = rep.equityProjection;
+
+        document.getElementById('resEstValue').innerText = '$' + val.estimate.toLocaleString();
+        document.getElementById('resRange').innerText = 'Estimated Range: $' + val.lowRange.toLocaleString() + ' - $' + val.highRange.toLocaleString();
+        document.getElementById('resConfidence').innerText = (val.confidenceScore || 94) + '% Confidence';
+        document.getElementById('resPriceSqft').innerText = '$' + val.pricePerSqft;
+        document.getElementById('resMarket').innerText = val.marketTemperature || 'Active Market';
+        document.getElementById('resLeadId').innerText = data.leadId || 'val-lead';
+
+        // 3-year gain
+        if (Array.isArray(eq) && eq.length >= 4) {
+          const gain = eq[3].value - eq[0].value;
+          document.getElementById('resEquityGain').innerText = '+$' + gain.toLocaleString();
+        }
+
+        // Comps
+        const tbody = document.getElementById('compsBody');
+        tbody.innerHTML = '';
+        comps.forEach(c => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${c.address}</strong></td>
+            <td>${c.distanceMiles} mi</td>
+            <td>${c.beds}b / ${c.baths}ba</td>
+            <td style="color:#073b2b; font-weight:bold;">$${c.salePrice.toLocaleString()}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        resultsArea.style.display = 'block';
+        resultsArea.scrollIntoView({ behavior: 'smooth' });
+
+      } catch (err) {
+        alert('Could not complete valuation: ' + err.message);
+      } finally {
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = '<span>⚡ Calculate Instant Home Valuation &amp; Comps</span>';
+      }
+    });
+  </script>
+</body>
+</html>
