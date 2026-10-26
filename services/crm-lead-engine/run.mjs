@@ -7,6 +7,7 @@
 import { readFileSync, existsSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { eventBus } from '../common/event-bus.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const LOG = join(__dirname, 'nyrava-leads.log');

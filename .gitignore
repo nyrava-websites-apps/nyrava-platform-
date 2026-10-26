@@ -7,4 +7,6 @@ Thumbs.db
 .env
 data/
 outbox/
+backups/
+scratch/
 *.tmp

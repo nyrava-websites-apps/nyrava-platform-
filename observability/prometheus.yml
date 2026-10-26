@@ -1,0 +1,33 @@
+# ===================================================================
+# NYRAVA HOME — PROMETHEUS OBSERVABILITY & METRICS CONFIGURATION
+# Blue Architecture: Centralized Monitoring, Health Checks & Telemetry
+# ===================================================================
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # 1. CRM & Lead Engine Metrics
+  - job_name: 'crm-lead-engine'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['crm-lead-engine:5180']
+
+  # 2. Web Portal Metrics
+  - job_name: 'web-portal'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['web-portal:3000']
+
+  # 3. Video Meeting & Signaling Metrics
+  - job_name: 'meet-consultation'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['meet-consultation:5000']
+
+  # 4. Property Valuation Metrics
+  - job_name: 'home-evaluation'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['home-evaluation:5190']

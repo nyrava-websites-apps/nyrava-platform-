@@ -308,7 +308,13 @@ app.use(express.static(path.join(__dirname, 'public'), {
 }));
 
 // Health check
-app.get(['/health', '/api/health'], (req, res) => {
+app.get('/metrics', (req, res) => {
+  const uptime = Math.floor(process.uptime());
+  res.setHeader('Content-Type', 'text/plain');
+  res.send(`# HELP nyrava_portal_uptime_seconds Web portal uptime\n# TYPE nyrava_portal_uptime_seconds gauge\nnyrava_portal_uptime_seconds ${uptime}\n`);
+});
+
+app.get(['/health', '/healthz', '/api/health'], (req, res) => {
   res.json({
     status: 'online',
     service: 'nyrava-web-portal',
