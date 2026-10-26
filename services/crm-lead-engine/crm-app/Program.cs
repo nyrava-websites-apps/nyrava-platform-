@@ -26,7 +26,12 @@ builder.Services.AddDbContext<CrmDb>(options => {
         case "mysql":
             if (string.IsNullOrWhiteSpace(connectionString)) throw new InvalidOperationException("Set ConnectionStrings:Crm for MySQL.");
             options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)); break;
-        default: throw new InvalidOperationException("Database:Provider must be Sqlite, SqlServer, or MySql.");
+        case "postgresql":
+        case "postgres":
+        case "npgsql":
+            if (string.IsNullOrWhiteSpace(connectionString)) throw new InvalidOperationException("Set ConnectionStrings:Crm for PostgreSQL.");
+            options.UseNpgsql(connectionString); break;
+        default: throw new InvalidOperationException("Database:Provider must be Sqlite, SqlServer, MySql, or PostgreSql.");
     }
 });
 builder.Services.AddCors(options => {
@@ -292,6 +297,94 @@ app.MapPost("/api/auth/token-login", async (TokenLoginInput input, CrmDb db, Htt
         workspaceId = user.WorkspaceId
     });
 }).AllowAnonymous();
+
+// --- OBSERVABILITY & HEALTH ---
+var processStartTime = DateTimeOffset.UtcNow;
+app.MapGet("/healthz", async (CrmDb db) => {
+    var dbHealthy = false;
+    try {
+        dbHealthy = await db.Database.CanConnectAsync();
+    } catch { }
+    return Results.Ok(new {
+        status = dbHealthy ? "healthy" : "degraded",
+        uptime_seconds = (DateTimeOffset.UtcNow - processStartTime).TotalSeconds,
+        timestamp = DateTimeOffset.UtcNow,
+        database = db.Database.ProviderName ?? "Unknown"
+    });
+}).AllowAnonymous();
+
+app.MapGet("/metrics", async (CrmDb db) => {
+    var uptime = (DateTimeOffset.UtcNow - processStartTime).TotalSeconds;
+    var userCount = 0;
+    var contactCount = 0;
+    try {
+        userCount = await db.Users.CountAsync();
+        contactCount = await db.Contacts.CountAsync();
+    } catch { }
+    var metrics = $"# HELP nyrava_uptime_seconds Application uptime in seconds\n" +
+                  $"# TYPE nyrava_uptime_seconds gauge\n" +
+                  $"nyrava_uptime_seconds {uptime}\n\n" +
+                  $"# HELP nyrava_users_total Total registered users in database\n" +
+                  $"# TYPE nyrava_users_total gauge\n" +
+                  $"nyrava_users_total {userCount}\n\n" +
+                  $"# HELP nyrava_contacts_total Total managed contacts in database\n" +
+                  $"# TYPE nyrava_contacts_total gauge\n" +
+                  $"nyrava_contacts_total {contactCount}\n";
+    return Results.Content(metrics, "text/plain");
+}).AllowAnonymous();
+
+// --- CENTRAL IDENTITY & JWT SERVICE (BLUE ARCHITECTURE) ---
+app.MapPost("/api/auth/token", async (TokenExchangeInput input, CrmDb db) => {
+    var email = input.Email?.Trim().ToLowerInvariant();
+    if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(input.Password))
+        return Results.BadRequest(new { error = "Email and password are required." });
+
+    var user = await db.Users.SingleOrDefaultAsync(x => x.Email == email);
+    if (user is null || !BCrypt.Net.BCrypt.Verify(input.Password, user.PasswordHash))
+        return Results.Unauthorized();
+
+    var tokens = IdentityService.GenerateTokens(user, builder.Configuration);
+    return Results.Ok(tokens);
+}).AllowAnonymous();
+
+app.MapPost("/api/auth/refresh", async (RefreshTokenInput input, CrmDb db) => {
+    if (string.IsNullOrWhiteSpace(input.RefreshToken) || !IdentityService.TryValidateRefreshToken(input.RefreshToken, out var userId, out _))
+        return Results.BadRequest(new { error = "Invalid or expired refresh token." });
+
+    var user = await db.Users.FindAsync(userId);
+    if (user is null) return Results.NotFound();
+
+    IdentityService.RevokeRefreshToken(input.RefreshToken);
+    var tokens = IdentityService.GenerateTokens(user, builder.Configuration);
+    return Results.Ok(tokens);
+}).AllowAnonymous();
+
+app.MapGet("/api/auth/jwks.json", () => {
+    var issuer = "https://crm.nyrava.com";
+    return Results.Ok(new {
+        keys = new[] {
+            new {
+                kty = "oct",
+                use = "sig",
+                alg = "HS256",
+                iss = issuer
+            }
+        }
+    });
+}).AllowAnonymous();
+
+app.MapPost("/api/auth/mfa/setup", async (CrmDb db, HttpContext http) => {
+    var actor = await CurrentUser(db, http);
+    var setup = IdentityService.SetupMfa(actor);
+    return Results.Ok(setup);
+}).RequireAuthorization();
+
+app.MapPost("/api/auth/mfa/verify", async (MfaVerifyInput input, CrmDb db, HttpContext http) => {
+    var actor = await CurrentUser(db, http);
+    var valid = IdentityService.VerifyMfaCode(actor.Id, input.Code ?? "");
+    if (!valid) return Results.BadRequest(new { error = "Invalid multi-factor authentication code." });
+    return Results.Ok(new { verified = true, message = "MFA verification successful." });
+}).RequireAuthorization();
 
 app.MapPost("/api/auth/google", async (GoogleAuthInput input, CrmDb db, HttpContext http) => {
     var email = input.Email?.Trim().ToLowerInvariant();
@@ -1430,6 +1523,10 @@ record AdminLeadAssignInput(long RealtorUserId);
 record ForgotPasswordInput(string? Email);
 record ResetPasswordInput(string? Token, string? NewPassword);
 record TestEmailInput(string? Recipient, string? Type);
+
+record TokenExchangeInput(string? Email, string? Password);
+record RefreshTokenInput(string? RefreshToken);
+record MfaVerifyInput(string? Code);
 
 public partial class Program { }
 

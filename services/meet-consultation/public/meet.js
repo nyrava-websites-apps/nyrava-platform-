@@ -33,7 +33,9 @@
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' }
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:meet.nyrava.com:3478' },
+      { urls: 'turn:meet.nyrava.com:3478', username: 'nyrava_user', credential: 'turn_secure_pass_2026' }
     ]
   };
 

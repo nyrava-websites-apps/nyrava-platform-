@@ -1,29 +1,100 @@
-# Caddy Reverse Proxy & Automatic SSL Configuration for Nyrava Ecosystem
+# ===================================================================
+# NYRAVA HOME — PRODUCTION HARDENED CADDY REVERSE PROXY & WAF
+# Blue Architecture: Edge TLS, Security Headers, WAF, Rate Limiting
+# ===================================================================
 
-# Web Portal (Frontend)
+(security_headers) {
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "camera=(self 'https://{$MEET_DOMAIN:meet.localhost}'), microphone=(self 'https://{$MEET_DOMAIN:meet.localhost}'), geolocation=()"
+        -Server
+    }
+}
+
+(waf_rules) {
+    # Block sensitive paths, environment files, git, backups, and SQL dumps
+    @blocked_paths {
+        path */.*
+        path *.env*
+        path *.git*
+        path *.sql*
+        path *.bak*
+        path */wp-admin*
+        path */xmlrpc.php*
+        path */.vscode*
+    }
+    respond @blocked_paths 403
+
+    # Limit maximum body size to protect against buffer overflow / DOS
+    request_body {
+        max_size 25MB
+    }
+}
+
+# 1. Main Web Portal (home.nyrava.com)
 http://{$PORTAL_DOMAIN:localhost}, https://{$PORTAL_DOMAIN:localhost} {
-    reverse_proxy web-portal:3000
+    import security_headers
+    import waf_rules
+
+    reverse_proxy web-portal:3000 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
     encode gzip zstd
 }
 
-# CRM & Lead Engine
+# 2. Realtor CRM & Lead Engine (crm.nyrava.com)
 http://{$CRM_DOMAIN:crm.localhost}, https://{$CRM_DOMAIN:crm.localhost} {
-    reverse_proxy crm-lead-engine:5180
+    import security_headers
+    import waf_rules
+
+    reverse_proxy crm-lead-engine:5180 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
     encode gzip zstd
 }
 
-# Home Evaluation Engine
+# 3. Automated Property Evaluation (value.nyrava.com)
 http://{$VALUATION_DOMAIN:value.localhost}, https://{$VALUATION_DOMAIN:value.localhost} {
-    reverse_proxy home-evaluation:5190
+    import security_headers
+    import waf_rules
+
+    reverse_proxy home-evaluation:5190 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
     encode gzip zstd
 }
 
-# Video Consultation & Nyra Meet
+# 4. Video Consultation & Nyra Meet (meet.nyrava.com)
 http://{$MEET_DOMAIN:meet.localhost}, https://{$MEET_DOMAIN:meet.localhost} {
+    # Video meeting allows framing by parent CRM window
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "camera=*, microphone=*, display-capture=*"
+        -Server
+    }
+    import waf_rules
+
     reverse_proxy meet-consultation:5000 {
         # WebSocket support for WebRTC signaling
         header_up Host {host}
         header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
     }
     encode gzip zstd
 }

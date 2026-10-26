@@ -12,13 +12,33 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
 const PORT = process.env.PORT || 5000;
+const startTime = Date.now();
 
-// Enable CORS for external embedding (like Jitsi external API)
+// Resilient Redis presence adapter
+let redis = null;
+if (process.env.REDIS_HOST || process.env.REDIS_URL) {
+  try {
+    const { default: Redis } = await import('ioredis');
+    redis = new Redis(process.env.REDIS_URL || {
+      host: process.env.REDIS_HOST || '127.0.0.1',
+      port: Number(process.env.REDIS_PORT) || 6379,
+      password: process.env.REDIS_PASSWORD || undefined,
+      lazyConnect: true,
+      retryStrategy: (times) => Math.min(times * 200, 3000)
+    });
+    redis.connect().catch((err) => {
+      console.log('[Meet Redis] Optional presence falling back to local memory:', err.message);
+    });
+  } catch (err) {
+    console.log('[Meet Redis] Optional ioredis not active:', err.message);
+  }
+}
+
+// Enable CORS for external embedding
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  // Allow iframing by parent origins
   res.removeHeader('X-Frame-Options');
   res.setHeader('Content-Security-Policy', "frame-ancestors *;");
   next();
@@ -26,15 +46,46 @@ app.use((req, res, next) => {
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Health check endpoint
-app.get('/health', (req, res) => {
+// Observability: Health endpoint
+app.get(['/health', '/healthz'], (req, res) => {
   res.json({
-    service: 'nyrava-team-meet',
-    status: 'online',
+    service: 'meet-consultation',
+    status: 'healthy',
     port: PORT,
+    uptime_seconds: Math.floor((Date.now() - startTime) / 1000),
     activeRooms: rooms.size,
-    time: new Date().toISOString()
+    redis: redis && redis.status === 'ready' ? 'connected' : 'in-memory',
+    timestamp: new Date().toISOString()
   });
+});
+
+// Observability: Prometheus Metrics
+app.get('/metrics', (req, res) => {
+  let totalPeers = 0;
+  rooms.forEach((peers) => { totalPeers += peers.size; });
+  const uptime = Math.floor((Date.now() - startTime) / 1000);
+  const metrics = `# HELP nyrava_meet_uptime_seconds Video service uptime in seconds\n` +
+                  `# TYPE nyrava_meet_uptime_seconds gauge\n` +
+                  `nyrava_meet_uptime_seconds ${uptime}\n\n` +
+                  `# HELP nyrava_meet_active_rooms Active video rooms\n` +
+                  `# TYPE nyrava_meet_active_rooms gauge\n` +
+                  `nyrava_meet_active_rooms ${rooms.size}\n\n` +
+                  `# HELP nyrava_meet_active_peers Active connected participants\n` +
+                  `# TYPE nyrava_meet_active_peers gauge\n` +
+                  `nyrava_meet_active_peers ${totalPeers}\n`;
+  res.setHeader('Content-Type', 'text/plain');
+  res.send(metrics);
+});
+
+// Redis Presence Query
+app.get('/api/presence', async (req, res) => {
+  if (redis && redis.status === 'ready') {
+    try {
+      const activeRooms = await redis.smembers('nyra:rooms');
+      return res.json({ source: 'redis', activeRooms, roomCount: activeRooms.length });
+    } catch (e) { }
+  }
+  res.json({ source: 'memory', activeRooms: Array.from(rooms.keys()), roomCount: rooms.size });
 });
 
 // Direct room routes: /room/:roomId or /:roomId
@@ -43,7 +94,7 @@ app.get(['/room/:roomId', '/:roomId([a-zA-Z0-9_-]{3,64})'], (req, res) => {
 });
 
 // ===================================================================
-// WebRTC Signaling Server for Multi-Party Mesh Calls
+// WebRTC Signaling Server with Redis Presence Integration
 // ===================================================================
 const rooms = new Map(); // roomId -> Map of clientId -> { ws, name }
 
@@ -62,6 +113,12 @@ wss.on('connection', (ws) => {
         }
         const roomPeers = rooms.get(currentRoom);
         roomPeers.set(clientId, { ws, name: data.name || 'Participant' });
+
+        // Update Redis Presence
+        if (redis && redis.status === 'ready') {
+          redis.sadd('nyra:rooms', currentRoom).catch(() => {});
+          redis.hset(`nyra:room:${currentRoom}:peers`, clientId, data.name || 'Participant').catch(() => {});
+        }
 
         // Notify newcomer of all active peers in room
         const participants = [];
@@ -135,6 +192,14 @@ wss.on('connection', (ws) => {
       const roomPeers = rooms.get(currentRoom);
       roomPeers.delete(clientId);
 
+      // Update Redis Presence
+      if (redis && redis.status === 'ready') {
+        redis.hdel(`nyra:room:${currentRoom}:peers`, clientId).catch(() => {});
+        if (roomPeers.size === 0) {
+          redis.srem('nyra:rooms', currentRoom).catch(() => {});
+        }
+      }
+
       // Notify others in room
       roomPeers.forEach((peer) => {
         if (peer.ws.readyState === WebSocket.OPEN) {
@@ -155,8 +220,9 @@ wss.on('connection', (ws) => {
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`=================================================================`);
-  console.log(`   NYRAVA TEAM MEET SERVER (STANDALONE)`);
+  console.log(`   NYRAVA TEAM MEET SERVER (BLUE ARCHITECTURE WITH REDIS)`);
   console.log(`   Running at: http://localhost:${PORT}`);
-  console.log(`   Embed API: http://localhost:${PORT}/external_api.js`);
+  console.log(`   Health: http://localhost:${PORT}/healthz`);
+  console.log(`   Metrics: http://localhost:${PORT}/metrics`);
   console.log(`=================================================================`);
 });

@@ -81,6 +81,22 @@ const server = http.createServer(async (req, res) => {
 
   const url = new URL(req.url, `http://${req.headers.host}`);
 
+  // Observability: Health & Metrics
+  if (req.method === 'GET' && (url.pathname === '/healthz' || url.pathname === '/health')) {
+    return sendJson(res, 200, {
+      status: 'healthy',
+      service: 'home-evaluation',
+      port: config.port || 5190,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/metrics') {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    const uptime = Math.floor(process.uptime());
+    return res.end(`# HELP nyrava_valuation_uptime_seconds Valuation engine uptime\n# TYPE nyrava_valuation_uptime_seconds gauge\nnyrava_valuation_uptime_seconds ${uptime}\n`);
+  }
+
   // ENDPOINT: /capture (From official Nyrava live valuation form)
   if (req.method === 'POST' && (url.pathname === '/capture' || url.pathname === '/api/valuation/capture')) {
     try {
