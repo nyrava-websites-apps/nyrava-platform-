@@ -20,10 +20,10 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      - PORTAL_DOMAIN=${PORTAL_DOMAIN:-localhost}
-      - CRM_DOMAIN=${CRM_DOMAIN:-crm.localhost}
-      - VALUATION_DOMAIN=${VALUATION_DOMAIN:-value.localhost}
-      - MEET_DOMAIN=${MEET_DOMAIN:-meet.localhost}
+      - PORTAL_DOMAIN=${PORTAL_DOMAIN:-home.nyrava.com}
+      - CRM_DOMAIN=${CRM_DOMAIN:-crm.nyrava.com}
+      - VALUATION_DOMAIN=${VALUATION_DOMAIN:-value.nyrava.com}
+      - MEET_DOMAIN=${MEET_DOMAIN:-meet.nyrava.com}
     volumes:
       - ./reverse-proxy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

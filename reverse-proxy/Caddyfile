@@ -1,3 +1,7 @@
+{
+    email admin@nyrava.com
+}
+
 # ===================================================================
 # NYRAVA HOME — PRODUCTION HARDENED CADDY REVERSE PROXY & WAF
 # Blue Architecture: Edge TLS, Security Headers, WAF, Rate Limiting
@@ -10,7 +14,7 @@
         X-Frame-Options "SAMEORIGIN"
         X-XSS-Protection "1; mode=block"
         Referrer-Policy "strict-origin-when-cross-origin"
-        Permissions-Policy "camera=(self 'https://{$MEET_DOMAIN:meet.localhost}'), microphone=(self 'https://{$MEET_DOMAIN:meet.localhost}'), geolocation=()"
+        Permissions-Policy "camera=(self 'https://{$MEET_DOMAIN:meet.nyrava.com}'), microphone=(self 'https://{$MEET_DOMAIN:meet.nyrava.com}'), geolocation=()"
         -Server
     }
 }
@@ -36,7 +40,7 @@
 }
 
 # 1. Main Web Portal (home.nyrava.com)
-http://{$PORTAL_DOMAIN:localhost}, https://{$PORTAL_DOMAIN:localhost} {
+http://{$PORTAL_DOMAIN:home.nyrava.com}, https://{$PORTAL_DOMAIN:home.nyrava.com} {
     import security_headers
     import waf_rules
 
@@ -50,7 +54,7 @@ http://{$PORTAL_DOMAIN:localhost}, https://{$PORTAL_DOMAIN:localhost} {
 }
 
 # 2. Realtor CRM & Lead Engine (crm.nyrava.com)
-http://{$CRM_DOMAIN:crm.localhost}, https://{$CRM_DOMAIN:crm.localhost} {
+http://{$CRM_DOMAIN:crm.nyrava.com}, https://{$CRM_DOMAIN:crm.nyrava.com} {
     import security_headers
     import waf_rules
 
@@ -64,7 +68,7 @@ http://{$CRM_DOMAIN:crm.localhost}, https://{$CRM_DOMAIN:crm.localhost} {
 }
 
 # 3. Automated Property Evaluation (value.nyrava.com)
-http://{$VALUATION_DOMAIN:value.localhost}, https://{$VALUATION_DOMAIN:value.localhost} {
+http://{$VALUATION_DOMAIN:value.nyrava.com}, https://{$VALUATION_DOMAIN:value.nyrava.com} {
     import security_headers
     import waf_rules
 
@@ -78,7 +82,7 @@ http://{$VALUATION_DOMAIN:value.localhost}, https://{$VALUATION_DOMAIN:value.loc
 }
 
 # 4. Video Consultation & Nyra Meet (meet.nyrava.com)
-http://{$MEET_DOMAIN:meet.localhost}, https://{$MEET_DOMAIN:meet.localhost} {
+http://{$MEET_DOMAIN:meet.nyrava.com}, https://{$MEET_DOMAIN:meet.nyrava.com} {
     # Video meeting allows framing by parent CRM window
     header {
         Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
