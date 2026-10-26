@@ -605,7 +605,17 @@ app.MapGet("/api/admin/area-intelligence", async (CrmDb db, HttpContext http) =>
             lostCount = g.Count(c => c.Stage == "Lost Lead"),
             sources = g.Select(c => c.Source ?? "Fsbo").Distinct().ToList(),
             sampleSourceUrl = g.Select(c => c.SourceUrl).FirstOrDefault(u => !string.IsNullOrEmpty(u)),
-            lastLeadAt = g.Max(c => c.UpdatedAt)
+            lastLeadAt = g.Max(c => c.UpdatedAt),
+            leads = g.Select(c => new {
+                id = c.Id,
+                name = c.Name,
+                email = c.Email,
+                phone = c.Phone,
+                company = c.Company,
+                stage = c.Stage,
+                source = c.Source,
+                notes = c.Notes
+            }).ToList()
         })
         .OrderByDescending(g => g.totalLeads)
         .ToList();
