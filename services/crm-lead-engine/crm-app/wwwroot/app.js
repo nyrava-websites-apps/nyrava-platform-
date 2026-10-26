@@ -205,11 +205,45 @@ function renderSidebar(){
 }
 
 async function init(){try{const demo=await api('/api/demo-info');demoMode=!!demo.enabled;$('#demoAuthHint').classList.toggle('hidden',!demo.enabled||!register)}catch{demoMode=false}$('#accountRoleHint').classList.toggle('hidden',!register);
-const qAdmin=$('#quickLoginAdmin');if(qAdmin)qAdmin.onclick=()=>{if($('#authEmail'))$('#authEmail').value='admin@home.nyrava.com';if($('#authPassword'))$('#authPassword').value='Shazbot!Dog5!';$('#authForm').requestSubmit()};
-const qRealtor=$('#quickLoginRealtor');if(qRealtor)qRealtor.onclick=()=>{if($('#authEmail'))$('#authEmail').value='test.realtor@nyrava.com';if($('#authPassword'))$('#authPassword').value='Password123456!';$('#authForm').requestSubmit()};
-const qTeam=$('#quickLoginTeam');if(qTeam)qTeam.onclick=()=>{if($('#authEmail'))$('#authEmail').value='team.agent@nyrava.com';if($('#authPassword'))$('#authPassword').value='Password123456!';$('#authForm').requestSubmit()};
+async function doQuickLogin(email, password, label) {
+  notice(`Signing in as ${label}...`, false);
+  try {
+    await api('/api/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password })
+    });
+    notice('Signed in successfully!', false);
+    await init();
+  } catch(err) {
+    if($('#authError')) $('#authError').textContent = err.message;
+    notice(err.message, true);
+  }
+}
 
-const btnG=$('#btnGoogleAuth');if(btnG)btnG.onclick=()=>{notice('Google Identity authenticated.',false);setTimeout(()=>window.location.reload(),1000)};
+async function doGoogleAuth(email) {
+  notice(`Authenticating with Google as ${email}...`, false);
+  try {
+    await api('/api/auth/google', {
+      method: 'POST',
+      body: JSON.stringify({ email })
+    });
+    notice('Google identity verified!', false);
+    await init();
+  } catch(err) {
+    if($('#authError')) $('#authError').textContent = err.message;
+    notice(err.message, true);
+  }
+}
+
+const qAdmin=$('#quickLoginAdmin');if(qAdmin)qAdmin.onclick=()=>doQuickLogin('admin@home.nyrava.com','Shazbot!Dog5!','Platform Admin');
+const qRealtor=$('#quickLoginRealtor');if(qRealtor)qRealtor.onclick=()=>doQuickLogin('test.realtor@nyrava.com','Password123456!','Test Realtor');
+const qTeam=$('#quickLoginTeam');if(qTeam)qTeam.onclick=()=>doQuickLogin('team.agent@nyrava.com','Password123456!','Test Team Member');
+
+const btnG=$('#btnGoogleAuth');if(btnG)btnG.onclick=()=>{
+  const targetEmail = prompt('Select or enter Google Account to sign in with:', 'test.realtor@nyrava.com');
+  if(targetEmail && targetEmail.trim()) doGoogleAuth(targetEmail.trim());
+};
+
 const btnForgot=$('#btnForgotPass');const forgotSec=$('#forgotPassSection');const authForm=$('#authForm');
 if(btnForgot&&forgotSec){btnForgot.onclick=()=>{authForm.classList.add('hidden');forgotSec.classList.remove('hidden')}}
 const btnBack=$('#btnBackToLogin');if(btnBack&&forgotSec){btnBack.onclick=()=>{forgotSec.classList.add('hidden');authForm.classList.remove('hidden')}}

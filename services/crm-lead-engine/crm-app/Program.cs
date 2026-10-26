@@ -29,13 +29,23 @@ builder.Services.AddDbContext<CrmDb>(options => {
         default: throw new InvalidOperationException("Database:Provider must be Sqlite, SqlServer, or MySql.");
     }
 });
+builder.Services.AddCors(options => {
+    options.AddDefaultPolicy(policy => {
+        policy.SetIsOriginAllowed(origin => true)
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
 builder.Services.AddAuthentication("crm-cookie").AddCookie("crm-cookie", options => {
-    // Browsers scope cookies to host/path, not port. Keep localhost demo and
-    // regular CRM profiles from overwriting or clearing each other's session.
     options.Cookie.Name = demoMode ? "NyravaCRM.Session.Demo" : "NyravaCRM.Session";
     options.Cookie.HttpOnly = true;
-    options.Cookie.SameSite = SameSiteMode.Strict;
-    options.Cookie.SecurePolicy = secureCookie ? CookieSecurePolicy.Always : CookieSecurePolicy.SameAsRequest;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    if (!builder.Environment.IsDevelopment()) {
+        options.Cookie.Domain = ".nyrava.com";
+    }
     options.LoginPath = "/login.html";
     options.Events.OnRedirectToLogin = context => {
         if (context.Request.Path.StartsWithSegments("/api")) {
@@ -136,7 +146,17 @@ await using (var scope = app.Services.CreateAsyncScope())
     if (demoMode) await SeedDemoWorkspaceAsync(db);
 }
 
-app.Use(async (context,next)=>{
+app.UseCors();
+app.Use(async (context, next) => {
+    if (context.Request.Method == "OPTIONS") {
+        var origin = context.Request.Headers["Origin"].ToString();
+        if (!string.IsNullOrEmpty(origin)) context.Response.Headers["Access-Control-Allow-Origin"] = origin;
+        context.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With";
+        context.Response.Headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS";
+        context.Response.Headers["Access-Control-Allow-Credentials"] = "true";
+        context.Response.StatusCode = StatusCodes.Status200OK;
+        return;
+    }
     try { await next(); }
     catch(UnauthorizedAccessException ex) { context.Response.StatusCode=StatusCodes.Status403Forbidden; await context.Response.WriteAsJsonAsync(new{error=ex.Message}); }
 });
@@ -243,6 +263,54 @@ app.MapPost("/api/login", async (LoginRequest request, CrmDb db, HttpContext htt
         subscriptionStatus = user.SubscriptionStatus
     });
 }).AllowAnonymous();
+
+app.MapPost("/api/auth/google", async (GoogleAuthInput input, CrmDb db, HttpContext http) => {
+    var email = input.Email?.Trim().ToLowerInvariant();
+    if (string.IsNullOrWhiteSpace(email) || !ValidEmail(email)) {
+        return Results.BadRequest(new { error = "Valid Google email is required." });
+    }
+
+    var user = await db.Users.SingleOrDefaultAsync(x => x.Email == email);
+    if (user is null) {
+        user = new CrmUser {
+            Email = email,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString("N")),
+            Role = IsPlatformAdminEmail(email) ? "Admin" : "Owner",
+            Country = "US",
+            PostalCode = "77084",
+            SubscribedZipCodes = "77084, 77002, 78701",
+            SubscriptionStatus = "Active",
+            SubscriptionPlan = "Realtor Pro Subscription",
+            SubscriptionPrice = 499.0m,
+            Currency = "USD"
+        };
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        user.WorkspaceId = user.Id;
+        await db.SaveChangesAsync();
+    }
+
+    if (!await db.Memberships.AnyAsync(x => x.OwnerUserId == user.WorkspaceId && x.UserId == user.Id && x.Active)) {
+        db.Memberships.Add(new CrmMembership { OwnerUserId = user.WorkspaceId, UserId = user.Id, Role = user.Role, Active = true });
+        await db.SaveChangesAsync();
+    }
+
+    await SignIn(http, user);
+
+    return Results.Ok(new {
+        id = user.Id,
+        email = user.Email,
+        role = user.Role,
+        isPlatformAdmin = IsPlatformAdmin(user),
+        workspaceId = user.WorkspaceId,
+        country = user.Country,
+        postalCode = user.PostalCode,
+        subscribedZipCodes = user.SubscribedZipCodes,
+        subscriptionStatus = user.SubscriptionStatus,
+        subscriptionPlan = user.SubscriptionPlan
+    });
+}).AllowAnonymous();
+
 
 app.MapPost("/api/logout", async (HttpContext http) => {
     await http.SignOutAsync("crm-cookie");
@@ -1285,3 +1353,5 @@ record AppointmentResultRecord(string Result,string? Notes,DateTimeOffset At,lon
 record AdminLeadAssignInput(long RealtorUserId);
 
 public partial class Program { }
+
+record GoogleAuthInput(string? Email, string? Name, string? GoogleId, string? Credential);
