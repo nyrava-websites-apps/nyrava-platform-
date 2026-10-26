@@ -11,10 +11,10 @@
     "from": "\"Nyrava Home Evaluation\" <your-email@gmail.com>"
   },
   "branding": {
-    "appName": "Nyrava Home Evaluation",
-    "companyName": "Nyrava Technologies",
-    "supportEmail": "valuations@nyrava.com",
+    "appName": "Nyrava Home Valuation",
+    "companyName": "Nyrava Home",
+    "supportEmail": "support@home.nyrava.com",
     "supportPhone": "(800) 555-0199",
-    "accentColor": "#059669"
+    "accentColor": "#0066ff"
   }
 }

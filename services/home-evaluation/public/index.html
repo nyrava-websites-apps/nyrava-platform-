@@ -3,103 +3,234 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Nyrava Home Evaluation | Real Comparative Market Analysis</title>
+  <title>Nyrava Home | Comparative Market Analysis & Property Valuation</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      --primary: #059669;
-      --primary-hover: #047857;
-      --primary-light: #ecfdf5;
+      --primary: #0066ff;
+      --primary-hover: #0052cc;
+      --primary-light: #eff6ff;
       --dark: #0f172a;
       --slate: #475569;
       --border: #e2e8f0;
-      --bg: #f8fafc;
+      --bg: #f4f6f8;
       --card-bg: #ffffff;
-      --radius: 12px;
-      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      --radius: 14px;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: var(--bg); color: var(--dark); line-height: 1.5; min-height: 100vh; }
-    .header { background: #064e3b; color: #fff; padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-    .header-brand { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
-    .header-badge { background: #10b981; color: #fff; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 20px; text-transform: uppercase; }
-    .container { max-width: 960px; margin: 36px auto; padding: 0 16px; }
-    .hero { text-align: center; margin-bottom: 32px; }
-    .hero h1 { font-size: 34px; font-weight: 800; color: #0f172a; letter-spacing: -0.03em; margin-bottom: 8px; }
-    .hero p { font-size: 16px; color: var(--slate); max-width: 620px; margin: 0 auto; }
-    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04); margin-bottom: 24px; }
-    .card-title { font-size: 20px; font-weight: 700; color: #0f172a; margin-bottom: 6px; }
-    .card-subtitle { font-size: 13px; color: var(--slate); margin-bottom: 20px; }
+    body { background: var(--bg); color: var(--dark); line-height: 1.5; min-height: 100vh; font-family: inherit; }
+    
+    /* Header matching Nyrava Home unified navbar */
+    .header {
+      background: #041533;
+      color: #ffffff;
+      padding: 16px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #0f2b5c;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+    }
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .brand-link {
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .brand-wordmark {
+      font-size: 21px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: #ffffff;
+      text-transform: lowercase;
+    }
+    .brand-wordmark span {
+      font-weight: 400;
+      color: #38bdf8;
+    }
+    .header-divider {
+      color: #1e3a6a;
+      font-size: 16px;
+      font-weight: 300;
+    }
+    .header-subtitle {
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      color: #38bdf8;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .header-badge {
+      background: #0066ff;
+      color: #ffffff;
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .header-badge.private-badge {
+      background: #0284c7;
+      box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4);
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .header-quiet-btn {
+      color: #93c5fd;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid #1e3a6a;
+      background: #08214d;
+      transition: all 0.15s ease;
+    }
+    .header-quiet-btn:hover {
+      background: #0e2e6b;
+      color: #ffffff;
+    }
+
+    /* Container & Layout */
+    .container { max-width: 960px; margin: 32px auto; padding: 0 18px; }
+    .hero { text-align: center; margin-bottom: 28px; }
+    .hero-eyebrow { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #0066ff; font-weight: 700; margin-bottom: 6px; }
+    .hero h1 { font-size: 32px; font-weight: 800; color: #0f172a; letter-spacing: -0.03em; margin-bottom: 8px; }
+    .hero p { font-size: 15px; color: var(--slate); max-width: 640px; margin: 0 auto; line-height: 1.6; }
+    
+    /* Banners */
+    .agent-banner {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 12px;
+      padding: 14px 18px;
+      margin-bottom: 24px;
+      color: #1e40af;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .agent-banner-title {
+      font-weight: 750;
+      font-size: 14px;
+      margin-bottom: 4px;
+      color: #1e3a8a;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Cards */
+    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 30px; box-shadow: 0 3px 14px rgba(15, 23, 42, 0.05); margin-bottom: 24px; }
+    .card-title { font-size: 19px; font-weight: 750; color: #0f172a; margin-bottom: 6px; letter-spacing: -0.01em; }
+    .card-subtitle { font-size: 13.5px; color: var(--slate); margin-bottom: 22px; }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
     .form-group { margin-bottom: 16px; }
-    .form-group label { display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px; }
-    .form-group input, .form-group select { width: 100%; padding: 11px 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; color: var(--dark); background: #fff; transition: border-color 0.15s; font-family: inherit; }
-    .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15); }
-    .btn { display: inline-flex; justify-content: center; align-items: center; width: 100%; padding: 14px 20px; background: var(--primary); color: #fff; border: 0; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; transition: background 0.15s, transform 0.05s; }
+    .form-group label { display: block; font-size: 13px; font-weight: 650; color: #334155; margin-bottom: 6px; }
+    .form-group input, .form-group select { width: 100%; padding: 11px 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; color: var(--dark); background: #fff; transition: border-color 0.15s, box-shadow 0.15s; font-family: inherit; }
+    .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.15); }
+    
+    /* Buttons */
+    .btn { display: inline-flex; justify-content: center; align-items: center; width: 100%; padding: 13px 20px; background: var(--primary); color: #fff; border: 0; border-radius: 8px; font-size: 14.5px; font-weight: 700; cursor: pointer; transition: background 0.15s, transform 0.05s; }
     .btn:hover { background: var(--primary-hover); }
     .btn:active { transform: scale(0.99); }
     .btn:disabled { background: #94a3b8; cursor: not-allowed; }
+    .btn-secondary { background: #f1f5f9; color: #1e293b; border: 1px solid #cbd5e1; }
+    .btn-secondary:hover { background: #e2e8f0; color: #0f172a; }
     
-    /* Result styling */
-    .valuation-box { background: linear-gradient(135deg, #064e3b 0%, #047857 100%); color: #fff; border-radius: var(--radius); padding: 28px; text-align: center; margin-bottom: 24px; }
-    .val-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #a7f3d0; font-weight: 700; }
-    .val-number { font-size: 44px; font-weight: 800; letter-spacing: -0.03em; margin: 6px 0; }
-    .val-range { font-size: 15px; color: #d1fae5; font-weight: 500; }
-    .metrics-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 20px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,0.2); }
-    .metric-item small { display: block; font-size: 11px; color: #a7f3d0; text-transform: uppercase; font-weight: 600; }
-    .metric-item b { font-size: 17px; font-weight: 700; }
+    /* Valuation Box matching Nyrava Midnight Navy design */
+    .valuation-box {
+      background: linear-gradient(135deg, #041533 0%, #0c2552 50%, #081A3A 100%);
+      color: #ffffff;
+      border: 1px solid #1e3a6a;
+      border-radius: var(--radius);
+      padding: 32px 28px;
+      text-align: center;
+      margin-bottom: 26px;
+      box-shadow: 0 8px 30px rgba(4, 21, 51, 0.22);
+    }
+    .val-label { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.1em; color: #38bdf8; font-weight: 700; }
+    .val-number { font-size: 46px; font-weight: 800; letter-spacing: -0.03em; margin: 8px 0; color: #ffffff; }
+    .val-range { font-size: 15px; color: #93c5fd; font-weight: 500; }
+    .metrics-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 22px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.12); }
+    .metric-item small { display: block; font-size: 11px; color: #38bdf8; text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em; margin-bottom: 4px; }
+    .metric-item b { font-size: 18px; font-weight: 700; color: #ffffff; }
     
-    .comps-table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; }
-    .comps-table th { background: #f1f5f9; text-align: left; padding: 10px 12px; font-weight: 700; color: #475569; border-bottom: 2px solid var(--border); }
+    /* Comps Table */
+    .comps-table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 13px; }
+    .comps-table th { background: #f8fafc; text-align: left; padding: 11px 12px; font-weight: 700; color: #475569; border-bottom: 2px solid var(--border); }
     .comps-table td { padding: 12px; border-bottom: 1px solid #f1f5f9; }
     
-    .equity-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
-    .equity-row:last-child { border-bottom: 0; font-weight: 700; color: var(--primary); font-size: 16px; }
+    /* Equity Forecast */
+    .equity-row { display: flex; justify-content: space-between; padding: 10px 4px; border-bottom: 1px solid #f1f5f9; font-size: 13.5px; }
+    .equity-row:last-child { border-bottom: 0; font-weight: 700; color: var(--primary); font-size: 15px; }
 
     .consent-box { display: flex; gap: 10px; align-items: flex-start; margin: 16px 0; font-size: 12px; color: var(--slate); line-height: 1.5; }
     .consent-box input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--primary); }
 
     .hidden { display: none !important; }
-    .notice { padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; font-weight: 600; }
-    .notice-success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
-    .notice-error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+    .notice { padding: 12px 16px; border-radius: 8px; margin-bottom: 18px; font-size: 13px; font-weight: 600; }
+    .notice-success { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+    .notice-error { background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; }
 
     @media (max-width: 680px) {
       .grid-2, .grid-3 { grid-template-columns: 1fr; }
       .metrics-row { grid-template-columns: 1fr; gap: 14px; }
       .hero h1 { font-size: 26px; }
       .card { padding: 20px; }
+      .header { padding: 14px 16px; flex-direction: column; gap: 10px; align-items: flex-start; }
     }
   </style>
 </head>
 <body>
 
+  <!-- UNIFIED HEADER -->
   <header class="header">
     <div class="header-brand">
-      <span>🏡</span>
-      <span id="brandAppName">Nyrava Home Evaluation</span>
-      <span class="header-badge">Live Market AVM</span>
+      <a href="http://localhost:5180" class="brand-link">
+        <span class="brand-wordmark">nyrava <span>home</span></span>
+      </a>
+      <span class="header-divider">/</span>
+      <span id="headerSubBrand" class="header-subtitle">VALUATION &amp; CMA ENGINE</span>
+      <span id="agentModeBadge" class="header-badge private-badge hidden">🔒 PRIVATE REALTOR TOOL · NO LEADS</span>
     </div>
-    <div style="font-size: 12px; opacity: 0.9;">
-      Direct Homeowner Intelligence
+    <div class="header-right">
+      <a href="http://localhost:5180" id="backToCrmLink" class="header-quiet-btn">← Back to Workspace</a>
     </div>
   </header>
 
   <main class="container">
     <div class="hero">
-      <h1>Discover Your Home's True Value</h1>
-      <p>Instant automated comparative market evaluation based on verified recent sales in your exact ZIP code.</p>
+      <div id="heroEyebrow" class="hero-eyebrow">COMPARATIVE MARKET ANALYSIS</div>
+      <h1 id="heroTitle">Property Valuation &amp; Market Intelligence</h1>
+      <p id="heroDesc">Instant comparative market evaluation and localized equity models based on verified property transfers in your exact ZIP code.</p>
+    </div>
+
+    <!-- AGENT MODE INFORMATIVE BANNER -->
+    <div id="agentBanner" class="agent-banner hidden">
+      <div class="agent-banner-title">🔒 Private Agent Mode Active</div>
+      <div>Run full comparative market analysis, price-per-square-foot metrics, and 3-year equity projections for your clients. All calculations remain private to your workspace and will <strong>not</strong> generate inbound consumer leads in the CRM pipeline.</div>
     </div>
 
     <div id="noticeBox" class="notice hidden"></div>
 
     <!-- STEP 1: PROPERTY FORM -->
     <section id="stepProperty" class="card">
-      <div class="card-title">1. Tell Us About Your Property</div>
-      <div class="card-subtitle">Enter property specs to run the localized valuation algorithm.</div>
+      <div class="card-title">Property Details &amp; Specifications</div>
+      <div class="card-subtitle">Enter property specs to run the localized valuation algorithm and pull recent comp transfers.</div>
 
       <form id="propertyForm">
         <div class="form-group">
@@ -165,12 +296,12 @@
         </div>
 
         <button type="submit" id="btnCalculate" class="btn" style="margin-top: 10px;">
-          Calculate Instant Home Valuation →
+          Calculate Valuation &amp; Market Comps →
         </button>
       </form>
     </section>
 
-    <!-- STEP 2: VALUATION RESULTS & LEAD CAPTURE GATE -->
+    <!-- STEP 2: VALUATION RESULTS -->
     <section id="stepResults" class="card hidden">
       <div class="valuation-box">
         <div class="val-label">Estimated Current Market Value</div>
@@ -193,10 +324,10 @@
         </div>
       </div>
 
-      <!-- UNLOCK GATE FORM -->
+      <!-- CONSUMER UNLOCK GATE (Hidden in Agent Mode) -->
       <div id="unlockGate">
-        <div class="card-title">Unlock Full Comparative Report & 3-Year Equity Forecast</div>
-        <div class="card-subtitle">Enter your contact details to access the complete comp list, projected equity gains, and seller net sheet for your address.</div>
+        <div class="card-title">Unlock Full Comparative Report &amp; 3-Year Equity Forecast</div>
+        <div class="card-subtitle">Enter your contact details to access the complete comp list, projected equity gains, and connect with a local specialist.</div>
 
         <form id="leadForm">
           <div class="grid-2">
@@ -216,7 +347,7 @@
               <input type="email" id="leadEmail" placeholder="gregory@example.com" required>
             </div>
             <div class="form-group">
-              <label>Selling Intent & Timeframe</label>
+              <label>Selling Intent &amp; Timeframe</label>
               <select id="leadTimeframe">
                 <option value="Within 30 days">Ready to sell within 30 days</option>
                 <option value="1-3 months" selected>1 – 3 months</option>
@@ -229,26 +360,26 @@
           <div class="consent-box">
             <input type="checkbox" id="leadConsent" required checked>
             <label for="leadConsent">
-              I authorize Nyrava Home to prepare this valuation report and connect me with a verified local real estate specialist to review these estimates. I understand this is required for this service. This does not authorize automated promotional spam.
+              I authorize Nyrava Home to prepare this valuation report and connect me with a verified local real estate specialist to review these estimates.
             </label>
           </div>
 
           <button type="submit" id="btnUnlock" class="btn">
-            Unlock Full Report & Connect With Local Specialist →
+            Unlock Full Report &amp; Connect With Local Specialist →
           </button>
         </form>
       </div>
 
-      <!-- FULL UNLOCKED REPORT (Appears after submission) -->
-      <div id="unlockedReport" class="hidden" style="margin-top: 32px; padding-top: 24px; border-top: 2px solid var(--border);">
-        <div style="background: #ecfdf5; border: 1px solid #a7f3d0; padding: 14px 18px; border-radius: 8px; margin-bottom: 24px; color: #065f46; font-size: 14px; font-weight: 600;">
-          ✅ Full Valuation Report Unlocked! A local specialist in your ZIP code has been notified to assist you.
+      <!-- FULL UNLOCKED / AGENT REPORT -->
+      <div id="unlockedReport" class="hidden" style="margin-top: 24px; padding-top: 24px; border-top: 2px solid var(--border);">
+        <div id="unlockedAlert" style="background: #eff6ff; border: 1px solid #bfdbfe; padding: 14px 18px; border-radius: 8px; margin-bottom: 24px; color: #1e40af; font-size: 13.5px; font-weight: 600;">
+          ✅ Full Valuation &amp; Comparative Market Analysis Ready!
         </div>
 
-        <h3 style="font-size: 18px; margin-bottom: 12px;">📊 3-Year Projected Home Equity</h3>
+        <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 12px; color: #0f172a;">📊 3-Year Projected Home Equity</h3>
         <div id="equityTable" style="margin-bottom: 24px;"></div>
 
-        <h3 style="font-size: 18px; margin-bottom: 12px;">🏡 Nearby Comparable Recent Sales</h3>
+        <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 12px; color: #0f172a;">🏡 Nearby Comparable Recent Sales</h3>
         <div style="overflow-x: auto;">
           <table class="comps-table">
             <thead>
@@ -265,12 +396,15 @@
           </table>
         </div>
 
-        <div style="margin-top: 24px; display: flex; gap: 12px;">
-          <button type="button" class="btn" onclick="window.print()" style="background: #334155; flex: 1;">
-            🖨️ Print / Save Valuation PDF
+        <div style="margin-top: 28px; display: flex; gap: 12px; flex-wrap: wrap;">
+          <button type="button" class="btn" onclick="window.print()" style="flex: 1; min-width: 180px;">
+            🖨️ Print / Save Presentation PDF
           </button>
-          <button type="button" class="btn" onclick="location.reload()" style="background: #e2e8f0; color: #334155; flex: 1;">
-            ↻ Start New Valuation
+          <button type="button" id="btnCopySummary" class="btn btn-secondary" style="flex: 1; min-width: 180px;">
+            📋 Copy CMA Summary
+          </button>
+          <button type="button" class="btn btn-secondary" onclick="location.reload()" style="flex: 1; min-width: 180px;">
+            ↻ New Valuation
           </button>
         </div>
       </div>
@@ -278,6 +412,25 @@
   </main>
 
   <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const isAgentMode = Boolean(
+      urlParams.get('mode') === 'agent' ||
+      urlParams.get('private') === 'true' ||
+      urlParams.get('agent') === '1'
+    );
+
+    // Apply Agent Mode UI modifications
+    if (isAgentMode) {
+      document.title = 'Nyrava Home | Realtor Private Property Valuation Engine';
+      document.getElementById('headerSubBrand').textContent = 'REALTOR WORKSPACE';
+      document.getElementById('agentModeBadge').classList.remove('hidden');
+      document.getElementById('agentBanner').classList.remove('hidden');
+      document.getElementById('heroEyebrow').textContent = 'REALTOR VALUATION & CMA TOOL';
+      document.getElementById('heroTitle').textContent = 'Private Property Valuation & Market Engine';
+      document.getElementById('heroDesc').textContent = 'Calculate accurate home values, comps, and equity forecasts for client consultations. Private to your workspace — does not create consumer leads.';
+      document.getElementById('btnCalculate').textContent = 'Calculate Private Valuation & CMA →';
+    }
+
     let currentValuation = null;
     let currentProperty = null;
 
@@ -306,7 +459,9 @@
         baths: Number(document.getElementById('propBaths').value),
         propertyType: document.getElementById('propType').value,
         condition: document.getElementById('propCondition').value,
-        pool: document.getElementById('propPool').value
+        pool: document.getElementById('propPool').value,
+        isAgentTool: isAgentMode,
+        privateMode: isAgentMode
       };
 
       try {
@@ -331,10 +486,10 @@
 
         // Render Comps
         const compsBody = document.getElementById('compsTableBody');
-        compsBody.innerHTML = data.comparableSales.map(c => `
+        compsBody.innerHTML = (data.comparableSales || []).map(c => `
           <tr>
             <td><strong>${c.address}</strong></td>
-            <td><strong style="color:#059669;">$${c.salePrice.toLocaleString()}</strong></td>
+            <td><strong style="color: #0066ff;">$${c.salePrice.toLocaleString()}</strong></td>
             <td>${c.sqft} sqft</td>
             <td>${c.beds} bd / ${c.baths} ba</td>
             <td>📍 ${c.distanceMiles} mi</td>
@@ -344,24 +499,32 @@
 
         // Render Equity Forecast
         const eqContainer = document.getElementById('equityTable');
-        eqContainer.innerHTML = data.equityProjection.map(p => `
+        eqContainer.innerHTML = (data.equityProjection || []).map(p => `
           <div class="equity-row">
             <span>${p.year}</span>
-            <b>$${p.value.toLocaleString()}</b>
+            <b style="color: #0066ff;">$${p.value.toLocaleString()}</b>
           </div>
         `).join('');
 
         document.getElementById('stepResults').classList.remove('hidden');
+
+        // If in Agent Mode, unlock full report immediately without gating
+        if (isAgentMode) {
+          document.getElementById('unlockGate').classList.add('hidden');
+          document.getElementById('unlockedReport').classList.remove('hidden');
+          document.getElementById('unlockedAlert').innerHTML = '🔒 <strong>Private Valuation Generated:</strong> Valuation report, comp sales, and equity forecast are ready for your presentation. No CRM leads generated.';
+        }
+
         document.getElementById('stepResults').scrollIntoView({ behavior: 'smooth' });
       } catch (err) {
         showNotice(err.message, true);
       } finally {
         btn.disabled = false;
-        btn.textContent = 'Calculate Instant Home Valuation →';
+        btn.textContent = isAgentMode ? 'Calculate Private Valuation & CMA →' : 'Calculate Valuation & Market Comps →';
       }
     });
 
-    // Step 2: Submit Lead & Route to Nyrava CRM
+    // Step 2: Consumer Lead Gate Submission (Only for public consumer mode)
     document.getElementById('leadForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const btn = document.getElementById('btnUnlock');
@@ -373,7 +536,9 @@
         phone: document.getElementById('leadPhone').value.trim(),
         email: document.getElementById('leadEmail').value.trim(),
         timeframe: document.getElementById('leadTimeframe').value,
-        agree: document.getElementById('leadConsent').checked
+        agree: document.getElementById('leadConsent').checked,
+        isAgentTool: isAgentMode,
+        privateMode: isAgentMode
       };
 
       try {
@@ -383,7 +548,9 @@
           body: JSON.stringify({
             contact: leadData,
             property: currentProperty,
-            valuation: currentValuation
+            valuation: currentValuation,
+            isAgentTool: isAgentMode,
+            privateMode: isAgentMode
           })
         });
 
@@ -401,6 +568,28 @@
         btn.textContent = 'Unlock Full Report & Connect With Local Specialist →';
       }
     });
+
+    // Copy Summary Helper
+    const copyBtn = document.getElementById('btnCopySummary');
+    if (copyBtn) {
+      copyBtn.onclick = async () => {
+        if (!currentValuation || !currentProperty) return;
+        const text = `NYRAVA HOME CMA REPORT\n` +
+          `Property: ${currentProperty.street}, ${currentProperty.city}, ${currentProperty.state} ${currentProperty.zip}\n` +
+          `Specs: ${currentProperty.sqft} sqft | ${currentProperty.beds} Beds | ${currentProperty.baths} Baths\n` +
+          `Estimated Value: $${currentValuation.estimate.toLocaleString()} ($${currentValuation.pricePerSqft}/sqft)\n` +
+          `Estimated Range: $${currentValuation.lowRange.toLocaleString()} - $${currentValuation.highRange.toLocaleString()}\n` +
+          `Market Temp: ${currentValuation.marketTemperature} (Confidence: ${currentValuation.confidenceScore}%)`;
+        try {
+          await navigator.clipboard.writeText(text);
+          const oldText = copyBtn.textContent;
+          copyBtn.textContent = '✅ Copied to Clipboard!';
+          setTimeout(() => copyBtn.textContent = oldText, 2500);
+        } catch {
+          alert(text);
+        }
+      };
+    }
   </script>
 </body>
 </html>

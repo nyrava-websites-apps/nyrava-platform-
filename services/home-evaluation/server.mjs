@@ -16,7 +16,7 @@ let config = {
     appName: 'Nyrava Home Evaluation',
     companyName: 'Nyrava Technologies',
     supportPhone: '(800) 555-0199',
-    accentColor: '#059669'
+    accentColor: '#0066ff'
   }
 };
 
@@ -203,8 +203,38 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  // IMMEDIATE VALUATION CALCULATION ENDPOINT (For Agent CMA & Instant Calculation)
+  if (req.method === 'POST' && (url.pathname === '/api/valuation/calculate' || url.pathname === '/api/valuation/estimate')) {
+    try {
+      const data = await parseBody(req);
+      const property = data.property || {
+        street: data.street || data.address || 'Sample Property',
+        city: data.city || 'Austin',
+        state: data.state || 'TX',
+        zip: (data.zip || data.zipCode || '78701').trim().slice(0, 5),
+        sqft: Number(data.sqft || data.squareFeet || 1800),
+        beds: Number(data.beds || data.bedrooms || 3),
+        baths: Number(data.baths || data.bathrooms || 2),
+        propertyType: data.propertyType || 'Single Family',
+        condition: data.condition || 'move_in',
+        pool: data.pool || 'none'
+      };
+
+      const valuationReport = calculateValuation(property);
+      return sendJson(res, 200, {
+        success: true,
+        property,
+        valuation: valuationReport.valuation,
+        comparableSales: valuationReport.comparableSales,
+        equityProjection: valuationReport.equityProjection
+      });
+    } catch (err) {
+      return sendJson(res, 500, { error: err.message });
+    }
+  }
+
   // PRIMARY ENDPOINT: Evaluate Property + Ingest to CRM + Send Branded Email with Opt-Out Link
-  if (req.method === 'POST' && (url.pathname === '/evaluate' || url.pathname === '/api/valuation/evaluate' || url.pathname === '/api/valuation/evaluate-and-submit' || url.pathname === '/api/valuation/calculate' || url.pathname === '/api/v1/valuation/evaluate')) {
+  if (req.method === 'POST' && (url.pathname === '/evaluate' || url.pathname === '/api/valuation/evaluate' || url.pathname === '/api/valuation/evaluate-and-submit' || url.pathname === '/api/valuation/submit' || url.pathname === '/api/v1/valuation/evaluate')) {
     try {
       const data = await parseBody(req);
       let property = data.property;
@@ -237,9 +267,14 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 400, { error: 'Please enter a complete street address, city, and ZIP code.' });
       }
 
-      // Ensure Contact details are provided up front
-      if (!contact?.fullName || !contact?.email || !contact?.phone) {
+      const isAgentTool = Boolean(data.isAgentTool || data.privateMode || data.agentMode || data.privateTool || (url.searchParams.get('mode') === 'agent') || (url.searchParams.get('private') === 'true'));
+
+      // If not in private agent mode, ensure contact details are provided
+      if (!isAgentTool && (!contact?.fullName || !contact?.email || !contact?.phone)) {
         return sendJson(res, 400, { error: 'To receive your official home valuation, full name, email, and phone number are required.' });
+      }
+      if (isAgentTool && !contact) {
+        contact = { fullName: 'Private Agent Client', email: 'agent@workspace.internal', phone: '000-000-0000', timeframe: 'Private' };
       }
 
       // 1. Calculate Real Local Valuation & Comps
@@ -255,7 +290,6 @@ const server = http.createServer(async (req, res) => {
       const estimateText = `$${valuation.estimate.toLocaleString()}`;
 
       // 2. Build CRM Payload for Nyrava Platform Lead Pipeline (Skip if Private Realtor tool)
-      const isAgentTool = Boolean(data.isAgentTool || data.privateMode || data.agentMode || data.privateTool || (url.searchParams.get('mode') === 'agent') || (url.searchParams.get('private') === 'true'));
       let crmStatus = isAgentTool ? 'private_agent_calc' : 'queued';
 
       if (!isAgentTool) {
@@ -350,12 +384,12 @@ const server = http.createServer(async (req, res) => {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Opt-Out Confirmed | Nyrava Home</title>
   <style>
-    body { font-family: -apple-system, system-ui, sans-serif; background: #f8fafc; color: #0f172a; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+    body { font-family: Inter, -apple-system, system-ui, sans-serif; background: #f8fafc; color: #0f172a; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
     .card { background: #fff; max-width: 520px; width: 100%; padding: 40px; border-radius: 14px; border: 1px solid #e2e8f0; box-shadow: 0 4px 24px rgba(15,23,42,0.06); text-align: center; }
     .icon { font-size: 48px; margin-bottom: 16px; }
     h1 { font-size: 22px; margin-bottom: 10px; color: #0f172a; }
     p { font-size: 14px; color: #475569; line-height: 1.6; margin-bottom: 24px; }
-    .badge { display: inline-block; background: #ecfdf5; color: #065f46; font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 20px; border: 1px solid #a7f3d0; }
+    .badge { display: inline-block; background: #eff6ff; color: #1e40af; font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 20px; border: 1px solid #bfdbfe; }
   </style>
 </head>
 <body>
