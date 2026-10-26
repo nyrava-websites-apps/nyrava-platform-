@@ -235,28 +235,9 @@ async function doGoogleAuth(email) {
 }
 
 function bindAuthControls() {
-  const qAdmin = $('#quickLoginAdmin');
-  if (qAdmin) qAdmin.onclick = () => doQuickLogin('admin@home.nyrava.com', 'Shazbot!Dog5!', 'Platform Admin');
-  const qRealtor = $('#quickLoginRealtor');
-  if (qRealtor) qRealtor.onclick = () => doQuickLogin('test.realtor@nyrava.com', 'Password123456!', 'Test Realtor');
-  const qTeam = $('#quickLoginTeam');
-  if (qTeam) qTeam.onclick = () => doQuickLogin('team.agent@nyrava.com', 'Password123456!', 'Test Team Member');
-
   const btnG = $('#btnGoogleAuth');
-  const gNorm = $('#crmGoogleNormal');
-  const gPick = $('#crmGooglePicker');
-  if (btnG && gNorm && gPick) {
-    btnG.onclick = () => { gNorm.style.display = 'none'; gPick.style.display = 'block'; };
-    const closeG = $('#crmCloseGooglePicker');
-    if (closeG) closeG.onclick = () => { gPick.style.display = 'none'; gNorm.style.display = 'block'; };
-    gPick.querySelectorAll('.crm-g-item').forEach(item => {
-      item.onclick = () => doGoogleAuth(item.dataset.googleEmail);
-    });
-    const btnCustG = $('#crmBtnCustomGoogle');
-    if (btnCustG) btnCustG.onclick = () => {
-      const em = $('#crmCustomGoogleEmail')?.value.trim();
-      if (em) doGoogleAuth(em);
-    };
+  if (btnG) {
+    btnG.onclick = () => doGoogleAuth('h.g4972@gmail.com');
   }
 
   const btnForgot = $('#btnForgotPass');

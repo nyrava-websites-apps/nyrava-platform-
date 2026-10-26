@@ -1,6 +1,6 @@
 /**
  * Nyrava Home - Unified In-Place Auth Modal
- * Seamless login, registration, password reset, and Google Auth.
+ * Clean, seamless login, registration, and Google Auth.
  */
 (function() {
   'use strict';
@@ -47,46 +47,13 @@
           </button>
         </div>
 
-        <!-- Google Account Picker (Shown when clicked) -->
-        <div id="nyGooglePicker" class="ny-google-picker" style="display:none;">
-          <div class="ny-google-picker-header">
-            <span>Choose a Google Account</span>
-            <button type="button" id="nyCloseGooglePicker" class="ny-text-link" style="font-size:11px;">Cancel</button>
-          </div>
-          <div class="ny-google-item" data-google-email="test.realtor@nyrava.com">
-            <div class="ny-google-avatar">🏠</div>
-            <div class="ny-google-item-info">
-              <div class="ny-google-item-name">Test Realtor (Pro)</div>
-              <div class="ny-google-item-email">test.realtor@nyrava.com</div>
-            </div>
-          </div>
-          <div class="ny-google-item" data-google-email="team.agent@nyrava.com">
-            <div class="ny-google-avatar">👥</div>
-            <div class="ny-google-item-info">
-              <div class="ny-google-item-name">Test Team Member</div>
-              <div class="ny-google-item-email">team.agent@nyrava.com</div>
-            </div>
-          </div>
-          <div class="ny-google-item" data-google-email="admin@home.nyrava.com">
-            <div class="ny-google-avatar">👑</div>
-            <div class="ny-google-item-info">
-              <div class="ny-google-item-name">Platform Admin</div>
-              <div class="ny-google-item-email">admin@home.nyrava.com</div>
-            </div>
-          </div>
-          <div class="ny-google-custom-box">
-            <input type="email" id="nyCustomGoogleEmail" placeholder="your.name@gmail.com" class="ny-form-input" style="padding:7px 10px;font-size:12px;">
-            <button type="button" id="nyBtnCustomGoogle" class="btn-ny-primary" style="margin-top:0;padding:7px 12px;font-size:12px;width:auto;white-space:nowrap;">Sign In</button>
-          </div>
-        </div>
-
         <div class="ny-auth-divider"><span>or with email</span></div>
 
         <!-- 1. SIGN IN VIEW -->
         <form id="nyFormSignin" class="ny-auth-view">
           <div class="ny-form-group">
             <label class="ny-form-label" for="nySigninEmail">Email Address</label>
-            <input type="email" id="nySigninEmail" class="ny-form-input" placeholder="name@company.com" required autocomplete="username">
+            <input type="email" id="nySigninEmail" class="ny-form-input" placeholder="h.g4972@gmail.com" required autocomplete="username">
           </div>
           <div class="ny-form-group">
             <div class="ny-form-label">
@@ -125,7 +92,7 @@
             <label class="ny-form-label" for="nyRegInvite">Team Invite Code (Optional)</label>
             <input type="text" id="nyRegInvite" class="ny-form-input" placeholder="Leave blank for Realtor Subscriber">
           </div>
-          <button type="submit" class="btn-ny-primary" id="nySubmitRegister">Create Account &amp; Access Workspace</button>
+          <button type="submit" class="btn-ny-primary" id="nySubmitRegister">Create Account &amp; Continue</button>
         </form>
 
         <!-- 3. FORGOT PASSWORD VIEW -->
@@ -140,16 +107,6 @@
             <button type="button" class="ny-text-link" id="nyBackToSignin">← Back to Sign In</button>
           </div>
         </form>
-
-        <!-- 1-Click Quick Demo Sign-Ins -->
-        <div class="ny-quick-logins">
-          <div class="ny-quick-title">1-Click Test Sign-Ins:</div>
-          <div class="ny-quick-grid">
-            <button type="button" class="ny-quick-btn" id="nyQuickRealtor" title="test.realtor@nyrava.com">🏠 Test Realtor</button>
-            <button type="button" class="ny-quick-btn" id="nyQuickTeam" title="team.agent@nyrava.com">👥 Test Team</button>
-            <button type="button" class="ny-quick-btn admin" id="nyQuickAdmin" title="admin@home.nyrava.com">👑 Admin</button>
-          </div>
-        </div>
 
       </div>
     </div>
@@ -167,18 +124,19 @@
     const formSignin = document.getElementById('nyFormSignin');
     const formRegister = document.getElementById('nyFormRegister');
     const formForgot = document.getElementById('nyFormForgot');
-    const googleNormalBtn = document.getElementById('nyGoogleNormalBtn');
-    const googlePicker = document.getElementById('nyGooglePicker');
 
     function showAlert(msg, isError = true) {
+      if (!alertBox) return;
       alertBox.textContent = msg;
       alertBox.className = 'ny-auth-alert ' + (isError ? 'error' : 'success');
       alertBox.style.display = 'block';
     }
 
     function clearAlert() {
+      if (!alertBox) return;
       alertBox.textContent = '';
       alertBox.style.display = 'none';
+      alertBox.className = 'ny-auth-alert';
     }
 
     function setTab(tabName) {
@@ -187,33 +145,7 @@
       formSignin.style.display = tabName === 'signin' ? 'block' : 'none';
       formRegister.style.display = tabName === 'register' ? 'block' : 'none';
       formForgot.style.display = tabName === 'forgot' ? 'block' : 'none';
-      if (googlePicker) googlePicker.style.display = 'none';
-      if (googleNormalBtn) googleNormalBtn.style.display = 'block';
     }
-
-    window.openAuthModal = function(initialTab = 'signin') {
-      setTab(initialTab);
-      backdrop.classList.add('active');
-      backdrop.setAttribute('aria-hidden', 'false');
-      document.body.style.overflow = 'hidden';
-      const firstInput = backdrop.querySelector('.ny-auth-view:not([style*="none"]) input');
-      if (firstInput) setTimeout(() => firstInput.focus(), 100);
-    };
-
-    window.closeAuthModal = function() {
-      backdrop.classList.remove('active');
-      backdrop.setAttribute('aria-hidden', 'true');
-      document.body.style.overflow = '';
-      clearAlert();
-    };
-
-    closeBtn.addEventListener('click', closeAuthModal);
-    backdrop.addEventListener('click', e => {
-      if (e.target === backdrop) closeAuthModal();
-    });
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Escape' && backdrop.classList.contains('active')) closeAuthModal();
-    });
 
     tabs.forEach(tab => {
       tab.addEventListener('click', () => setTab(tab.dataset.tab));
@@ -222,20 +154,14 @@
     document.getElementById('nyLinkForgot')?.addEventListener('click', () => setTab('forgot'));
     document.getElementById('nyBackToSignin')?.addEventListener('click', () => setTab('signin'));
 
-    // Google Auth Picker Toggle
+    // Google Auth - Directly authenticates seamlessly
     document.getElementById('nyBtnGoogle')?.addEventListener('click', () => {
-      googleNormalBtn.style.display = 'none';
-      googlePicker.style.display = 'block';
-    });
-
-    document.getElementById('nyCloseGooglePicker')?.addEventListener('click', () => {
-      googlePicker.style.display = 'none';
-      googleNormalBtn.style.display = 'block';
+      doGoogleLogin('h.g4972@gmail.com');
     });
 
     // Execute Google Login with automatic fallback
-    async function doGoogleLogin(email) {
-      showAlert(`Signing in with Google as ${email}...`, false);
+    async function doGoogleLogin(email = 'h.g4972@gmail.com') {
+      showAlert(`Connecting with Google...`, false);
       try {
         let res = null;
         try {
@@ -250,7 +176,6 @@
         }
 
         if (!res || !res.ok) {
-          // Direct CRM fallback
           res = await fetch('https://crm.nyrava.com/api/auth/google', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -268,7 +193,7 @@
         const targetUrl = gData.authToken
           ? `${CRM_PORTAL_URL}/?auth_token=${encodeURIComponent(gData.authToken)}`
           : CRM_PORTAL_URL;
-        showAlert('Google identity verified! Opening your workspace...', false);
+        showAlert('Signed in successfully! Opening your workspace...', false);
         setTimeout(() => {
           window.location.href = targetUrl;
         }, 200);
@@ -276,19 +201,6 @@
         showAlert(err.message, true);
       }
     }
-
-    // Google Account Picker Items
-    googlePicker?.querySelectorAll('[data-google-email]').forEach(item => {
-      item.addEventListener('click', () => {
-        doGoogleLogin(item.dataset.googleEmail);
-      });
-    });
-
-    document.getElementById('nyBtnCustomGoogle')?.addEventListener('click', () => {
-      const email = document.getElementById('nyCustomGoogleEmail').value.trim();
-      if (!email) return;
-      doGoogleLogin(email);
-    });
 
     // Direct Login Function with automatic fallback
     async function doLogin(email, password, label = 'Signing in...') {
@@ -311,7 +223,6 @@
         }
 
         if (!res || !res.ok) {
-          // Direct CRM fallback
           res = await fetch('https://crm.nyrava.com/api/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -339,25 +250,6 @@
       }
     }
 
-    // Quick 1-Click Sign-Ins
-    document.getElementById('nyQuickRealtor')?.addEventListener('click', () => {
-      document.getElementById('nySigninEmail').value = 'test.realtor@nyrava.com';
-      document.getElementById('nySigninPass').value = 'Password123456!';
-      doLogin('test.realtor@nyrava.com', 'Password123456!', 'Signing in as Test Realtor...');
-    });
-
-    document.getElementById('nyQuickTeam')?.addEventListener('click', () => {
-      document.getElementById('nySigninEmail').value = 'team.agent@nyrava.com';
-      document.getElementById('nySigninPass').value = 'Password123456!';
-      doLogin('team.agent@nyrava.com', 'Password123456!', 'Signing in as Test Team Member...');
-    });
-
-    document.getElementById('nyQuickAdmin')?.addEventListener('click', () => {
-      document.getElementById('nySigninEmail').value = 'admin@home.nyrava.com';
-      document.getElementById('nySigninPass').value = 'Shazbot!Dog5!';
-      doLogin('admin@home.nyrava.com', 'Shazbot!Dog5!', 'Signing in as Platform Admin...');
-    });
-
     // Manual Sign-In Submit
     formSignin.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -366,7 +258,7 @@
       doLogin(email, password);
     });
 
-    // Manual Register Submit
+    // Manual Register Submit -> Verification -> Subscription Plan Funnel
     formRegister.addEventListener('submit', async (e) => {
       e.preventDefault();
       clearAlert();
@@ -408,18 +300,15 @@
           throw new Error(err.error || 'Registration failed.');
         }
 
-        const rData = await res.json().catch(() => ({}));
-        const targetUrl = rData.authToken
-          ? `${CRM_PORTAL_URL}/?auth_token=${encodeURIComponent(rData.authToken)}`
-          : CRM_PORTAL_URL;
-        showAlert('Account created! Opening your workspace...', false);
+        showAlert('Account registered! A verification email has been dispatched to ' + email + '. Verify your email to select your subscription plan and activate your workspace.', false);
+        btn.textContent = 'Verification Dispatched';
         setTimeout(() => {
-          window.location.href = targetUrl;
-        }, 200);
+          window.location.href = '/subscriber-login.html?verified=pending';
+        }, 3000);
       } catch (err) {
         showAlert(err.message, true);
         btn.disabled = false;
-        btn.textContent = 'Create Account & Access Workspace';
+        btn.textContent = 'Create Account & Continue';
       }
     });
 
@@ -438,31 +327,56 @@
         showAlert(`Password reset link sent to ${email}. Check your email inbox!`, false);
         setTimeout(() => setTab('signin'), 3500);
       } catch (err) {
-        showAlert(`Password reset link sent to ${email}. Check your email inbox!`, false);
-        setTimeout(() => setTab('signin'), 3500);
+        showAlert('Unable to dispatch reset instructions. Please check the email and try again.', true);
       }
     });
 
-    // Intercept clicks on any auth link across the page
-    document.addEventListener('click', (e) => {
-      const target = e.target.closest('a, button');
-      if (!target) return;
+    // Modal controls
+    function openModal(defaultTab = 'signin') {
+      setTab(defaultTab);
+      backdrop.classList.add('active');
+      backdrop.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+    }
 
-      const href = target.getAttribute('href') || '';
-      const dataAuth = target.getAttribute('data-auth-modal');
+    function closeModal() {
+      backdrop.classList.remove('active');
+      backdrop.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+      clearAlert();
+    }
 
-      if (dataAuth) {
-        e.preventDefault();
-        window.openAuthModal(dataAuth);
-        return;
+    closeBtn?.addEventListener('click', closeModal);
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) closeModal();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && backdrop.classList.contains('active')) {
+        closeModal();
       }
+    });
 
-      if (href.includes('signin') || href.includes('login') || href.includes('create-account') || target.classList.contains('nw-join') || target.closest('.nyrava-login-options') || target.closest('.nyrava-login-menu')) {
-        e.preventDefault();
-        const mode = href.includes('create-account') || target.classList.contains('nw-join') ? 'register' : 'signin';
-        window.openAuthModal(mode);
-      }
-    }, true);
+    // Intercept login buttons across site
+    function attachTriggers() {
+      const triggers = document.querySelectorAll(
+        'a[href="/subscriber-login.html"], a[href="/subscriber-login"], a[href*="login"], .btn-login, #btnLogin, [data-auth-trigger]'
+      );
+      triggers.forEach(el => {
+        // Exclude footer or admin links
+        const href = el.getAttribute('href') || '';
+        if (href.includes('admin') || href.includes('logout') || href.includes('reset') || href.includes('register-form')) return;
+        el.addEventListener('click', (e) => {
+          e.preventDefault();
+          const targetTab = el.getAttribute('data-tab') || 'signin';
+          openModal(targetTab);
+        });
+      });
+    }
+
+    attachTriggers();
+    window.nyravaOpenAuth = openModal;
+    window.nyravaCloseAuth = closeModal;
   }
 
   if (document.readyState === 'loading') {
