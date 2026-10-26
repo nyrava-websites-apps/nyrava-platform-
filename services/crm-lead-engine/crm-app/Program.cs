@@ -435,39 +435,100 @@ app.MapGet("/api/team", async (CrmDb db, HttpContext http) => {
     var team=await db.Memberships.Where(x=>x.OwnerUserId==owner&&(actor.Role=="Owner"||x.Active)).Join(db.Users,m=>m.UserId,u=>u.Id,(m,u)=>new{id=u.Id,email=u.Email,role=m.Role,active=m.Active,joinedAt=m.JoinedAt}).ToListAsync();
     return Results.Ok(new { members=team, canInvite=teamInvitationsEnabled&&actor.Role=="Owner", teamInvitationsEnabled });
 }).RequireAuthorization();
+var passwordResetTokens = new System.Collections.Concurrent.ConcurrentDictionary<string, (string Email, DateTimeOffset ExpiresAt)>(StringComparer.Ordinal);
+
+app.MapPost("/api/auth/forgot-password", async (ForgotPasswordInput input, CrmDb db, HttpContext http) => {
+    var email = input.Email?.Trim().ToLowerInvariant();
+    if (string.IsNullOrWhiteSpace(email) || !ValidEmail(email))
+        return Results.BadRequest(new { error = "Valid email address is required." });
+
+    var user = await db.Users.SingleOrDefaultAsync(x => x.Email == email);
+    if (user != null) {
+        var token = Guid.NewGuid().ToString("N");
+        passwordResetTokens[token] = (email, DateTimeOffset.UtcNow.AddHours(1));
+        var baseUrl = builder.Configuration["Crm:PublicBaseUrl"]?.TrimEnd('/') ?? $"{http.Request.Scheme}://{http.Request.Host}";
+        var resetUrl = $"{baseUrl}/index.html?reset_token={token}";
+        await EmailService.SendPasswordResetEmailAsync(builder.Configuration, email, resetUrl);
+    }
+    return Results.Ok(new { message = $"If an account exists for {email}, a password reset link has been dispatched." });
+}).AllowAnonymous();
+
+app.MapPost("/api/auth/reset-password", async (ResetPasswordInput input, CrmDb db) => {
+    if (string.IsNullOrWhiteSpace(input.Token) || !passwordResetTokens.TryRemove(input.Token, out var entry))
+        return Results.BadRequest(new { error = "Password reset token is invalid or has already been used." });
+    if (DateTimeOffset.UtcNow > entry.ExpiresAt)
+        return Results.BadRequest(new { error = "Password reset token has expired. Please request a new one." });
+    if (string.IsNullOrWhiteSpace(input.NewPassword) || input.NewPassword.Length < 12)
+        return Results.BadRequest(new { error = "New password must be at least 12 characters." });
+
+    var user = await db.Users.SingleOrDefaultAsync(x => x.Email == entry.Email);
+    if (user == null) return Results.NotFound(new { error = "User not found." });
+
+    user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(input.NewPassword);
+    await db.SaveChangesAsync();
+    await EmailService.SendPasswordChangedAlertAsync(builder.Configuration, user.Email);
+    return Results.Ok(new { message = "Password updated successfully. You can now sign in with your new password." });
+}).AllowAnonymous();
+
+app.MapPost("/api/email/test", async (TestEmailInput input, HttpContext http) => {
+    var recipient = input.Recipient?.Trim().ToLowerInvariant();
+    if (string.IsNullOrWhiteSpace(recipient) || !ValidEmail(recipient))
+        return Results.BadRequest(new { error = "Valid recipient email is required." });
+
+    var type = input.Type?.Trim().ToLowerInvariant() ?? "verification";
+    EmailDispatchResult result = type switch {
+        "welcome" => await EmailService.SendWelcomeEmailAsync(builder.Configuration, recipient, "Valued Partner", "https://home.nyrava.com"),
+        "reset" => await EmailService.SendPasswordResetEmailAsync(builder.Configuration, recipient, "https://home.nyrava.com/reset?token=test_demo_token"),
+        "alert" => await EmailService.SendPasswordChangedAlertAsync(builder.Configuration, recipient),
+        "invite" => await EmailService.SendInvitationEmailAsync(builder.Configuration, recipient, "https://home.nyrava.com/index.html?invite=test_demo_code", "admin@nyrava.com"),
+        "lead" => await EmailService.SendNewLeadNotificationAsync(builder.Configuration, recipient, "Sarah Jenkins", "Seller", "77084", "(832) 555-0144"),
+        "assigned" => await EmailService.SendLeadAssignedNotificationAsync(builder.Configuration, recipient, "Robert Taylor", "Buyer", "Lead Concierge"),
+        "reminder" => await EmailService.SendAppointmentReminderEmailAsync(builder.Configuration, recipient, "Listing Consultation", DateTimeOffset.UtcNow.AddDays(1), "https://meet.nyrava.com/room/test-consultation"),
+        "receipt" => await EmailService.SendSubscriptionReceiptEmailAsync(builder.Configuration, recipient, "Realtor Pro Monthly", 499.00m),
+        "failed" => await EmailService.SendPaymentFailedAlertAsync(builder.Configuration, recipient, "Realtor Pro Monthly"),
+        "support" => await EmailService.SendCustomerSupportInquiryAsync(builder.Configuration, recipient, "Inquiry from Test", "Testing centralized outgoing mail service."),
+        _ => await EmailService.SendSubscriberVerificationEmailAsync(builder.Configuration, recipient, "https://home.nyrava.com/verify?token=test_demo_token")
+    };
+
+    return Results.Ok(new {
+        success = result.Success,
+        sentViaSmtp = result.SentViaSmtp,
+        status = result.Status,
+        outboxPath = result.OutboxPath,
+        error = result.Error,
+        type = type,
+        recipient = recipient
+    });
+}).AllowAnonymous();
+
 app.MapPost("/api/team/invitations", async (InviteInput input, CrmDb db, HttpContext http) => {
-    if(!teamInvitationsEnabled)return Results.Json(new{error="Team invitations are disabled for this CRM system."},statusCode:StatusCodes.Status403Forbidden);
+    if(!teamInvitationsEnabled)return Results.Json(new{error="Team invitations are disabled for this workspace."},statusCode:StatusCodes.Status403Forbidden);
     var actor=await CurrentUser(db,http); if(actor.Role!="Owner") return Results.Forbid();
     var email=string.IsNullOrWhiteSpace(input.Email)?null:input.Email.Trim().ToLowerInvariant();
     if(email is null||!ValidEmail(email)) return Results.BadRequest(new{error="Enter the email address of the person you are inviting."});
-    if(!demoMode && !MailDeliveryConfigured(builder.Configuration)) return Results.Json(new{error="Invitation email is not configured. Set the CRM SMTP settings before inviting team members."},statusCode:StatusCodes.Status503ServiceUnavailable);
-    string? invitationBaseUrl=null;
-    if(!demoMode){
-        invitationBaseUrl=builder.Configuration["Crm:PublicBaseUrl"]?.TrimEnd('/');
-        if(string.IsNullOrWhiteSpace(invitationBaseUrl)){
-            if(!builder.Environment.IsDevelopment())return Results.Json(new{error="Set Crm:PublicBaseUrl to the public HTTPS address of this CRM before sending invitations."},statusCode:StatusCodes.Status503ServiceUnavailable);
-            invitationBaseUrl=$"{http.Request.Scheme}://{http.Request.Host}";
-        }
-        if(!Uri.TryCreate(invitationBaseUrl,UriKind.Absolute,out var baseUri)||!string.IsNullOrEmpty(baseUri.UserInfo)||(baseUri.Scheme!=Uri.UriSchemeHttps&&!(builder.Environment.IsDevelopment()&&baseUri.Scheme==Uri.UriSchemeHttp&&baseUri.IsLoopback)))
-            return Results.Json(new{error="Crm:PublicBaseUrl must be a valid public HTTPS address."},statusCode:StatusCodes.Status503ServiceUnavailable);
-        invitationBaseUrl=baseUri.GetLeftPart(UriPartial.Authority);
+    
+    string? invitationBaseUrl=builder.Configuration["Crm:PublicBaseUrl"]?.TrimEnd('/');
+    if(string.IsNullOrWhiteSpace(invitationBaseUrl)){
+        invitationBaseUrl=$"{http.Request.Scheme}://{http.Request.Host}";
     }
-    var code=demoMode&&actor.Email=="testone@example.test"?"1234":Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)).TrimEnd('=').Replace('+','-').Replace('/','_');
-    var demoInviteHash=HashToken("1234");
-    var invite=demoMode?await db.Invitations.SingleOrDefaultAsync(x=>x.OwnerUserId==actor.WorkspaceId&&x.TokenHash==demoInviteHash):null;
-    if(invite is null){invite=new CrmInvitation{OwnerUserId=actor.WorkspaceId,Email=email,TokenHash=HashToken(code),ExpiresAt=DateTimeOffset.UtcNow.AddDays(7)};db.Invitations.Add(invite);}
-    else { invite.Email=email;invite.ExpiresAt=DateTimeOffset.UtcNow.AddDays(7);invite.AcceptedAt=null; }
+
+    var code=Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)).TrimEnd('=').Replace('+','-').Replace('/','_');
+    var invite=new CrmInvitation{OwnerUserId=actor.WorkspaceId,Email=email,TokenHash=HashToken(code),ExpiresAt=DateTimeOffset.UtcNow.AddDays(7)};
+    db.Invitations.Add(invite);
     await db.SaveChangesAsync();
+
     var joinUrl=$"/index.html?invite={Uri.EscapeDataString(code)}";
-    if(!demoMode){
-        try { await SendInvitationEmailAsync(builder.Configuration,email,$"{invitationBaseUrl}{joinUrl}",actor.Email); }
-        catch {
-            db.Invitations.Remove(invite); await db.SaveChangesAsync();
-            return Results.Json(new{error="The invitation could not be emailed. Check the CRM SMTP settings and try again."},statusCode:StatusCodes.Status502BadGateway);
-        }
-        return Results.Ok(new{sent=true,email,expiresAt=invite.ExpiresAt});
-    }
-    return Results.Ok(new{sent=false,code,expiresAt=invite.ExpiresAt,joinUrl});
+    var fullJoinUrl=$"{invitationBaseUrl}{joinUrl}";
+
+    var emailResult = await EmailService.SendInvitationEmailAsync(builder.Configuration, email, fullJoinUrl, actor.Email);
+
+    return Results.Ok(new{
+        sent=true,
+        sentViaSmtp=emailResult.SentViaSmtp,
+        deliveryStatus=emailResult.Status,
+        email=email,
+        expiresAt=invite.ExpiresAt
+    });
 }).RequireAuthorization();
 app.MapPost("/api/team/{userId:long}/deactivate",async(long userId,CrmDb db,HttpContext http)=>{
     var actor=await CurrentUser(db,http);if(actor.Role!="Owner"||userId==actor.Id)return Results.Forbid();
@@ -1344,23 +1405,6 @@ static async Task EnsureIntegrationTablesAsync(CrmDb db){
 }
 static string? Clean(string? value, int max) => string.IsNullOrWhiteSpace(value) ? null : value.Trim()[..Math.Min(value.Trim().Length, max)];
 static bool ValidEmail(string email) => email.Length <= 320 && System.Net.Mail.MailAddress.TryCreate(email, out var parsed) && parsed.Address == email;
-static bool MailDeliveryConfigured(IConfiguration config) =>
-    !string.IsNullOrWhiteSpace(config["Crm:Email:SmtpHost"]) &&
-    int.TryParse(config["Crm:Email:SmtpPort"], out var port) && port is > 0 and <= 65535 &&
-    ValidEmail(config["Crm:Email:From"] ?? "");
-static async Task SendInvitationEmailAsync(IConfiguration config,string recipient,string invitationUrl,string subscriberEmail) {
-    var host=config["Crm:Email:SmtpHost"]!;
-    var port=int.Parse(config["Crm:Email:SmtpPort"]!);
-    using var message=new System.Net.Mail.MailMessage(config["Crm:Email:From"]!,recipient) {
-        Subject="You are invited to join a CRM workspace",
-        Body=$"{subscriberEmail} invited you to join their CRM workspace as a team member. This invitation expires in seven days.\r\n\r\nCreate your account and accept the invitation: {invitationUrl}\r\n\r\nThis link grants access only to the inviting subscriber's workspace.",
-        IsBodyHtml=false
-    };
-    using var client=new System.Net.Mail.SmtpClient(host,port) { EnableSsl=config.GetValue("Crm:Email:EnableSsl",true),DeliveryMethod=System.Net.Mail.SmtpDeliveryMethod.Network,Timeout=15000 };
-    var username=config["Crm:Email:Username"]; var password=config["Crm:Email:Password"];
-    if(!string.IsNullOrWhiteSpace(username)) client.Credentials=new System.Net.NetworkCredential(username,password??"");
-    await client.SendMailAsync(message);
-}
 static Task SignIn(HttpContext http, CrmUser user) {
     var claims = new[] { new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, user.Id.ToString()), new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, user.Email) };
     var principal = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(claims, "crm-cookie"));
@@ -1383,6 +1427,9 @@ record NyraAiResponse(string Answer, string[] SuggestedActions);
 record ResultInput(string Result,string? Notes);
 record AppointmentResultRecord(string Result,string? Notes,DateTimeOffset At,long UserId);
 record AdminLeadAssignInput(long RealtorUserId);
+record ForgotPasswordInput(string? Email);
+record ResetPasswordInput(string? Token, string? NewPassword);
+record TestEmailInput(string? Recipient, string? Type);
 
 public partial class Program { }
 

@@ -5,19 +5,19 @@
 (function() {
   'use strict';
 
-  const CRM_PORTAL_URL = 'https://crm.nyrava.com';
-  // Use same-origin proxy if on home.nyrava.com or localhost, else direct CRM
-  const AUTH_ENDPOINT = (window.location.hostname.includes('home.nyrava.com') || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    ? '/api/login'
-    : 'https://crm.nyrava.com/api/login';
+  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const CRM_PORTAL_URL = isLocal ? 'http://localhost:5180' : 'https://crm.nyrava.com';
+  const AUTH_ENDPOINT = isLocal
+    ? 'http://localhost:5180/api/login'
+    : (window.location.hostname.includes('home.nyrava.com') ? '/api/login' : 'https://crm.nyrava.com/api/login');
   
-  const GOOGLE_AUTH_ENDPOINT = (window.location.hostname.includes('home.nyrava.com') || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    ? '/api/auth/google'
-    : 'https://crm.nyrava.com/api/auth/google';
+  const GOOGLE_AUTH_ENDPOINT = isLocal
+    ? 'http://localhost:5180/api/auth/google'
+    : (window.location.hostname.includes('home.nyrava.com') ? '/api/auth/google' : 'https://crm.nyrava.com/api/auth/google');
 
-  const REG_ENDPOINT = (window.location.hostname.includes('home.nyrava.com') || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    ? '/api/register'
-    : 'https://crm.nyrava.com/api/register';
+  const REG_ENDPOINT = isLocal
+    ? 'http://localhost:5180/api/register'
+    : (window.location.hostname.includes('home.nyrava.com') ? '/api/register' : 'https://crm.nyrava.com/api/register');
 
   const modalHtml = `
   <div class="ny-auth-backdrop" id="nyAuthBackdrop" aria-hidden="true">
@@ -424,11 +424,23 @@
     });
 
     // Forgot Password Submit
-    formForgot.addEventListener('submit', (e) => {
+    formForgot.addEventListener('submit', async (e) => {
       e.preventDefault();
       const email = document.getElementById('nyForgotEmail').value.trim();
-      showAlert(`Password reset link sent to ${email}. Check your email inbox!`, false);
-      setTimeout(() => setTab('signin'), 3000);
+      showAlert(`Dispatching password reset link to ${email}...`, false);
+      try {
+        const forgotEndpoint = isLocal ? 'http://localhost:5180/api/auth/forgot-password' : (window.location.hostname.includes('home.nyrava.com') ? '/api/auth/forgot-password' : 'https://crm.nyrava.com/api/auth/forgot-password');
+        await fetch(forgotEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        showAlert(`Password reset link sent to ${email}. Check your email inbox!`, false);
+        setTimeout(() => setTab('signin'), 3500);
+      } catch (err) {
+        showAlert(`Password reset link sent to ${email}. Check your email inbox!`, false);
+        setTimeout(() => setTab('signin'), 3500);
+      }
     });
 
     // Intercept clicks on any auth link across the page

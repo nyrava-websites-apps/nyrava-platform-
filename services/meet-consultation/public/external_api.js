@@ -78,6 +78,18 @@
     }
 
     dispose() {
+      if (this.iframe) {
+        try {
+          this.iframe.contentWindow?.postMessage({
+            source: 'nyrava-team-meet-api',
+            command: 'shutdown'
+          }, '*');
+          this.iframe.contentWindow?.postMessage({
+            type: 'NYRAVA_MEET_SHUTDOWN'
+          }, '*');
+          this.iframe.src = 'about:blank';
+        } catch (_) {}
+      }
       if (this.iframe && this.iframe.parentNode) {
         this.iframe.parentNode.removeChild(this.iframe);
         this.iframe = null;

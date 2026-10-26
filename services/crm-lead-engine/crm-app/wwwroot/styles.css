@@ -354,3 +354,171 @@
 .rail-signout-btn:hover {
   background: #1e3a6a !important;
 }
+
+/* ===================================================================
+   Nyrava Team Meet Floating In-Page Popup & Dock
+   =================================================================== */
+.nh-meet-window {
+  position: fixed;
+  z-index: 2500;
+  right: 24px;
+  bottom: 24px;
+  width: min(880px, calc(100vw - 32px));
+  height: min(620px, calc(100vh - 48px));
+  background: #081a3a;
+  border: 1px solid rgba(96, 165, 250, 0.4);
+  border-radius: 14px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: width 0.25s ease, height 0.25s ease, right 0.25s ease, bottom 0.25s ease;
+}
+
+.nh-meet-window.expanded {
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  border-radius: 0 !important;
+  border: none !important;
+  z-index: 3000 !important;
+}
+
+.nh-meet-header {
+  height: 44px;
+  min-height: 44px;
+  background: #0e244d;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  user-select: none;
+}
+
+.nh-meet-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nh-meet-room-tag {
+  font-size: 11px;
+  background: rgba(8, 102, 255, 0.25);
+  color: #93c5fd;
+  border: 1px solid rgba(8, 102, 255, 0.45);
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.nh-meet-controls {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.nh-meet-copy-btn {
+  background: rgba(8, 102, 255, 0.25) !important;
+  color: #93c5fd !important;
+  border: 1px solid rgba(8, 102, 255, 0.45) !important;
+  border-radius: 6px !important;
+  padding: 4px 10px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: auto !important;
+  height: 28px !important;
+  transition: all 0.2s;
+}
+
+.nh-meet-copy-btn:hover {
+  background: #0866ff !important;
+  color: #ffffff !important;
+}
+
+.nh-meet-controls button {
+  width: 28px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  color: #e2e8f0;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  padding: 0;
+  line-height: 1;
+}
+
+.nh-meet-controls button:hover {
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+}
+
+.nh-meet-controls button#meetCloseBtn:hover {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: #ffffff;
+}
+
+.nh-meet-frame-wrap {
+  flex: 1;
+  position: relative;
+  background: #081a3a;
+  overflow: hidden;
+}
+
+.nh-meet-frame-wrap iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+.nh-meet-dock-pill {
+  position: fixed;
+  z-index: 2400;
+  right: 24px;
+  bottom: 24px;
+  background: #0e244d;
+  color: #ffffff;
+  border: 1px solid #3b82f6;
+  border-radius: 30px;
+  padding: 10px 18px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+  transition: transform 0.2s, background 0.2s;
+}
+
+.nh-meet-dock-pill:hover {
+  background: #1e3a6a;
+  transform: translateY(-2px);
+}
+
+.nh-meet-pulse-dot {
+  width: 10px;
+  height: 10px;
+  background: #10b981;
+  border-radius: 50%;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  animation: nh-pulse 1.8s infinite;
+}
+
+@keyframes nh-pulse {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}

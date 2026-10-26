@@ -48,6 +48,13 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://0.0.0.0:5180
+      - SMTP_HOST=${SMTP_HOST:-smtp.zoho.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-notifications@nyrava.com}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - EMAIL_FROM=${EMAIL_FROM:-Nyrava Home <notifications@nyrava.com>}
+      - SMTP_SSL=${SMTP_SSL:-true}
+      - Crm__PublicBaseUrl=https://${CRM_DOMAIN:-crm.nyrava.com}
 
   # 3. Nyrava Home Evaluation Engine (AVM, Lead Capture, Email, Opt-out)
   home-evaluation:

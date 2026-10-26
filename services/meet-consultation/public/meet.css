@@ -46,6 +46,26 @@ body, html {
   z-index: 10;
 }
 
+.meet-header.embed-header {
+  height: 42px;
+  padding: 0 12px;
+}
+.meet-header.embed-header .brand strong {
+  font-size: 13px;
+}
+.meet-header.embed-header .brand-icon {
+  width: 18px;
+  height: 18px;
+}
+.meet-header.embed-header .room-pill {
+  font-size: 11px;
+  padding: 2px 8px;
+}
+.meet-header.embed-header .btn-sm {
+  padding: 4px 10px;
+  font-size: 11px;
+}
+
 .brand {
   display: flex;
   align-items: center;
@@ -264,6 +284,14 @@ body, html {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.tab-content[hidden] {
+  display: none !important;
+}
+
+body.embed-mode .meet-header {
+  display: none !important;
 }
 
 .messages-list {

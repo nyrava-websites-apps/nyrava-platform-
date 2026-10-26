@@ -9,8 +9,9 @@
   const userName = urlParams.get('name') || 'Participant-' + Math.floor(1000 + Math.random() * 9000);
   const isEmbed = urlParams.get('embed') === '1';
 
-  // In embed mode, compact the header if needed
+  // In embed mode, completely hide the inner header so there is NO double header
   if (isEmbed) {
+    document.body.classList.add('embed-mode');
     const hdr = document.getElementById('meetHeader');
     if (hdr) hdr.style.display = 'none';
   }
@@ -291,12 +292,66 @@
     };
   }
 
+  // Complete Hardware and Connection Teardown
+  function terminateAllMediaAndConnections() {
+    console.log('[Nyrava Team Meet] Terminating camera, microphone, screen tracks and connections...');
+    if (localStream) {
+      localStream.getTracks().forEach(track => {
+        try {
+          track.stop();
+          track.enabled = false;
+        } catch (e) {
+          console.warn('Track stop error', e);
+        }
+      });
+      localStream = null;
+    }
+    if (screenStream) {
+      screenStream.getTracks().forEach(track => {
+        try {
+          track.stop();
+          track.enabled = false;
+        } catch (e) {
+          console.warn('Screen track stop error', e);
+        }
+      });
+      screenStream = null;
+    }
+    const localVid = document.getElementById('localVideo');
+    if (localVid) {
+      localVid.srcObject = null;
+      try { localVid.pause(); } catch (_) {}
+    }
+    peerConnections.forEach((pc) => {
+      try {
+        pc.ontrack = null;
+        pc.onicecandidate = null;
+        pc.close();
+      } catch (e) {}
+    });
+    peerConnections.clear();
+
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+      try {
+        ws.close();
+      } catch (e) {}
+    }
+  }
+
+  // Handle unload and navigation cleanly to ensure camera light turns off
+  window.addEventListener('beforeunload', terminateAllMediaAndConnections);
+  window.addEventListener('pagehide', terminateAllMediaAndConnections);
+  window.addEventListener('unload', terminateAllMediaAndConnections);
+
   if (btnEnd) {
     btnEnd.onclick = () => {
       if (confirm('Leave Nyrava Team Meet consultation?')) {
-        if (localStream) localStream.getTracks().forEach(t => t.stop());
-        if (screenStream) screenStream.getTracks().forEach(t => t.stop());
-        window.location.href = '/';
+        terminateAllMediaAndConnections();
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ source: 'nyrava-team-meet-api', type: 'NYRAVA_MEET_CLOSED' }, '*');
+        } else {
+          window.location.href = '/';
+        }
       }
     };
   }
@@ -394,14 +449,19 @@
     responses.prepend(msg);
   };
 
-  // 8. Listen for Plugin postMessage commands from NyravaTeamMeet embed API
+  // 8. Listen for Plugin postMessage commands from NyravaTeamMeet embed API or parent modal
   window.addEventListener('message', (event) => {
-    if (event.data && event.data.source === 'nyrava-team-meet-api') {
-      const { command } = event.data;
+    if (event.data && (event.data.source === 'nyrava-team-meet-api' || event.data.type === 'NYRAVA_MEET_SHUTDOWN')) {
+      const { command, type } = event.data;
+      if (command === 'shutdown' || command === 'leave' || type === 'NYRAVA_MEET_SHUTDOWN') {
+        terminateAllMediaAndConnections();
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ source: 'nyrava-team-meet-api', type: 'NYRAVA_MEET_TERMINATED' }, '*');
+        }
+      }
       if (command === 'toggleAudio' && btnMic) btnMic.click();
       if (command === 'toggleVideo' && btnCam) btnCam.click();
       if (command === 'shareScreen' && btnScreen) btnScreen.click();
-      if (command === 'leave' && btnEnd) btnEnd.click();
     }
   });
 
