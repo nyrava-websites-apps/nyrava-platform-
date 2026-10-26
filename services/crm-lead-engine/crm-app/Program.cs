@@ -652,7 +652,30 @@ app.MapPost("/api/team/assign/{contactId:long}", async (long contactId, Assignme
     var actor=await CurrentUser(db,http); if(actor.Role!="Owner") return Results.Forbid();
     var contact=await db.Contacts.SingleOrDefaultAsync(x=>x.Id==contactId&&x.UserId==actor.Id); if(contact is null)return Results.NotFound();
     if(input.UserId.HasValue&&!await db.Memberships.AnyAsync(x=>x.OwnerUserId==actor.Id&&x.UserId==input.UserId.Value&&x.Active&&(x.Role=="Employee"||x.UserId==actor.Id))) return Results.BadRequest(new{error="Choose an active team member."});
-    contact.AssignedToUserId=input.UserId??actor.Id; contact.UpdatedAt=DateTimeOffset.UtcNow; await db.SaveChangesAsync(); return Results.Ok(contact);
+    contact.AssignedToUserId=input.UserId??actor.Id;
+    contact.UpdatedAt=DateTimeOffset.UtcNow;
+    await db.SaveChangesAsync();
+
+    if (input.UserId.HasValue && input.UserId.Value != actor.Id) {
+        var assignedMember = await db.Users.FindAsync(input.UserId.Value);
+        if (assignedMember != null && !string.IsNullOrWhiteSpace(assignedMember.Email)) {
+            _ = Task.Run(async () => {
+                try {
+                    await EmailService.SendLeadAssignedNotificationAsync(
+                        builder.Configuration,
+                        assignedMember.Email,
+                        contact.Name,
+                        contact.LeadType,
+                        actor.Email
+                    );
+                } catch (Exception ex) {
+                    Console.WriteLine($"[TeamAssign] Failed to dispatch assignment notification: {ex.Message}");
+                }
+            });
+        }
+    }
+
+    return Results.Ok(contact);
 }).RequireAuthorization();
 
 app.MapGet("/api/chat/people", async (CrmDb db,HttpContext http)=>{
