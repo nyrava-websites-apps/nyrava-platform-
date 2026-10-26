@@ -188,13 +188,21 @@ services:
 
   # 11. Object Storage & Backup Target (MinIO S3 Compatible)
   object-storage:
-    image: minio/minio:latest
+    image: zenko/cloudserver:latest
     restart: unless-stopped
-    command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-nyrava_minio}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-NyravaMinioSecret2026!}
+      SCALITY_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-nyrava_minio}
+      SCALITY_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-NyravaMinioSecret2026!}
+      S3DATAPATH: /data
+      S3METADATAPATH: /metadata
     volumes:
+      - minio_data:/data
+    ports:
+      - "8000:8000"
+    networks:
+      - nyrava_network
+
+volumes:
       - minio_data:/data
     ports:
       - "9000:9000"
