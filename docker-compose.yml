@@ -186,7 +186,7 @@ services:
     networks:
       - nyrava_network
 
-  # 11. Object Storage & Backup Target (MinIO S3 Compatible)
+  # 11. Object Storage & Backup Target (Scality S3 API Compatible)
   object-storage:
     image: zenko/cloudserver:latest
     restart: unless-stopped
@@ -199,14 +199,6 @@ services:
       - minio_data:/data
     ports:
       - "8000:8000"
-    networks:
-      - nyrava_network
-
-volumes:
-      - minio_data:/data
-    ports:
-      - "9000:9000"
-      - "9001:9001"
     networks:
       - nyrava_network
 
