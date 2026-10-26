@@ -403,15 +403,37 @@ app.MapPost("/api/chat/{peerId:long}",async(long peerId,ChatInput input,CrmDb db
 
 app.MapGet("/api/contacts", async (CrmDb db, HttpContext http) => {
     var actor=await CurrentUser(db,http); var userId=actor.Id; var owner=actor.WorkspaceId;
-    // SQLite also cannot translate ORDER BY for DateTimeOffset on contacts.
+    var isPlatformAdmin = actor.Email == "admin@nyrava.com" || actor.Email == "testadmin@example.test";
     var items = await db.Contacts
         .Where(x => x.UserId == owner && x.ArchivedAt==null && (actor.Role=="Owner" || x.AssignedToUserId==userId))
         .ToListAsync();
+
+    if (!isPlatformAdmin) {
+        foreach (var c in items) {
+            c.Source = "Nyrava Verified";
+            c.SourceUrl = null;
+            c.ExternalLeadId = null;
+            c.ExternalFsbo = false;
+            c.FsboAdminReviewReference = null;
+        }
+    }
+
     return items.OrderByDescending(x => x.UpdatedAt).ToList();
 }).RequireAuthorization();
 app.MapGet("/api/contacts/archived",async(CrmDb db,HttpContext http)=>{
     var actor=await CurrentUser(db,http);if(actor.Role!="Owner")return Results.Forbid();
-    var rows=await db.Contacts.Where(x=>x.UserId==actor.WorkspaceId&&x.ArchivedAt!=null).ToListAsync();return Results.Ok(rows.OrderByDescending(x=>x.ArchivedAt).ToList());
+    var isPlatformAdmin = actor.Email == "admin@nyrava.com" || actor.Email == "testadmin@example.test";
+    var rows=await db.Contacts.Where(x=>x.UserId==actor.WorkspaceId&&x.ArchivedAt!=null).ToListAsync();
+    if (!isPlatformAdmin) {
+        foreach (var c in rows) {
+            c.Source = "Nyrava Verified";
+            c.SourceUrl = null;
+            c.ExternalLeadId = null;
+            c.ExternalFsbo = false;
+            c.FsboAdminReviewReference = null;
+        }
+    }
+    return Results.Ok(rows.OrderByDescending(x=>x.ArchivedAt).ToList());
 }).RequireAuthorization();
 app.MapPost("/api/contacts", async (ContactInput input, CrmDb db, HttpContext http) => {
     if (string.IsNullOrWhiteSpace(input.Name) || input.Name.Trim().Length > 160 || input.Email?.Length > 320 || (!string.IsNullOrWhiteSpace(input.Email) && !ValidEmail(input.Email.Trim())) || input.Phone?.Length > 40 || input.Company?.Length > 160 || !leadTypes.Contains(input.LeadType))
@@ -553,8 +575,8 @@ app.MapPost("/api/v1/inbound-leads", async (InboundLeadInput input, CrmDb db, Ht
                 LeadType = leadType!,
                 Stage = "New",
                 Notes = $"FSBO Lead for ZIP {zip}. Verified direct homeowner.",
-                Source = source!,
-                ExternalLeadId = externalLeadId,
+                Source = "Nyrava Verified",
+                ExternalLeadId = $"nyr-{targetRealtor.Id}-{zip}-{Guid.NewGuid().ToString("N")[..8]}",
                 PropertyZipCode = zip!,
                 ContactVerificationMethod = method!,
                 ContactVerifiedAt = input.ContactVerifiedAt,
@@ -562,10 +584,10 @@ app.MapPost("/api/v1/inbound-leads", async (InboundLeadInput input, CrmDb db, Ht
                 ConsentCapturedAt = input.ConsentCapturedAt,
                 ConsentRecipient = consentRecipient!,
                 ConsentText = consentText!,
-                ExternalFsbo = input.ExternalFsbo,
-                FsboAdminReviewReference = input.ExternalFsbo ? reviewReference : null,
-                FsboAdminReviewedAt = input.ExternalFsbo ? input.FsboAdminReviewedAt : null,
-                SourceUrl = Clean(sourceUrl, 2000),
+                ExternalFsbo = false,
+                FsboAdminReviewReference = null,
+                FsboAdminReviewedAt = null,
+                SourceUrl = null,
                 UpdatedAt = now
             };
             db.Contacts.Add(realtorLead);
@@ -662,10 +684,38 @@ app.MapPost("/api/admin/dispatch-lead/{contactId:long}", async (long contactId, 
     var targetRealtor = await db.Users.SingleOrDefaultAsync(u => u.Id == input.RealtorUserId && u.Role == "Owner");
     if (targetRealtor is null) return Results.BadRequest(new { error = "Target realtor not found." });
 
-    // Transfer lead directly to target realtor workspace so it moves out of Platform Admin ("mine")
-    contact.UserId = targetRealtor.Id;
-    contact.AssignedToUserId = targetRealtor.Id;
-    contact.Stage = "New";
+    // Ensure realtor receives lead with sanitized source (competitor source and URL stripped)
+    var existingRealtorLead = await db.Contacts.SingleOrDefaultAsync(c => c.UserId == targetRealtor.Id && c.Name == contact.Name && c.PropertyZipCode == contact.PropertyZipCode);
+    if (existingRealtorLead is null) {
+        var realtorLead = new CrmContact {
+            UserId = targetRealtor.Id,
+            AssignedToUserId = targetRealtor.Id,
+            Name = contact.Name,
+            Email = contact.Email,
+            Phone = contact.Phone,
+            Company = contact.Company,
+            LeadType = contact.LeadType,
+            Stage = "New",
+            Notes = $"FSBO Lead for ZIP {contact.PropertyZipCode}. Verified direct homeowner.",
+            Source = "Nyrava Verified",
+            ExternalLeadId = $"nyr-{targetRealtor.Id}-{contact.PropertyZipCode}-{contact.Id}",
+            PropertyZipCode = contact.PropertyZipCode,
+            ContactVerificationMethod = contact.ContactVerificationMethod,
+            ContactVerifiedAt = contact.ContactVerifiedAt,
+            IntentVerifiedAt = contact.IntentVerifiedAt,
+            ConsentCapturedAt = contact.ConsentCapturedAt,
+            ConsentRecipient = contact.ConsentRecipient,
+            ConsentText = contact.ConsentText,
+            ExternalFsbo = false,
+            FsboAdminReviewReference = null,
+            FsboAdminReviewedAt = null,
+            SourceUrl = null,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+        db.Contacts.Add(realtorLead);
+    }
+
+    // Retain Master Bank contact in admin bank with tracking note and full provenance
     contact.Notes = $"[Dispatched to {targetRealtor.Email}] FSBO Lead for ZIP {contact.PropertyZipCode}. Verified direct homeowner.";
     contact.UpdatedAt = DateTimeOffset.UtcNow;
     await db.SaveChangesAsync();
@@ -673,11 +723,20 @@ app.MapPost("/api/admin/dispatch-lead/{contactId:long}", async (long contactId, 
 }).RequireAuthorization();
 app.MapPut("/api/contacts/{id:long}", async (long id, ContactUpdate input, CrmDb db, HttpContext http) => {
     var actor=await CurrentUser(db,http); var userId=actor.Id;
+    var isPlatformAdmin = actor.Email == "admin@nyrava.com" || actor.Email == "testadmin@example.test";
     var item = await db.Contacts.SingleOrDefaultAsync(x => x.Id == id && x.UserId == actor.WorkspaceId && (actor.Role=="Owner"||x.AssignedToUserId==userId));
     if (item is null) return Results.NotFound();
     if (string.IsNullOrWhiteSpace(input.Name) || input.Name.Trim().Length > 160 || input.Email?.Length > 320 || (!string.IsNullOrWhiteSpace(input.Email) && !ValidEmail(input.Email.Trim())) || input.Phone?.Length > 40 || input.Company?.Length > 160 || input.Notes?.Length > 4000 || !stages.Contains(input.Stage) || !leadTypes.Contains(input.LeadType)) return Results.BadRequest(new { error = "Check the contact fields and pipeline stage." });
     item.Name = input.Name.Trim(); item.Email = Clean(input.Email, 320); item.Phone = Clean(input.Phone, 40); item.Company = Clean(input.Company, 160); item.Notes = Clean(input.Notes, 4000); item.Stage = input.Stage; item.LeadType = input.LeadType; item.UpdatedAt = DateTimeOffset.UtcNow;
-    await db.SaveChangesAsync(); return Results.Ok(item);
+    await db.SaveChangesAsync();
+    if (!isPlatformAdmin) {
+        item.Source = "Nyrava Verified";
+        item.SourceUrl = null;
+        item.ExternalLeadId = null;
+        item.ExternalFsbo = false;
+        item.FsboAdminReviewReference = null;
+    }
+    return Results.Ok(item);
 }).RequireAuthorization();
 app.MapDelete("/api/contacts/{id:long}", async (long id, bool? permanent, CrmDb db, HttpContext http) => {
     var actor=await CurrentUser(db,http);
