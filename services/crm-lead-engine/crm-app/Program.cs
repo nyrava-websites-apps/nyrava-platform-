@@ -387,6 +387,16 @@ app.MapPost("/api/team/assign/{contactId:long}", async (long contactId, Assignme
 
 app.MapGet("/api/chat/people", async (CrmDb db,HttpContext http)=>{
     var actor=await CurrentUser(db,http); 
+
+    if (IsPlatformAdmin(actor)) {
+        // Admin sees ALL Realtor Account Owners for direct support
+        var realtors = await db.Users
+            .Where(u => u.Email != "admin@home.nyrava.com" && u.Email != "admin@nyrava.com" && u.Email != "testadmin@example.test" && u.Role == "Owner")
+            .Select(u => new { id = u.Id, email = $"{u.Email} (Realtor Subscriber)", role = "Realtor", isSupport = false })
+            .ToListAsync();
+        return Results.Ok(realtors);
+    }
+
     if (actor.Role != "Owner") {
         // Team member: ONLY allowed to chat with their Realtor Account Owner and workspace teammates
         var teammates = await db.Memberships
@@ -399,15 +409,6 @@ app.MapGet("/api/chat/people", async (CrmDb db,HttpContext http)=>{
             teammates.Insert(0, new { id = owner.Id, email = $"Realtor Owner: {owner.Email}", role = "Owner", isSupport = true });
         }
         return Results.Ok(teammates);
-    }
-
-    if (IsPlatformAdmin(actor)) {
-        // Admin sees ALL Realtor Account Owners for direct support
-        var realtors = await db.Users
-            .Where(u => u.Email != "admin@home.nyrava.com" && u.Email != "admin@nyrava.com" && u.Email != "testadmin@example.test" && u.Role == "Owner")
-            .Select(u => new { id = u.Id, email = $"{u.Email} (Realtor Subscriber)", role = "Realtor", isSupport = false })
-            .ToListAsync();
-        return Results.Ok(realtors);
     }
 
     // Realtor Owner: workspace teammates + Platform Support Admin
