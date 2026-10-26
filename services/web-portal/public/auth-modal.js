@@ -233,24 +233,41 @@
       googleNormalBtn.style.display = 'block';
     });
 
-    // Execute Google Login
+    // Execute Google Login with automatic fallback
     async function doGoogleLogin(email) {
       showAlert(`Signing in with Google as ${email}...`, false);
       try {
-        const res = await fetch(GOOGLE_AUTH_ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ email })
-        });
+        let res = null;
+        try {
+          res = await fetch('/api/auth/google', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ email })
+          });
+        } catch (e) {
+          res = null;
+        }
+
+        if (!res || !res.ok) {
+          // Direct CRM fallback
+          res = await fetch('https://crm.nyrava.com/api/auth/google', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ email })
+          });
+        }
+
         if (!res.ok) {
           const err = await res.json().catch(() => ({ error: 'Google sign-in failed.' }));
           throw new Error(err.error || 'Google sign-in failed.');
         }
+
         showAlert('Google authentication verified! Opening your workspace...', false);
         setTimeout(() => {
           window.location.href = CRM_PORTAL_URL;
-        }, 500);
+        }, 400);
       } catch (err) {
         showAlert(err.message, true);
       }
@@ -269,7 +286,7 @@
       doGoogleLogin(email);
     });
 
-    // Direct Login Function
+    // Direct Login Function with automatic fallback
     async function doLogin(email, password, label = 'Signing in...') {
       clearAlert();
       showAlert(label, false);
@@ -277,12 +294,27 @@
       if (btn) { btn.disabled = true; btn.textContent = 'Verifying...'; }
 
       try {
-        const res = await fetch(AUTH_ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ email, password })
-        });
+        let res = null;
+        try {
+          res = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ email, password })
+          });
+        } catch (e) {
+          res = null;
+        }
+
+        if (!res || !res.ok) {
+          // Direct CRM fallback
+          res = await fetch('https://crm.nyrava.com/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ email, password })
+          });
+        }
 
         if (!res.ok) {
           const err = await res.json().catch(() => ({ error: 'Invalid email or password.' }));
@@ -292,7 +324,7 @@
         showAlert('Authenticated! Opening your workspace...', false);
         setTimeout(() => {
           window.location.href = CRM_PORTAL_URL;
-        }, 500);
+        }, 400);
       } catch (err) {
         showAlert(err.message, true);
         if (btn) { btn.disabled = false; btn.textContent = 'Sign In to Workspace'; }
@@ -341,12 +373,27 @@
       const invitationCode = document.getElementById('nyRegInvite').value.trim();
 
       try {
-        const res = await fetch(REG_ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ email, password, country, postalCode, invitationCode: invitationCode || null })
-        });
+        let res = null;
+        const regBody = JSON.stringify({ email, password, country, postalCode, invitationCode: invitationCode || null });
+        try {
+          res = await fetch('/api/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: regBody
+          });
+        } catch (e) {
+          res = null;
+        }
+
+        if (!res || !res.ok) {
+          res = await fetch('https://crm.nyrava.com/api/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: regBody
+          });
+        }
 
         if (!res.ok) {
           const err = await res.json().catch(() => ({ error: 'Registration failed.' }));
@@ -356,7 +403,7 @@
         showAlert('Account created! Opening your workspace...', false);
         setTimeout(() => {
           window.location.href = CRM_PORTAL_URL;
-        }, 600);
+        }, 500);
       } catch (err) {
         showAlert(err.message, true);
         btn.disabled = false;

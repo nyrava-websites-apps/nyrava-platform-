@@ -11,10 +11,45 @@
   <p id="authSubtitle" style="margin:0 0 18px;font-size:13px;color:#64748b;">Enter your credentials to access your leads and territory pipeline.</p>
 
   <!-- Google Sign-In Button -->
-  <button type="button" id="btnGoogleAuth" class="btn-google" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:11px 14px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#1e293b;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
-    <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.616z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/><path fill="#FBBC05" d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.173 0 7.55 0 9s.347 2.827.957 4.039l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z"/></svg>
-    <span>Continue with Google</span>
-  </button>
+  <div id="crmGoogleNormal">
+    <button type="button" id="btnGoogleAuth" class="btn-google" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:11px 14px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#1e293b;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.616z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/><path fill="#FBBC05" d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.173 0 7.55 0 9s.347 2.827.957 4.039l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z"/></svg>
+      <span>Continue with Google</span>
+    </button>
+  </div>
+
+  <!-- Google Account Picker -->
+  <div id="crmGooglePicker" style="display:none;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;padding:12px;margin-bottom:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:12px;font-weight:700;color:#0f172a;">
+      <span>Choose a Google Account</span>
+      <button type="button" id="crmCloseGooglePicker" style="background:none;border:none;color:#64748b;font-size:11px;cursor:pointer;">Cancel</button>
+    </div>
+    <div class="crm-g-item" data-google-email="test.realtor@nyrava.com" style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;margin-bottom:6px;">
+      <span style="font-size:16px;">🏠</span>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:#0f172a;">Test Realtor (Pro)</div>
+        <div style="font-size:11px;color:#64748b;">test.realtor@nyrava.com</div>
+      </div>
+    </div>
+    <div class="crm-g-item" data-google-email="team.agent@nyrava.com" style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;margin-bottom:6px;">
+      <span style="font-size:16px;">👥</span>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:#0f172a;">Test Team Member</div>
+        <div style="font-size:11px;color:#64748b;">team.agent@nyrava.com</div>
+      </div>
+    </div>
+    <div class="crm-g-item" data-google-email="admin@home.nyrava.com" style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;margin-bottom:8px;">
+      <span style="font-size:16px;">👑</span>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:#0f172a;">Platform Admin</div>
+        <div style="font-size:11px;color:#64748b;">admin@home.nyrava.com</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;">
+      <input type="email" id="crmCustomGoogleEmail" placeholder="your.name@gmail.com" style="flex:1;padding:6px 8px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;">
+      <button type="button" id="crmBtnCustomGoogle" style="padding:6px 12px;background:#0066ff;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">Sign In</button>
+    </div>
+  </div>
 
   <div style="display:flex;align-items:center;text-align:center;margin:14px 0;color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">
     <div style="flex:1;border-bottom:1px solid #e2e8f0;"></div>
@@ -75,7 +110,7 @@
 <section id="pipelineView" class="view hidden"><div class="toolbar"><select id="pipelineType"><option value="">Buyers and sellers</option><option>Buyer</option><option>Seller</option><option>Other</option></select><p class="muted">Move a contact by changing its stage in the contact details.</p></div><div id="pipelineBoard" class="pipeline-board"></div></section>
 <section id="calendarView" class="view hidden"><div class="calendar-hero"><div><h2>Calendar</h2><p class="muted">Appointments, client outcomes, and follow-ups in one place. No appointment end time is required.</p></div><div class="calendar-actions"><button class="quiet" data-add-kind="Task">+ New task</button><button data-add-kind="Appointment">+ Appointment</button></div></div><div class="calendar-metrics stats"><div class="card"><small>Appointments in view</small><b id="calendarAppointmentCount">0</b></div><div class="card"><small>Open follow-ups</small><b id="calendarTaskCount">0</b></div><div class="card"><small>Contacts available</small><b id="calendarContactCount">0</b></div></div><div class="calendar-layout"><section class="calendar-card"><div class="calendar-toolbar"><div class="calendar-nav"><button id="calendarPrev" class="quiet" aria-label="Previous period">‹</button><button id="calendarToday" class="quiet">Today</button><button id="calendarNext" class="quiet" aria-label="Next period">›</button><h2 id="calendarTitle"></h2></div><div class="calendar-views" role="group" aria-label="Calendar view"><button data-calendar-view="month" class="selected">Month</button><button data-calendar-view="week">Week</button><button data-calendar-view="day">Day</button><button data-calendar-view="agenda">Agenda</button></div></div><div class="cal-controls"><label>Item type<select id="calendarFilter"><option value="all">All items</option><option value="Appointment">Appointments</option><option value="Task">Tasks</option><option value="Follow-up">Follow-ups</option></select></label><label>Appointment result<select id="calendarResultFilter"><option value="all">All results</option><option value="scheduled">Scheduled / open</option><option value="Held">Held</option><option value="Missed">Missed</option><option value="Canceled">Canceled</option><option value="Rescheduled">Rescheduled</option><option value="Follow-up needed">Follow-up needed</option><option value="Converted">Converted</option><option value="Not interested">Not interested</option></select></label><label>Start date<input id="agendaDate" aria-label="Calendar date" type="date"></label></div><div id="calendarGrid" aria-live="polite"></div></section><aside class="calendar-side"><section class="card"><div class="section-title"><h3 id="calendarAgendaTitle">Upcoming</h3><button class="small" data-add-kind="Appointment">+ Add</button></div><div id="calendarAgenda" class="calendar-agenda"></div></section><section class="card"><div class="section-title"><h3>Contacts</h3><button class="small quiet" data-go="contacts">Manage</button></div><input id="calendarContactSearch" type="search" placeholder="Search contacts" aria-label="Search calendar contacts"><div id="calendarContacts" class="calendar-contacts"></div><div id="calendarContactsPagination" class="calendar-contacts-pagination"></div></section></aside></div></section>
 <section id="remindersView" class="view hidden"><div class="section-title"><div><h2>Reminders &amp; notifications</h2><p class="muted">Open tasks and upcoming appointments for this CRM account.</p></div><button id="refreshReminders" class="quiet">Refresh</button></div><div id="reminderList" class="card list"></div><p class="caption">These are in-app reminders. Email and SMS reminders need separately configured delivery providers.</p></section>
-<section id="performanceView" class="view hidden"><h2>CRM performance</h2><p class="muted">Counts are calculated from the records in this workspace.</p><div id="performanceMetrics" class="stats performance-stats"></div><section class="card"><div class="section-title"><h2>Pipeline by stage</h2></div><div id="performanceStages" class="performance-stages"></div></section><section class="card performance-lists"><div><h3>Buyer / seller mix</h3><div id="performanceTypes"></div></div><div><h3>Activity completion</h3><div id="performanceActivity"></div></div></section></section>
+<section id="performanceView" class="view hidden"><h2>Pipeline Performance</h2><p class="muted">Counts are calculated from the records in this workspace.</p><div id="performanceMetrics" class="stats performance-stats"></div><section class="card"><div class="section-title"><h2>Pipeline by stage</h2></div><div id="performanceStages" class="performance-stages"></div></section><section class="card performance-lists"><div><h3>Buyer / seller mix</h3><div id="performanceTypes"></div></div><div><h3>Activity completion</h3><div id="performanceActivity"></div></div></section></section>
 
 <section id="accountsView" class="view hidden">
   <div class="calendar-hero">
@@ -136,7 +171,7 @@
 <section id="chatView" class="chat-window hidden" role="region" aria-label="Team chat">
   <header class="chat-window-bar"><span>Team Chat</span><div class="chat-window-controls"><button id="chatMinimize" type="button" aria-label="Minimize chat" aria-expanded="true" aria-controls="chatWindowContent">−</button><button id="chatClose" type="button" aria-label="Close chat">×</button></div></header>
   <div id="chatWindowContent" class="chat-window-content">
-    <div class="chat-window-heading"><div><span>CRM · PRIVATE WORKSPACE</span><h2>Team Chat</h2></div><div style="display:flex;gap:6px;align-items:center;"><button id="chatSupportBtn" class="small" type="button" title="Reach Support & AI Concierge" style="background:#10b981;color:#fff;border:none;border-radius:6px;padding:6px 10px;font-weight:600;cursor:pointer;font-size:12px;">🎧 Support &amp; AI</button><button id="startMeetBtn" class="small" type="button" title="Launch instant HD video meeting" style="background:#0866FF;color:#fff;border:none;border-radius:6px;padding:6px 10px;font-weight:600;cursor:pointer;font-size:12px;">📹 Start Nyra Meet</button><button id="chatTeamLink" class="chat-team-link" type="button">My Team</button></div></div>
+    <div class="chat-window-heading"><div><span>NYRAVA HOME · PRIVATE WORKSPACE</span><h2>Team Chat</h2></div><div style="display:flex;gap:6px;align-items:center;"><button id="chatSupportBtn" class="small" type="button" title="Reach Support & AI Concierge" style="background:#10b981;color:#fff;border:none;border-radius:6px;padding:6px 10px;font-weight:600;cursor:pointer;font-size:12px;">🎧 Support &amp; AI</button><button id="startMeetBtn" class="small" type="button" title="Launch instant HD video meeting" style="background:#0866FF;color:#fff;border:none;border-radius:6px;padding:6px 10px;font-weight:600;cursor:pointer;font-size:12px;">📹 Start Nyra Meet</button><button id="chatTeamLink" class="chat-team-link" type="button">My Team</button></div></div>
     <label class="chat-peer-label">Conversation<select id="chatPeer" aria-label="Select teammate"></select></label>
     <div id="chatMessages" class="chat-messages" aria-live="polite"></div>
     <form id="chatForm" class="chat-form"><textarea id="chatBody" maxlength="4000" placeholder="Write a message…" aria-label="Write a message" required></textarea><button>Send</button></form>

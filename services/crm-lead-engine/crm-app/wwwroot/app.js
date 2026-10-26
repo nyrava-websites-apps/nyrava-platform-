@@ -52,7 +52,7 @@ function renderSidebar(){
         </div>
         <div class="nav-group">
           <button type="button" class="nav-item group-toggle" data-group="contactsCrm">
-            <span>Contacts &amp; CRM</span>
+            <span>Contacts &amp; Pipeline</span>
             <span class="group-arrow">${openGroups.contactsCrm?'▼':'▶'}</span>
           </button>
           <div class="nav-subitems ${openGroups.contactsCrm?'':'hidden'}" id="subitemsContactsCrm">
@@ -239,10 +239,19 @@ const qAdmin=$('#quickLoginAdmin');if(qAdmin)qAdmin.onclick=()=>doQuickLogin('ad
 const qRealtor=$('#quickLoginRealtor');if(qRealtor)qRealtor.onclick=()=>doQuickLogin('test.realtor@nyrava.com','Password123456!','Test Realtor');
 const qTeam=$('#quickLoginTeam');if(qTeam)qTeam.onclick=()=>doQuickLogin('team.agent@nyrava.com','Password123456!','Test Team Member');
 
-const btnG=$('#btnGoogleAuth');if(btnG)btnG.onclick=()=>{
-  const targetEmail = prompt('Select or enter Google Account to sign in with:', 'test.realtor@nyrava.com');
-  if(targetEmail && targetEmail.trim()) doGoogleAuth(targetEmail.trim());
-};
+const btnG=$('#btnGoogleAuth');const gNorm=$('#crmGoogleNormal');const gPick=$('#crmGooglePicker');
+if(btnG&&gNorm&&gPick){
+  btnG.onclick=()=>{ gNorm.style.display='none'; gPick.style.display='block'; };
+  const closeG=$('#crmCloseGooglePicker');if(closeG)closeG.onclick=()=>{ gPick.style.display='none'; gNorm.style.display='block'; };
+  gPick.querySelectorAll('.crm-g-item').forEach(item=>{
+    item.onclick=()=>doGoogleAuth(item.dataset.googleEmail);
+  });
+  const btnCustG=$('#crmBtnCustomGoogle');
+  if(btnCustG)btnCustG.onclick=()=>{
+    const em=$('#crmCustomGoogleEmail').value.trim();
+    if(em) doGoogleAuth(em);
+  };
+}
 
 const btnForgot=$('#btnForgotPass');const forgotSec=$('#forgotPassSection');const authForm=$('#authForm');
 if(btnForgot&&forgotSec){btnForgot.onclick=()=>{authForm.classList.add('hidden');forgotSec.classList.remove('hidden')}}
@@ -269,7 +278,7 @@ if(currentUser.isPlatformAdmin){
     }catch(err){notice(err.message,true)}
   };
 }
-$('#archivedNav')?.classList.toggle('hidden',currentUser.role!=='Owner');$('#integrationsNav')?.classList.toggle('hidden',currentUser.role!=='Owner'||currentUser.demoMode);renderSidebar();try{await load()}catch(e){console.error('CRM data load failed:',e);notice(`Signed in, but CRM data could not be loaded: ${e.message}`,true)}}
+$('#archivedNav')?.classList.toggle('hidden',currentUser.role!=='Owner');$('#integrationsNav')?.classList.toggle('hidden',currentUser.role!=='Owner'||currentUser.demoMode);renderSidebar();try{await load()}catch(e){console.error('Workspace data load failed:',e);notice(`Signed in, but workspace data could not be loaded: ${e.message}`,true)}}
 async function load(){[contacts,activities]=await Promise.all([api('/api/contacts'),api('/api/activities')]);try{teamData=await api('/api/team')}catch(e){console.error('Team list unavailable',e)}try{chatPeople=await api('/api/chat/people')}catch(e){console.error('Chat directory unavailable',e)}contacts.sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt));activities.sort((a,b)=>new Date(a.startsAt)-new Date(b.startsAt));render();renderTeam();renderChatPeople();renderSidebar();if(view==='areaIntel')await loadAreaIntelligence();else if(view==='archived')await loadArchived();else if(view==='integrations')await loadIntegrationKeys();}
 function notice(t,bad=false){const n=$('#notice');n.textContent=t;n.classList.toggle('hidden',!t);n.classList.toggle('error-notice',bad);if(t)setTimeout(()=>n.classList.add('hidden'),5500)}
 function cardActivity(a){const c=contacts.find(x=>x.id===a.contactId)||a.contact;return `<article class="activity ${a.completed?'done':''}"><div class="activity-main"><strong>${esc(a.title)}</strong><div class="muted">${esc(a.kind)} · <button class="text-link" data-open-contact="${a.contactId}">${esc(c?.name||'Contact')}</button> · ${dateValue(a.startsAt)}${a.result?` · Result: ${esc(a.result)}`:''}</div>${a.location?`<p>📍 ${esc(a.location)}</p>`:''}${a.details?`<p>${esc(a.details)}</p>`:''}</div><div class="activity-actions">${!a.completed&&a.kind!=='Note'?`<button class="small" data-complete="${a.id}">Complete</button>`:''}${a.kind==='Appointment'?`<button class="small quiet" data-result-id="${a.id}">${a.result?'View / update result':'Result'}</button>`:''}${!a.completed?`<button class="small quiet" data-edit-activity="${a.id}">Edit</button>`:''}${currentUser?.role==='Owner'?`<button class="small quiet" data-delete-activity="${a.id}">Delete</button>`:''}</div></article>`}

@@ -25,11 +25,24 @@ app.use('/api/valuation', createProxyMiddleware({
   changeOrigin: true
 }));
 
-// Proxy core CRM Auth routes (same-origin from home.nyrava.com)
-app.use(['/api/login', '/api/register', '/api/logout', '/api/me', '/api/auth'], createProxyMiddleware({
+// Proxy core CRM Auth routes without Express stripping URL path (same-origin from home.nyrava.com)
+const crmAuthProxy = createProxyMiddleware({
   target: CRM_SERVICE_URL,
   changeOrigin: true
-}));
+});
+
+app.use((req, res, next) => {
+  if (
+    req.path === '/api/login' ||
+    req.path === '/api/register' ||
+    req.path === '/api/logout' ||
+    req.path === '/api/me' ||
+    req.path.startsWith('/api/auth')
+  ) {
+    return crmAuthProxy(req, res, next);
+  }
+  next();
+});
 
 // Proxy routes to CRM service
 app.use('/api/crm', createProxyMiddleware({
