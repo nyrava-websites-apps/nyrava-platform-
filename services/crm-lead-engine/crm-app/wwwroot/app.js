@@ -204,24 +204,6 @@ function renderSidebar(){
   if(signoutBtn)signoutBtn.onclick=()=>$('#logout').click();
 }
 
-async function init(){
-  const urlParams = new URLSearchParams(location.search);
-  const authToken = urlParams.get('auth_token');
-  if (authToken) {
-    try {
-      await api('/api/auth/token-login', {
-        method: 'POST',
-        body: JSON.stringify({ token: authToken })
-      });
-      urlParams.delete('auth_token');
-      const newSearch = urlParams.toString();
-      const cleanUrl = location.pathname + (newSearch ? '?' + newSearch : '');
-      history.replaceState({}, '', cleanUrl);
-    } catch(err) {
-      console.error('Token SSO login error:', err);
-    }
-  }
-  try{const demo=await api('/api/demo-info');demoMode=!!demo.enabled;$('#demoAuthHint').classList.toggle('hidden',!demo.enabled||!register)}catch{demoMode=false}$('#accountRoleHint').classList.toggle('hidden',!register);
 async function doQuickLogin(email, password, label) {
   notice(`Signing in as ${label}...`, false);
   try {
@@ -252,29 +234,90 @@ async function doGoogleAuth(email) {
   }
 }
 
-const qAdmin=$('#quickLoginAdmin');if(qAdmin)qAdmin.onclick=()=>doQuickLogin('admin@home.nyrava.com','Shazbot!Dog5!','Platform Admin');
-const qRealtor=$('#quickLoginRealtor');if(qRealtor)qRealtor.onclick=()=>doQuickLogin('test.realtor@nyrava.com','Password123456!','Test Realtor');
-const qTeam=$('#quickLoginTeam');if(qTeam)qTeam.onclick=()=>doQuickLogin('team.agent@nyrava.com','Password123456!','Test Team Member');
+function bindAuthControls() {
+  const qAdmin = $('#quickLoginAdmin');
+  if (qAdmin) qAdmin.onclick = () => doQuickLogin('admin@home.nyrava.com', 'Shazbot!Dog5!', 'Platform Admin');
+  const qRealtor = $('#quickLoginRealtor');
+  if (qRealtor) qRealtor.onclick = () => doQuickLogin('test.realtor@nyrava.com', 'Password123456!', 'Test Realtor');
+  const qTeam = $('#quickLoginTeam');
+  if (qTeam) qTeam.onclick = () => doQuickLogin('team.agent@nyrava.com', 'Password123456!', 'Test Team Member');
 
-const btnG=$('#btnGoogleAuth');const gNorm=$('#crmGoogleNormal');const gPick=$('#crmGooglePicker');
-if(btnG&&gNorm&&gPick){
-  btnG.onclick=()=>{ gNorm.style.display='none'; gPick.style.display='block'; };
-  const closeG=$('#crmCloseGooglePicker');if(closeG)closeG.onclick=()=>{ gPick.style.display='none'; gNorm.style.display='block'; };
-  gPick.querySelectorAll('.crm-g-item').forEach(item=>{
-    item.onclick=()=>doGoogleAuth(item.dataset.googleEmail);
-  });
-  const btnCustG=$('#crmBtnCustomGoogle');
-  if(btnCustG)btnCustG.onclick=()=>{
-    const em=$('#crmCustomGoogleEmail').value.trim();
-    if(em) doGoogleAuth(em);
-  };
+  const btnG = $('#btnGoogleAuth');
+  const gNorm = $('#crmGoogleNormal');
+  const gPick = $('#crmGooglePicker');
+  if (btnG && gNorm && gPick) {
+    btnG.onclick = () => { gNorm.style.display = 'none'; gPick.style.display = 'block'; };
+    const closeG = $('#crmCloseGooglePicker');
+    if (closeG) closeG.onclick = () => { gPick.style.display = 'none'; gNorm.style.display = 'block'; };
+    gPick.querySelectorAll('.crm-g-item').forEach(item => {
+      item.onclick = () => doGoogleAuth(item.dataset.googleEmail);
+    });
+    const btnCustG = $('#crmBtnCustomGoogle');
+    if (btnCustG) btnCustG.onclick = () => {
+      const em = $('#crmCustomGoogleEmail')?.value.trim();
+      if (em) doGoogleAuth(em);
+    };
+  }
+
+  const btnForgot = $('#btnForgotPass');
+  const forgotSec = $('#forgotPassSection');
+  const authForm = $('#authForm');
+  if (btnForgot && forgotSec) {
+    btnForgot.onclick = () => { authForm?.classList.add('hidden'); forgotSec?.classList.remove('hidden'); };
+  }
+  const btnBack = $('#btnBackToLogin');
+  if (btnBack && forgotSec) {
+    btnBack.onclick = () => { forgotSec?.classList.add('hidden'); authForm?.classList.remove('hidden'); };
+  }
+  const btnSendR = $('#btnSendReset');
+  if (btnSendR) {
+    btnSendR.onclick = () => {
+      const em = $('#forgotEmail')?.value.trim();
+      if (!em) return;
+      const fn = $('#forgotNotice');
+      if (fn) { fn.textContent = `Reset link sent to ${em}. Check your email inbox!`; fn.classList.remove('hidden'); }
+    };
+  }
 }
 
-const btnForgot=$('#btnForgotPass');const forgotSec=$('#forgotPassSection');const authForm=$('#authForm');
-if(btnForgot&&forgotSec){btnForgot.onclick=()=>{authForm.classList.add('hidden');forgotSec.classList.remove('hidden')}}
-const btnBack=$('#btnBackToLogin');if(btnBack&&forgotSec){btnBack.onclick=()=>{forgotSec.classList.add('hidden');authForm.classList.remove('hidden')}}
-const btnSendR=$('#btnSendReset');if(btnSendR)btnSendR.onclick=()=>{const em=$('#forgotEmail').value.trim();if(!em)return;const fn=$('#forgotNotice');if(fn){fn.textContent=`Reset link sent to ${em}. Check your email inbox!`;fn.classList.remove('hidden')}};
-try{currentUser=await api('/api/me')}catch{$('#auth').classList.remove('hidden');$('#app').classList.add('hidden');$('#logout').classList.add('hidden');$('#demoBanner').classList.add('hidden');return}
+async function init(){
+  bindAuthControls();
+
+  const urlParams = new URLSearchParams(location.search);
+  const authToken = urlParams.get('auth_token');
+  if (authToken) {
+    try {
+      await api('/api/auth/token-login', {
+        method: 'POST',
+        body: JSON.stringify({ token: authToken })
+      });
+      urlParams.delete('auth_token');
+      const newSearch = urlParams.toString();
+      const cleanUrl = location.pathname + (newSearch ? '?' + newSearch : '');
+      history.replaceState({}, '', cleanUrl);
+    } catch(err) {
+      console.error('Token SSO login error:', err);
+    }
+  }
+
+  try {
+    const demo = await api('/api/demo-info');
+    demoMode = !!demo?.enabled;
+    $('#demoAuthHint')?.classList.toggle('hidden', !demo?.enabled || !register);
+  } catch(e) {
+    demoMode = false;
+  }
+  $('#accountRoleHint')?.classList.toggle('hidden', !register);
+
+  try {
+    currentUser = await api('/api/me');
+  } catch(e) {
+    $('#auth')?.classList.remove('hidden');
+    $('#app')?.classList.add('hidden');
+    $('#logout')?.classList.add('hidden');
+    $('#demoBanner')?.classList.add('hidden');
+    return;
+  }
 $('#auth').classList.add('hidden');$('#app').classList.remove('hidden');$('#logout').classList.remove('hidden');$('#demoBanner').classList.toggle('hidden',!currentUser.demoMode);
 if(currentUser.isPlatformAdmin){
   if($('#identity'))$('#identity').innerHTML=`<div style="font-weight:700;color:#f59e0b;font-size:13px;">👑 PLATFORM OWNER ADMIN</div><div style="font-size:11px;color:#94a3b8;margin-top:2px;">Master Lead Bank</div>`;
@@ -302,7 +345,7 @@ function cardActivity(a){const c=contacts.find(x=>x.id===a.contactId)||a.contact
 function bindActivityButtons(){document.querySelectorAll('[data-complete]').forEach(b=>b.onclick=async()=>{try{await api(`/api/activities/${b.dataset.complete}/complete`,{method:'PUT'});await load()}catch(e){notice(e.message,true)}});document.querySelectorAll('[data-result-id]').forEach(b=>b.onclick=()=>openResult(Number(b.dataset.resultId)));document.querySelectorAll('[data-edit-activity]').forEach(b=>b.onclick=()=>{const a=activities.find(x=>x.id===Number(b.dataset.editActivity));if(a)openActivity(a.kind,a.contactId,a)});document.querySelectorAll('[data-delete-activity]').forEach(b=>b.onclick=async()=>{if(!confirm('Delete this item?'))return;try{await api(`/api/activities/${b.dataset.deleteActivity}`,{method:'DELETE'});await load()}catch(e){notice(e.message,true)}});document.querySelectorAll('[data-open-contact]').forEach(b=>b.onclick=()=>{selected=Number(b.dataset.openContact);showView('contacts');render()})}
 function filtered(){const q=$('#search').value.toLowerCase().trim(),t=$('#typeFilter').value,s=$('#stageFilter').value,b=$('#bankFilter')?.value;return contacts.filter(c=>{const matchQ=!q||[c.name,c.email,c.phone,c.company,c.propertyZipCode].join(' ').toLowerCase().includes(q);const matchT=!t||c.leadType===t;const matchS=!s||c.stage===s;const isBanked=c.notes?.includes('[In Master Bank')||c.notes?.includes('Unassigned')||c.notes?.includes('waiting');const isDispatched=c.notes?.includes('[Dispatched')||c.notes?.includes('Assigned FSBO')||c.notes?.includes('Routed');const matchB=!b||(b==='banked'?isBanked:b==='dispatched'?isDispatched:true);return matchQ&&matchT&&matchS&&matchB})}
 function leadMetadata(c){if(!currentUser?.isPlatformAdmin){return `<section class="contact-history lead-provenance"><h3>Lead Verification &amp; Authorization</h3><p><strong>Origin Channel:</strong> 🌐 <strong style="color:#1e40af;">Nyrava Private Direct Network</strong> · <strong>Property Area / ZIP:</strong> 📍 ${esc(c.propertyZipCode||'Not provided')}</p><p><strong>Verified Homeowner Contact:</strong> ${esc(c.contactVerificationMethod||'Direct Phone')} · ${dateValue(c.contactVerifiedAt)}</p><p><strong>Intent Verified:</strong> ${dateValue(c.intentVerifiedAt)}</p><p><strong>Direct Authorization:</strong> ${esc(c.consentRecipient||'Nyrava Concierge')} · ${dateValue(c.consentCapturedAt)}</p>${c.consentText?`<details style="margin-top:4px;"><summary style="cursor:pointer;font-weight:600;">Recorded Homeowner Consent</summary><p style="margin-top:4px;padding:6px;background:#f8fafc;border-left:3px solid #cbd5e1;">${esc(c.consentText)}</p></details>`:''}</section>`}if(!c.source)return '';const sourceNames={Fsbo:'FSBO Direct Homeowner',Zillow:'Zillow FSBO',Facebook:'Facebook Marketplace',Craigslist:'Craigslist (By Owner)',FsboCom:'FSBO.com Portal',HomeEvaluation:'Home evaluation',LeadGenerator:'Lead Generator',RealtorAssistance:'Realtor assistance'};const linkHtml=c.sourceUrl?`<a href="${esc(c.sourceUrl)}" target="_blank" rel="noopener noreferrer" style="color:#2563eb;text-decoration:underline;word-break:break-all;">${esc(c.sourceUrl)}</a>`:'Direct portal';return `<section class="contact-history lead-provenance"><h3>👑 Platform Owner Lead Provenance</h3><p><strong>Origin Channel:</strong> 🌐 <strong style="color:#1e40af;">${esc(sourceNames[c.source]||c.source)}</strong> · <strong>Property Area / ZIP:</strong> 📍 ${esc(c.propertyZipCode||'Not provided')}</p><p><strong>Direct Listing Record:</strong> ${linkHtml}</p><p><strong>Verified Homeowner Contact:</strong> ${esc(c.contactVerificationMethod||'Phone')} · ${dateValue(c.contactVerifiedAt)}</p><p><strong>Intent Verified:</strong> ${dateValue(c.intentVerifiedAt)}</p><p><strong>Direct Authorization:</strong> ${esc(c.consentRecipient||'')} · ${dateValue(c.consentCapturedAt)}</p>${c.externalFsbo?`<p><strong>External FSBO Review:</strong> ${esc(c.fsboAdminReviewReference||'')} · ${dateValue(c.fsboAdminReviewedAt)}</p>`:''}${c.consentText?`<details style="margin-top:4px;"><summary style="cursor:pointer;font-weight:600;">Recorded Homeowner Consent</summary><p style="margin-top:4px;padding:6px;background:#f8fafc;border-left:3px solid #cbd5e1;">${esc(c.consentText)}</p></details>`:''}</section>`}
-function render(){const open=activities.filter(a=>!a.completed),upcoming=open.filter(a=>a.kind==='Appointment'&&new Date(a.startsAt)>=new Date());$('#statContacts').textContent=contacts.length;$('#statActivities').textContent=open.filter(a=>a.kind!=='Appointment'&&a.kind!=='Note').length;$('#statPipeline').textContent=contacts.filter(c=>!['Verified Lead','Lost Lead'].includes(c.stage)).length;$('#statAppointments').textContent=upcoming.length;$('#navTodayCount').textContent=open.length?String(open.length):'';
+function render(){const open=activities.filter(a=>!a.completed),upcoming=open.filter(a=>a.kind==='Appointment'&&new Date(a.startsAt)>=new Date());$('#statContacts').textContent=contacts.length;$('#statActivities').textContent=open.filter(a=>a.kind!=='Appointment'&&a.kind!=='Note').length;$('#statPipeline').textContent=contacts.filter(c=>!['Verified Lead','Lost Lead'].includes(c.stage)).length;$('#statAppointments').textContent=upcoming.length;if($('#navTodayCount')) $('#navTodayCount').textContent=open.length?String(open.length):'';
  const queue=open.filter(a=>a.kind==='Task'||a.kind==='Follow-up').slice(0,10);$('#todayTasks').innerHTML=queue.map(cardActivity).join('')||'<p class="muted">No open tasks. Add a follow-up when you need one.</p>';$('#todayAppointments').innerHTML=upcoming.slice(0,10).map(cardActivity).join('')||'<p class="muted">No upcoming appointments.</p>';$('#recentContacts').innerHTML=contacts.slice(0,6).map(c=>`<button class="recent-contact" data-open-contact="${c.id}"><strong>${esc(c.name)}</strong><span>${esc(c.leadType||'Other')} · ${esc(c.stage)}</span></button>`).join('')||'<p class="muted">Add your first contact.</p>';
  const list=filtered();const totalContactsPages=Math.ceil(list.length/contactsPageSize)||1;if(contactsPage>totalContactsPages)contactsPage=totalContactsPages;if(contactsPage<1)contactsPage=1;const startIdx=(contactsPage-1)*contactsPageSize;const pageList=list.slice(startIdx,startIdx+contactsPageSize);
  $('#contactCount').textContent=`${list.length} contact${list.length===1?'':'s'}`;
@@ -441,8 +484,8 @@ function renderAreaIntelligence(){if(!intelData)return;const q=($('#intelSearch'
 async function loadArchived(){const rows=await api('/api/contacts/archived');$('#archivedContacts').innerHTML=rows.map(c=>`<article class="activity"><div><strong>${esc(c.name)}</strong><div class="muted">${esc(c.email||'')} ${c.phone?'· '+esc(c.phone):''} · Archived ${dateValue(c.archivedAt)}</div><p>${esc(c.notes||'')}</p></div><button class="small" data-restore="${c.id}">Restore</button></article>`).join('')||'<p class="muted">No archived contacts.</p>';document.querySelectorAll('[data-restore]').forEach(b=>b.onclick=async()=>{try{await api(`/api/contacts/${b.dataset.restore}/restore`,{method:'POST'});await load();await loadArchived();notice('Contact restored.')}catch(e){notice(e.message,true)}})}
 let calendarMode='month';function openActivity(kind,contactId,item=null,when=null){if(!contacts.length)return notice('Add a contact first.',true);const form=$('#activityForm');form.reset();form.elements.activityId.value=item?.id||'';form.elements.contactId.innerHTML=contacts.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');form.elements.kind.value=item?.kind||kind;form.elements.title.value=item?.title||'';form.elements.location.value=item?.location||'';form.elements.details.value=item?.details||'';form.elements.startsAt.value=item?localInput(new Date(item.startsAt)):localInput(when||new Date());if(item||contactId)form.elements.contactId.value=String(item?.contactId||contactId);$('#activityTitle').textContent=item?'Edit '+item.kind.toLowerCase():kind==='Appointment'?'Schedule appointment':kind==='Task'?'Add task':kind==='Note'?'Add note':'Add activity';$('#cancelActivity').classList.toggle('hidden',!(item&&item.kind==='Appointment'));$('#activityDialog').showModal()}
 function openResult(id){const a=activities.find(x=>x.id===id);if(!a)return;const f=$('#resultForm');f.reset();f.elements.activityId.value=id;f.elements.result.value=a.result||'Held';f.elements.notes.value=a.details||'';let history=[];try{history=JSON.parse(a.resultHistory||'[]')}catch{}$('#resultHistory').innerHTML=history.length?'<h3>Previous results</h3>'+history.slice().reverse().map(x=>`<article><strong>${esc(x.result)}</strong><small>${dateValue(x.at)}</small>${x.notes?`<p>${esc(x.notes)}</p>`:''}</article>`).join(''):'';$('#resultDialog').showModal()}
-$('#toggleAuth').onclick=()=>{register=!register;$('#authTitle').textContent=register?'Create your account':'Sign in';$('#authSubmit').textContent=register?'Create Subscriber account':'Sign in';$('#toggleAuth').textContent=register?'I already have an account':'Create account';$('#authPassword').autocomplete=register?'new-password':'current-password';$('#inviteLabel').classList.toggle('hidden',!register);$('#accountRoleHint').classList.toggle('hidden',!register);$('#demoAuthHint').classList.toggle('hidden',!register||!demoMode);$('#authError').textContent=''};
-const pageParams=new URLSearchParams(location.search),joinCode=pageParams.get('invite');if(pageParams.get('signup')==='1'&&!joinCode)$('#toggleAuth').click();if(joinCode){register=true;$('#invitationCode').value=joinCode;$('#inviteLabel').classList.remove('hidden');$('#accountRoleHint').classList.remove('hidden');$('#accountRoleHint').textContent='This invite creates a Team Member account in the inviting Subscriber’s workspace.';$('#authTitle').textContent='Join your team';$('#authSubmit').textContent='Create team account';$('#toggleAuth').textContent='I already have an account';$('#authPassword').autocomplete='new-password'}
+$('#toggleAuth').onclick=()=>{register=!register;$('#authTitle').textContent=register?'Create your account':'Sign in';$('#authSubmit').textContent=register?'Create Subscriber account':'Sign in';$('#toggleAuth').textContent=register?'I already have an account':'Create account';$('#authPassword').autocomplete=register?'new-password':'current-password';$('#inviteLabel').classList.toggle('hidden',!register);$('#accountRoleHint')?.classList.toggle('hidden',!register);$('#demoAuthHint')?.classList.toggle('hidden',!register||!demoMode);$('#authError').textContent=''};
+const pageParams=new URLSearchParams(location.search),joinCode=pageParams.get('invite');if(pageParams.get('signup')==='1'&&!joinCode)$('#toggleAuth').click();if(joinCode){register=true;$('#invitationCode').value=joinCode;$('#inviteLabel').classList.remove('hidden');$('#accountRoleHint')?.classList.remove('hidden');if($('#accountRoleHint')) $('#accountRoleHint').textContent='This invite creates a Team Member account in the inviting Subscriber’s workspace.';$('#authTitle').textContent='Join your team';$('#authSubmit').textContent='Create team account';$('#toggleAuth').textContent='I already have an account';$('#authPassword').autocomplete='new-password'}
 $('#authForm').onsubmit=async e=>{e.preventDefault();try{await api(register?'/api/register':'/api/login',{method:'POST',body:JSON.stringify({email:$('#authEmail').value,password:$('#authPassword').value,invitationCode:register?$('#invitationCode').value.trim():null})});await init()}catch(err){$('#authError').textContent=err.message}};
 $('#logout').onclick=async()=>{const button=$('#logout');button.disabled=true;try{await api('/api/logout',{method:'POST'});currentUser=null;location.replace('/')}catch(e){button.disabled=false;notice(`Sign out failed: ${e.message}`,true)}};$('#refresh').onclick=async()=>{const btn=$('#refresh');const prev=btn.textContent;btn.disabled=true;btn.textContent='Updating...';try{await load();notice('Workspace refreshed with latest live data.');}catch(e){notice(e.message,true)}finally{btn.disabled=false;btn.textContent=prev}};$('#refreshReminders').onclick=()=>load().then(()=>notice('Reminders & agenda updated.')).catch(e=>notice(e.message,true));$('#search').oninput=()=>{contactsPage=1;render()};$('#typeFilter').onchange=()=>{contactsPage=1;render()};$('#stageFilter').onchange=()=>{contactsPage=1;render()};if($('#bankFilter'))$('#bankFilter').onchange=()=>{contactsPage=1;render()};if($('#intelSearch'))$('#intelSearch').oninput=()=>{intelPage=1;renderAreaIntelligence()};if($('#intelYieldFilter'))$('#intelYieldFilter').onchange=()=>{intelPage=1;renderAreaIntelligence()};if($('#intelSourceFilter'))$('#intelSourceFilter').onchange=()=>{intelPage=1;renderAreaIntelligence()};if($('#intelPageSize'))$('#intelPageSize').onchange=()=>{intelPage=1;renderAreaIntelligence()};if($('#refreshAreaIntel'))$('#refreshAreaIntel').onclick=async()=>{const btn=$('#refreshAreaIntel');btn.disabled=true;btn.textContent='Updating...';try{await loadAreaIntelligence(true);notice('Area performance & intelligence updated.');}catch(e){notice(e.message,true)}finally{btn.disabled=false;btn.textContent='Refresh Intelligence'}};$('#pipelineType').onchange=render;$('#agendaDate').onchange=renderCalendar;$('#calendarFilter').onchange=renderCalendar;$('#calendarResultFilter').onchange=renderCalendar;$('#calendarContactSearch').oninput=()=>{calendarContactsPage=1;renderCalendar()};$('#agendaDate').value=localDay(new Date());document.querySelectorAll('[data-calendar-view]').forEach(b=>b.onclick=()=>{calendarMode=b.dataset.calendarView;renderCalendar()});$('#stageFilter').innerHTML='<option value="">All stages</option>'+stages.map(s=>`<option>${s}</option>`).join('');$('#calendarToday').onclick=()=>{$('#agendaDate').value=localDay(new Date());renderCalendar()};$('#calendarPrev').onclick=()=>moveCalendar(-1);$('#calendarNext').onclick=()=>moveCalendar(1);
 function moveCalendar(step){const d=new Date(`${$('#agendaDate').value||localDay(new Date())}T12:00:00`),mode=calendarMode;if(mode==='month'||mode==='agenda'){const day=d.getDate();d.setDate(1);d.setMonth(d.getMonth()+step);d.setDate(Math.min(day,new Date(d.getFullYear(),d.getMonth()+1,0).getDate()))}else d.setDate(d.getDate()+step*(mode==='week'?7:1));$('#agendaDate').value=localDay(d);renderCalendar()}
