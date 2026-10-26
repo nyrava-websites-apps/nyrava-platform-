@@ -139,37 +139,43 @@ const server = http.createServer(async (req, res) => {
       const externalId = `val-${zipCode}-${cleanPhone.replace(/\D/g, '') || Date.now()}`;
       const estimateText = `$${valuation.estimate.toLocaleString()}`;
 
-      // Ingest to CRM Master Bank
-      const crmPayload = {
-        ExternalLeadId: externalId,
-        Source: 'HomeEvaluation',
-        Name: cleanName,
-        Email: cleanEmail,
-        Phone: cleanPhone,
-        Company: 'Home Evaluation Request',
-        LeadType: data.leadType === 'buyer' ? 'Buyer' : 'Seller',
-        PropertyZipCode: zipCode,
-        ContactVerificationMethod: 'Phone',
-        ContactVerifiedAt: now,
-        IntentVerifiedAt: now,
-        ConsentCapturedAt: now,
-        ConsentRecipient: config.branding.companyName,
-        ConsentText: `Homeowner authorized valuation report and market consultation for ${property.street}, ZIP ${zipCode}. Includes automated 1-click email opt-out.`,
-        ExternalFsbo: false,
-        Notes: `Home Evaluation Inbound Lead | ${property.street}, ${property.city}, ${property.state} ${zipCode} | Est. Value: ${estimateText} | SqFt: ${property.sqft || 'N/A'}, Beds: ${property.beds || 'N/A'}, Baths: ${property.baths || 'N/A'} | Timeframe: ${data.timeframe || 'Exploring'}.`
-      };
+      // Ingest to CRM Master Bank (Skip if called from internal Realtor Private Valuation tool)
+      const isAgentTool = Boolean(data.isAgentTool || data.privateMode || data.agentMode || data.privateTool || (url.searchParams.get('mode') === 'agent') || (url.searchParams.get('private') === 'true'));
+      
+      if (!isAgentTool) {
+        const crmPayload = {
+          ExternalLeadId: externalId,
+          Source: 'HomeEvaluation',
+          Name: cleanName,
+          Email: cleanEmail,
+          Phone: cleanPhone,
+          Company: 'Home Evaluation Request',
+          LeadType: data.leadType === 'buyer' ? 'Buyer' : 'Seller',
+          PropertyZipCode: zipCode,
+          ContactVerificationMethod: 'Phone',
+          ContactVerifiedAt: now,
+          IntentVerifiedAt: now,
+          ConsentCapturedAt: now,
+          ConsentRecipient: config.branding.companyName,
+          ConsentText: `Homeowner authorized valuation report and market consultation for ${property.street}, ZIP ${zipCode}. Includes automated 1-click email opt-out.`,
+          ExternalFsbo: false,
+          Notes: `Home Evaluation Inbound Lead | ${property.street}, ${property.city}, ${property.state} ${zipCode} | Est. Value: ${estimateText} | SqFt: ${property.sqft || 'N/A'}, Beds: ${property.beds || 'N/A'}, Baths: ${property.baths || 'N/A'} | Timeframe: ${data.timeframe || 'Exploring'}.`
+        };
 
-      try {
-        await fetch(`${config.crmApiUrl}/api/v1/inbound-leads`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${config.crmIntegrationKey}`
-          },
-          body: JSON.stringify(crmPayload)
-        });
-      } catch (crmErr) {
-        console.warn('CRM dispatch error:', crmErr.message);
+        try {
+          await fetch(`${config.crmApiUrl}/api/v1/inbound-leads`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${config.crmIntegrationKey}`
+            },
+            body: JSON.stringify(crmPayload)
+          });
+        } catch (crmErr) {
+          console.error('[Valuation Service] CRM Ingestion failed:', crmErr.message);
+        }
+      } else {
+        console.log(`[Valuation Service] Private Realtor tool calculation for ${property.street || 'Property'} (No CRM lead generated)`);
       }
 
       // Send Email with Opt-Out
@@ -248,48 +254,54 @@ const server = http.createServer(async (req, res) => {
       const externalId = `val-${zipCode}-${cleanPhone.replace(/\D/g, '') || Date.now()}`;
       const estimateText = `$${valuation.estimate.toLocaleString()}`;
 
-      // 2. Build CRM Payload for Nyrava Platform Lead Pipeline
-      const crmPayload = {
-        ExternalLeadId: externalId,
-        Source: 'HomeEvaluation',
-        Name: cleanName,
-        Email: cleanEmail,
-        Phone: cleanPhone,
-        Company: 'Home Evaluation Request',
-        LeadType: 'Seller',
-        PropertyZipCode: zipCode,
-        ContactVerificationMethod: 'Phone',
-        ContactVerifiedAt: now,
-        IntentVerifiedAt: now,
-        ConsentCapturedAt: now,
-        ConsentRecipient: config.branding.companyName,
-        ConsentText: `Homeowner authorized valuation report and market consultation for ${property.street}, ZIP ${zipCode}. Includes automated 1-click email opt-out.`,
-        ExternalFsbo: false,
-        Notes: `Home Evaluation Inbound Lead | ${property.street}, ${property.city}, ${property.state} ${zipCode} | Est. Value: ${estimateText} (${valuation.lowRange ? '$' + valuation.lowRange.toLocaleString() + ' - $' + valuation.highRange.toLocaleString() : ''}) | SqFt: ${property.sqft || 'N/A'}, Beds: ${property.beds || 'N/A'}, Baths: ${property.baths || 'N/A'} | Timeframe: ${contact.timeframe || 'Just exploring'}.`
-      };
+      // 2. Build CRM Payload for Nyrava Platform Lead Pipeline (Skip if Private Realtor tool)
+      const isAgentTool = Boolean(data.isAgentTool || data.privateMode || data.agentMode || data.privateTool || (url.searchParams.get('mode') === 'agent') || (url.searchParams.get('private') === 'true'));
+      let crmStatus = isAgentTool ? 'private_agent_calc' : 'queued';
 
-      // 3. Dispatch to Nyrava CRM Master Bank & Realtor Territory Routing
-      let crmStatus = 'queued';
-      try {
-        const crmRes = await fetch(`${config.crmApiUrl}/api/v1/inbound-leads`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${config.crmIntegrationKey}`
-          },
-          body: JSON.stringify(crmPayload)
-        });
+      if (!isAgentTool) {
+        const crmPayload = {
+          ExternalLeadId: externalId,
+          Source: 'HomeEvaluation',
+          Name: cleanName,
+          Email: cleanEmail,
+          Phone: cleanPhone,
+          Company: 'Home Evaluation Request',
+          LeadType: 'Seller',
+          PropertyZipCode: zipCode,
+          ContactVerificationMethod: 'Phone',
+          ContactVerifiedAt: now,
+          IntentVerifiedAt: now,
+          ConsentCapturedAt: now,
+          ConsentRecipient: config.branding.companyName,
+          ConsentText: `Homeowner authorized valuation report and market consultation for ${property.street}, ZIP ${zipCode}. Includes automated 1-click email opt-out.`,
+          ExternalFsbo: false,
+          Notes: `Home Evaluation Inbound Lead | ${property.street}, ${property.city}, ${property.state} ${zipCode} | Est. Value: ${estimateText} (${valuation.lowRange ? '$' + valuation.lowRange.toLocaleString() + ' - $' + valuation.highRange.toLocaleString() : ''}) | SqFt: ${property.sqft || 'N/A'}, Beds: ${property.beds || 'N/A'}, Baths: ${property.baths || 'N/A'} | Timeframe: ${contact.timeframe || 'Just exploring'}.`
+        };
 
-        if (crmRes.ok) {
-          crmStatus = 'delivered';
-        } else if (crmRes.status === 409) {
-          crmStatus = 'already_in_bank';
-        } else {
-          const errText = await crmRes.text();
-          console.warn('CRM Dispatch warning:', crmRes.status, errText);
+        // 3. Dispatch to Nyrava CRM Master Bank & Realtor Territory Routing
+        try {
+          const crmRes = await fetch(`${config.crmApiUrl}/api/v1/inbound-leads`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${config.crmIntegrationKey}`
+            },
+            body: JSON.stringify(crmPayload)
+          });
+
+          if (crmRes.ok) {
+            crmStatus = 'delivered';
+          } else if (crmRes.status === 409) {
+            crmStatus = 'already_in_bank';
+          } else {
+            const errText = await crmRes.text();
+            console.warn('CRM Dispatch warning:', crmRes.status, errText);
+          }
+        } catch (crmErr) {
+          console.error('[Valuation Service] CRM Dispatch error:', crmErr.message);
         }
-      } catch (crmErr) {
-        console.error('CRM Network error (saved locally):', crmErr.message);
+      } else {
+        console.log(`[Valuation Service] Private Valuation tool run for ${property.street || 'Property'} (No lead created)`);
       }
 
       // 4. Send Branded Valuation Report Email with 1-Click Opt-Out Link

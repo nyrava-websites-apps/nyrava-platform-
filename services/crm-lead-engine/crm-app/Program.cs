@@ -386,19 +386,52 @@ app.MapPost("/api/team/assign/{contactId:long}", async (long contactId, Assignme
 }).RequireAuthorization();
 
 app.MapGet("/api/chat/people", async (CrmDb db,HttpContext http)=>{
-    var actor=await CurrentUser(db,http); var people=await db.Memberships.Where(m=>m.OwnerUserId==actor.WorkspaceId&&m.Active&&m.UserId!=actor.Id).Join(db.Users,m=>m.UserId,u=>u.Id,(m,u)=>new{id=u.Id,email=u.Email,role=m.Role}).ToListAsync();
-    if(actor.Role!="Owner"&&!people.Any()) people=await db.Users.Where(x=>x.Id==actor.WorkspaceId).Select(x=>new{id=x.Id,email=x.Email,role=x.Role}).ToListAsync();
+    var actor=await CurrentUser(db,http); 
+    if (actor.Role != "Owner") {
+        // Team member: ONLY allowed to chat with their Realtor Account Owner and workspace teammates
+        var teammates = await db.Memberships
+            .Where(m => m.OwnerUserId == actor.WorkspaceId && m.Active && m.UserId != actor.Id)
+            .Join(db.Users, m => m.UserId, u => u.Id, (m, u) => new { id = u.Id, email = u.Email, role = m.Role, isSupport = false })
+            .ToListAsync();
+
+        var owner = await db.Users.SingleOrDefaultAsync(x => x.Id == actor.WorkspaceId);
+        if (owner != null && !teammates.Any(p => p.id == owner.Id)) {
+            teammates.Insert(0, new { id = owner.Id, email = $"Realtor Owner: {owner.Email}", role = "Owner", isSupport = true });
+        }
+        return Results.Ok(teammates);
+    }
+
+    // Realtor Owner: workspace teammates + Platform Support Admin
+    var people=await db.Memberships
+        .Where(m=>m.OwnerUserId==actor.WorkspaceId&&m.Active&&m.UserId!=actor.Id)
+        .Join(db.Users,m=>m.UserId,u=>u.Id,(m,u)=>new{id=u.Id,email=u.Email,role=m.Role,isSupport=false})
+        .ToListAsync();
+
+    if (actor.Email != "admin@nyrava.com" && actor.Email != "testadmin@example.test") {
+        var adminUser = await db.Users.SingleOrDefaultAsync(u => u.Email == "admin@nyrava.com");
+        if (adminUser != null && !people.Any(p => p.id == adminUser.Id)) {
+            people.Insert(0, new { id = adminUser.Id, email = "Nyrava Platform Support (Admin)", role = "Support", isSupport = true });
+        }
+    }
+
     return Results.Ok(people);
 }).RequireAuthorization();
 app.MapGet("/api/chat/{peerId:long}", async (long peerId,CrmDb db,HttpContext http)=>{
     var actor=await CurrentUser(db,http); if(!await CanChat(db,actor,peerId))return Results.NotFound();
-    var messages=await db.Messages.Where(m=>m.WorkspaceOwnerId==actor.WorkspaceId&&((m.SenderUserId==actor.Id&&m.RecipientUserId==peerId)||(m.SenderUserId==peerId&&m.RecipientUserId==actor.Id))).OrderByDescending(m=>m.Id).Take(300).ToListAsync();
+    var messages=await db.Messages.Where(m=>((m.SenderUserId==actor.Id&&m.RecipientUserId==peerId)||(m.SenderUserId==peerId&&m.RecipientUserId==actor.Id))).OrderByDescending(m=>m.Id).Take(300).ToListAsync();
     return Results.Ok(messages.OrderBy(m=>m.Id));
 }).RequireAuthorization();
 app.MapPost("/api/chat/{peerId:long}",async(long peerId,ChatInput input,CrmDb db,HttpContext http)=>{
     var actor=await CurrentUser(db,http); if(!await CanChat(db,actor,peerId))return Results.NotFound();
     var body=input.Body?.Trim(); if(string.IsNullOrWhiteSpace(body)||body.Length>4000)return Results.BadRequest(new{error="Message must be 1–4000 characters."});
     var msg=new CrmMessage{WorkspaceOwnerId=actor.WorkspaceId,SenderUserId=actor.Id,RecipientUserId=peerId,Body=body,CreatedAt=DateTimeOffset.UtcNow};db.Messages.Add(msg);await db.SaveChangesAsync();return Results.Ok(msg);
+}).RequireAuthorization();
+app.MapPost("/api/support/ai-assistant", async (SupportAiInput input, CrmDb db, HttpContext http) => {
+    var actor = await CurrentUser(db, http);
+    var query = input.Query?.Trim() ?? "";
+    if (string.IsNullOrWhiteSpace(query)) return Results.BadRequest(new { error = "Query cannot be empty." });
+    var response = GenerateNyraAiResponse(query, actor);
+    return Results.Ok(response);
 }).RequireAuthorization();
 
 app.MapGet("/api/contacts", async (CrmDb db, HttpContext http) => {
@@ -947,9 +980,95 @@ static async Task EnsureDemoAdminAsync(CrmDb db) {
 static long UserId(HttpContext http) => long.Parse(http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value, System.Globalization.CultureInfo.InvariantCulture);
 static async Task<CrmUser> CurrentUser(CrmDb db,HttpContext http){var id=UserId(http);var u=await db.Users.SingleAsync(x=>x.Id==id);if(!await db.Memberships.AnyAsync(m=>m.OwnerUserId==u.WorkspaceId&&m.UserId==u.Id&&m.Active))throw new UnauthorizedAccessException("Your CRM workspace access has been disabled.");return u;}
 static string HashToken(string value)=>Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(value)));
-static async Task<bool> CanChat(CrmDb db,CrmUser actor,long peerId)=>
-    peerId!=actor.Id && await db.Memberships.AnyAsync(m=>m.OwnerUserId==actor.WorkspaceId&&m.UserId==actor.Id&&m.Active) &&
-    await db.Memberships.AnyAsync(m=>m.OwnerUserId==actor.WorkspaceId&&m.UserId==peerId&&m.Active);
+static async Task<bool> CanChat(CrmDb db,CrmUser actor,long peerId){
+    if (peerId == actor.Id) return false;
+
+    // Workspace internal: teammates can chat with other teammates and with their Realtor Account Owner
+    bool sameWorkspace = await db.Memberships.AnyAsync(m=>m.OwnerUserId==actor.WorkspaceId&&m.UserId==actor.Id&&m.Active) &&
+                         (await db.Memberships.AnyAsync(m=>m.OwnerUserId==actor.WorkspaceId&&m.UserId==peerId&&m.Active) || peerId == actor.WorkspaceId);
+    if (sameWorkspace) return true;
+
+    // Only Realtor Account Owners can message Platform Admin
+    if (actor.Role == "Owner") {
+        var adminUser = await db.Users.SingleOrDefaultAsync(u => u.Email == "admin@nyrava.com" || u.Email == "testadmin@example.test");
+        if (adminUser != null && (peerId == adminUser.Id || actor.Id == adminUser.Id)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+static NyraAiResponse GenerateNyraAiResponse(string query, CrmUser actor) {
+    var q = query.ToLowerInvariant();
+    string targetEscalation = actor.Role == "Owner" 
+        ? "Nyrava Platform Support Admin (admin@nyrava.com)" 
+        : "your Realtor Account Owner";
+
+    if (q.Contains("lead") || q.Contains("where") || q.Contains("source") || q.Contains("routing") || q.Contains("bank")) {
+        return new NyraAiResponse(
+            "📍 **How Leads & Territories Work in Nyrava:**\n" +
+            "• Inbound homeowner leads are ingested continuously across nationwide metro territories.\n" +
+            "• Qualified leads in your 3 coverage ZIP codes are routed directly into your CRM pipeline (up to 2 leads per day per ZIP).\n" +
+            "• **Privacy & Protection:** To protect business advantage, competitor source tags and third-party portal links are redacted for realtors, showing only verified homeowner contact information.\n" +
+            $"• If you have questions about specific lead territories, you can message {targetEscalation}.",
+            new[] { "How do I change my 3 coverage ZIPs?", "How does Nyrava Team Meet work?", "Contact Account Owner / Support" }
+        );
+    }
+
+    if (q.Contains("meet") || q.Contains("video") || q.Contains("call") || q.Contains("jitsi")) {
+        return new NyraAiResponse(
+            "📹 **Nyrava Team Meet (HD Video Consultations):**\n" +
+            "• Nyrava Team Meet is an integrated HD consultation engine built specifically for Nyrava realtors and teams.\n" +
+            "• You can launch instant meetings directly from Team Chat or the My Team panel by clicking **📹 Start Nyra Meet**.\n" +
+            "• Video calls are 100% private: public site visitors cannot join unless given a direct invitation or consultation link.\n" +
+            "• Meeting URLs can easily be shared with homeowner leads or teammates for client presentations.",
+            new[] { "How do leads get routed?", "How to add an appointment with a meet link?", "Contact Account Owner / Support" }
+        );
+    }
+
+    if (q.Contains("zip") || q.Contains("territory") || q.Contains("coverage") || q.Contains("area")) {
+        return new NyraAiResponse(
+            "📍 **Coverage ZIP Codes & Territory Settings:**\n" +
+            "• Subscribed realtors hold territory rights for 3 primary sales ZIP codes.\n" +
+            "• To review or update your 3 coverage ZIPs, click **[Change 3 Coverage ZIPs]** in the left sidebar under your subscriber info.\n" +
+            "• Platform owners can monitor conversion volumes across all 70+ monitored areas in the **Area Intelligence** dashboard.",
+            new[] { "How do leads get routed?", "How to invite teammates to my ZIPs?", "Contact Account Owner / Support" }
+        );
+    }
+
+    if (q.Contains("team") || q.Contains("invite") || q.Contains("member") || q.Contains("realtor")) {
+        return new NyraAiResponse(
+            "👥 **Team Collaboration & Management:**\n" +
+            "• The Realtor Subscriber owns the workspace and can invite teammates from the **My Team** view.\n" +
+            "• Team members can be assigned specific leads, tasks, and follow-ups.\n" +
+            "• **Team Support:** If a team member has any questions or needs help, they can chat directly with their Realtor Account Owner via this chat window!\n" +
+            "• If the Realtor needs platform support, they can message Nyrava Platform Support Admin.",
+            new[] { "How do leads get routed?", "How to start a video meeting?", "Contact Account Owner / Support" }
+        );
+    }
+
+    if (q.Contains("help") || q.Contains("support") || q.Contains("issue") || q.Contains("problem") || q.Contains("contact") || q.Contains("human") || q.Contains("realtor owner") || q.Contains("admin")) {
+        return new NyraAiResponse(
+            $"🆘 **Nyrava Multi-Tier Support Assistance:**\n" +
+            (actor.Role == "Owner"
+                ? "• As the Realtor Account Owner, you can message **Nyrava Platform Support Admin** directly from the chat conversation selector.\n• Our platform engineers monitor support tickets and will assist you with any billing, server, or lead delivery questions."
+                : $"• As a Team Member, any workspace or lead assignment questions should be directed to **{targetEscalation}**.\n• Select your Realtor Account Owner from the dropdown above to message them directly; they will attend to your request!"),
+            new[] { "Message Account Owner", "How do leads get routed?", "How does Nyrava Team Meet work?" }
+        );
+    }
+
+    return new NyraAiResponse(
+        $"🤖 **Nyra AI Site Concierge:**\n" +
+        "I am here to help you navigate and master the Nyrava platform!\n\n" +
+        "You can ask me about:\n" +
+        "• 📍 **Leads & Routing:** How leads enter your pipeline and territory rules.\n" +
+        "• 📹 **Nyrava Team Meet:** Launching and sharing HD video consultation rooms.\n" +
+        "• 📍 **ZIP Coverage:** Changing your 3 sales ZIP codes.\n" +
+        "• 👥 **My Team:** Inviting agents and assigning contacts.\n" +
+        $"• 🆘 **Support:** Escalating any issue to {targetEscalation}.",
+        new[] { "How do leads get routed?", "How does Nyrava Team Meet work?", "How do I change my 3 coverage ZIPs?", "Contact Account Owner / Support" }
+    );
+}
 static async Task EnsureColumnAsync(CrmDb db,string table,string column,string sqliteType,string defaultSql){
     var connection=db.Database.GetDbConnection();var wasClosed=connection.State!=System.Data.ConnectionState.Open;if(wasClosed)await connection.OpenAsync();
     try{
@@ -1080,6 +1199,8 @@ record ActivityUpdate(long ContactId,string Kind,string Title,string? Details,Da
 record InviteInput(string? Email);
 record AssignmentInput(long? UserId);
 record ChatInput(string? Body);
+record SupportAiInput(string? Query);
+record NyraAiResponse(string Answer, string[] SuggestedActions);
 record ResultInput(string Result,string? Notes);
 record AppointmentResultRecord(string Result,string? Notes,DateTimeOffset At,long UserId);
 record AdminLeadAssignInput(long RealtorUserId);

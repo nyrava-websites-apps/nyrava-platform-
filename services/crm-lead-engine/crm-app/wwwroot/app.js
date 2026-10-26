@@ -1,20 +1,216 @@
-const $=s=>document.querySelector(s), stages=['New','Contacted','Qualified','Follow-up','Appointment','Verified Lead','Lost Lead'];let contacts=[],activities=[],selected=null,register=false,view='today',currentUser=null,teamData={members:[],canInvite:false},chatPeople=[],chatTimer=null,demoMode=false,contactsPage=1,calendarContactsPage=1,colPages={},intelData=null,intelPage=1,intelPageSize=10;const contactsPageSize=5,colPageSize=5;
+const $=s=>document.querySelector(s), stages=['New','Contacted','Qualified','Follow-up','Appointment','Verified Lead','Lost Lead'];let contacts=[],activities=[],selected=null,register=false,view='today',currentUser=null,teamData={members:[],canInvite:false},chatPeople=[],chatTimer=null,demoMode=false,contactsPage=1,calendarContactsPage=1,colPages={},intelData=null,intelPage=1,intelPageSize=10,openGroups={myLeads:true,contactsCrm:true,myTeam:true},aiChatHistory=[];const contactsPageSize=5,colPageSize=5;
 async function api(path,options={}){const r=await fetch(path,{...options,headers:{'Content-Type':'application/json',...(options.headers||{})}});if(!r.ok){let message=r.statusText;try{message=(await r.json()).error||message}catch{}throw Error(message)}return r.status===204?null:r.json()}
 function esc(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function dateValue(d){const x=new Date(d);return Number.isNaN(x.getTime())?'':x.toLocaleString([], {dateStyle:'medium',timeStyle:'short'})}
 function localInput(d=new Date()){return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16)}
 function localDay(d){const x=new Date(d);return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`}
+
+async function promptEditTerritory(){
+  const current=currentUser.subscribedZipCodes||currentUser.postalCode||'77084, 77002, 78701';
+  const z=prompt('Enter your 3 exclusive coverage sales ZIP codes (comma-separated):',current);
+  if(!z)return;
+  try{
+    const res=await api('/api/subscription/territory',{method:'PUT',body:JSON.stringify({zipCodes:z})});
+    currentUser.subscribedZipCodes=res.subscribedZipCodes;
+    notice(`Coverage territories updated to: ${res.subscribedZipCodes}`);
+    await load();
+  }catch(err){notice(err.message,true)}
+}
+
+function openAiSupportChat(){
+  openChatWindow('ai');
+}
+
+function renderSidebar(){
+  const rail=$('#appRail');
+  if(!rail||!currentUser)return;
+  const isOwner=currentUser.role==='Owner'||currentUser.isPlatformAdmin;
+  const teamCount=teamData?.members?.length||1;
+  const currentZips=esc(currentUser.subscribedZipCodes||currentUser.postalCode||'77084, 77002, 78701');
+
+  if(isOwner){
+    rail.innerHTML=`
+      <div class="rail-brand">
+        <h2>NYRAVA HOME</h2>
+        <div class="rail-subtitle">REALTOR WORKSPACE</div>
+      </div>
+      <nav class="rail-nav" aria-label="Realtor navigation">
+        <div class="nav-group">
+          <button type="button" class="nav-item group-toggle" data-group="myLeads">
+            <span>My Leads</span>
+            <span class="group-arrow">${openGroups.myLeads?'▼':'▶'}</span>
+          </button>
+          <div class="nav-subitems ${openGroups.myLeads?'':'hidden'}" id="subitemsMyLeads">
+            <button type="button" class="nav-subitem ${view==='contacts'?'active':''}" data-view="contacts">All Leads</button>
+            <button type="button" class="nav-subitem ${view==='pipeline'?'active':''}" data-view="pipeline">Pipeline</button>
+            <button type="button" class="nav-subitem ${view==='areaIntel'?'active':''}" data-view="areaIntel">Area Intel</button>
+          </div>
+        </div>
+        <div class="nav-group">
+          <button type="button" class="nav-item group-toggle" data-group="contactsCrm">
+            <span>Contacts &amp; CRM</span>
+            <span class="group-arrow">${openGroups.contactsCrm?'▼':'▶'}</span>
+          </button>
+          <div class="nav-subitems ${openGroups.contactsCrm?'':'hidden'}" id="subitemsContactsCrm">
+            <button type="button" class="nav-subitem ${view==='contacts'?'active':''}" data-view="contacts">Contacts</button>
+            <button type="button" class="nav-subitem" id="railAddContactBtn">+ Add contact</button>
+          </div>
+        </div>
+        <div class="nav-group">
+          <button type="button" class="nav-item group-toggle" data-group="myTeam">
+            <span>My Team (${teamCount})</span>
+            <span class="group-arrow">${openGroups.myTeam?'▼':'▶'}</span>
+          </button>
+          <div class="nav-subitems ${openGroups.myTeam?'':'hidden'}" id="subitemsMyTeam">
+            <button type="button" class="nav-subitem ${view==='team'?'active':''}" data-view="team">Team Members</button>
+            <button type="button" class="nav-subitem" id="railInviteBtn">Invite Teammember</button>
+            <button type="button" class="nav-subitem" data-view="chat">Team Chat</button>
+            <button type="button" class="nav-subitem" id="railMeetBtn">Launch Video Meeting</button>
+          </div>
+        </div>
+        <button type="button" class="nav-item" id="railNyraAiBtn">
+          <span>🤖 Nyra Assistance</span>
+        </button>
+        <a href="http://localhost:5190?mode=agent&private=true" target="_blank" rel="noopener noreferrer" class="nav-item" style="text-decoration:none;">
+          <span>Private Valuation</span>
+          <span class="rail-num-badge">↗</span>
+        </a>
+        <button type="button" class="nav-item ${view==='calendar'?'active':''}" data-view="calendar">
+          <span>Calendar &amp; results</span>
+        </button>
+        <button type="button" class="nav-item ${view==='reminders'?'active':''}" data-view="reminders">
+          <span>Appointments &amp; Reminders</span>
+          <span class="rail-num-badge">↗</span>
+        </button>
+        <button type="button" class="nav-item" id="railTerritoryBtn">
+          <span>ZIP Territories</span>
+        </button>
+        <button type="button" class="nav-item" data-view="reminders">
+          <span>Notifications</span>
+        </button>
+        <button type="button" class="nav-item ${view==='performance'?'active':''}" data-view="performance">
+          <span>Performance</span>
+        </button>
+        ${!currentUser.demoMode?`<button type="button" class="nav-item ${view==='integrations'?'active':''}" data-view="integrations"><span>Lead Integrations</span></button>`:''}
+        <button type="button" class="nav-item" id="railBillingBtn">
+          <span>Account &amp; Billing</span>
+        </button>
+      </nav>
+      <div class="rail-footer">
+        <div class="billing-card" id="railBillingCard">
+          <div style="font-size:11px;opacity:0.8;text-transform:uppercase;letter-spacing:0.05em;">Plan Active</div>
+          <div style="font-weight:700;font-size:13px;margin:2px 0;">Billing &amp; subscription</div>
+          <div style="font-size:11px;color:#60a5fa;margin-top:2px;">3 ZIPs Covered · Auto-renew</div>
+        </div>
+      </div>
+    `;
+  }else{
+    rail.innerHTML=`
+      <div class="rail-brand">
+        <h2>NYRAVA HOME</h2>
+        <div class="rail-subtitle" style="font-size:9px;letter-spacing:0.04em;">RELATIONSHIPS. MOMENTUM. CLOSINGS.</div>
+      </div>
+      <div class="rail-section-header">YOUR WORKSPACE</div>
+      <nav class="rail-nav" aria-label="Team member navigation">
+        <button type="button" class="nav-item" data-view="chat">
+          <span>Team Chat</span>
+          <span class="rail-num-badge">↗</span>
+        </button>
+        <button type="button" class="nav-item ${view==='today'?'active':''}" data-view="today">
+          <span>Today</span>
+          <span class="rail-num-badge">01</span>
+        </button>
+        <button type="button" class="nav-item ${view==='contacts'?'active':''}" data-view="contacts">
+          <span>Leads</span>
+          <span class="rail-num-badge">02</span>
+        </button>
+        <button type="button" class="nav-item ${view==='pipeline'?'active':''}" data-view="pipeline">
+          <span>Pipeline</span>
+          <span class="rail-num-badge">03</span>
+        </button>
+        <button type="button" class="nav-item ${view==='calendar'?'active':''}" data-view="calendar">
+          <span>Calendar &amp; results</span>
+          <span class="rail-num-badge">↗</span>
+        </button>
+        <button type="button" class="nav-item ${view==='calendar'?'active':''}" data-view="calendar">
+          <span>Calendar &amp; tasks</span>
+          <span class="rail-num-badge">04</span>
+        </button>
+        <button type="button" class="nav-item" id="railNyraAiBtn">
+          <span>Nyra Assistance</span>
+        </button>
+        <a href="http://localhost:5190?mode=agent&private=true" target="_blank" rel="noopener noreferrer" class="nav-item" style="text-decoration:none;">
+          <span>Private valuation</span>
+          <span class="rail-num-badge">↗</span>
+        </a>
+        <button type="button" class="nav-item ${view==='reminders'?'active':''}" data-view="reminders">
+          <span>Appointments &amp; reminders</span>
+          <span class="rail-num-badge">↗</span>
+        </button>
+      </nav>
+      <div class="rail-footer" style="display:flex;flex-direction:column;gap:8px;padding-top:16px;">
+        <div style="padding:4px 6px;">
+          <div style="font-size:12px;font-weight:700;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;">${esc(currentUser.email.split('@')[0])}</div>
+          <div style="font-size:10px;color:#94a3b8;margin-top:2px;">Teammate · Active</div>
+        </div>
+        <button type="button" id="railSignoutBtn" class="rail-signout-btn">Sign out</button>
+      </div>
+    `;
+  }
+
+  rail.querySelectorAll('.group-toggle').forEach(b=>{
+    b.onclick=(e)=>{
+      e.stopPropagation();
+      const g=b.dataset.group;
+      openGroups[g]=!openGroups[g];
+      renderSidebar();
+    };
+  });
+
+  rail.querySelectorAll('[data-view]').forEach(b=>{
+    b.onclick=()=>showView(b.dataset.view);
+  });
+
+  const addContactBtn=rail.querySelector('#railAddContactBtn');
+  if(addContactBtn)addContactBtn.onclick=()=>$('#contactDialog').showModal();
+
+  const inviteBtn=rail.querySelector('#railInviteBtn');
+  if(inviteBtn)inviteBtn.onclick=()=>{
+    showView('team');
+    const input=document.querySelector('#inviteForm input[name="email"]');
+    if(input)input.focus();
+  };
+
+  const meetBtn=rail.querySelector('#railMeetBtn');
+  if(meetBtn)meetBtn.onclick=openNyraMeet;
+
+  const nyraAiBtn=rail.querySelector('#railNyraAiBtn');
+  if(nyraAiBtn)nyraAiBtn.onclick=openAiSupportChat;
+
+  const territoryBtn=rail.querySelector('#railTerritoryBtn');
+  if(territoryBtn)territoryBtn.onclick=promptEditTerritory;
+
+  const showBilling=()=>alert(`Nyrava Realtor Subscription:\n• Status: Active ($149/mo)\n• Coverage Territories: ${currentZips}\n• Daily Lead Inflow: Up to 2 qualified leads/day per ZIP\n• Team Seats: Unlimited\n• Next Renewal: Active billing cycle`);
+  const billingBtn=rail.querySelector('#railBillingBtn');
+  const billingCard=rail.querySelector('#railBillingCard');
+  if(billingBtn)billingBtn.onclick=showBilling;
+  if(billingCard)billingCard.onclick=showBilling;
+
+  const signoutBtn=rail.querySelector('#railSignoutBtn');
+  if(signoutBtn)signoutBtn.onclick=()=>$('#logout').click();
+}
+
 async function init(){try{const demo=await api('/api/demo-info');demoMode=!!demo.enabled;$('#demoAuthHint').classList.toggle('hidden',!demo.enabled||!register)}catch{demoMode=false}$('#accountRoleHint').classList.toggle('hidden',!register);
 const qAdmin=$('#quickLoginAdmin');if(qAdmin)qAdmin.onclick=()=>{if($('#authEmail'))$('#authEmail').value='admin@nyrava.com';if($('#authPassword'))$('#authPassword').value='NyravaAdmin2026!';$('#authForm').requestSubmit()};
 const qRealtor=$('#quickLoginRealtor');if(qRealtor)qRealtor.onclick=()=>{if($('#authEmail'))$('#authEmail').value='h.g4972@gmail.com';if($('#authPassword')){($('#authPassword').value='');$('#authPassword').focus()}};
 try{currentUser=await api('/api/me')}catch{$('#auth').classList.remove('hidden');$('#app').classList.add('hidden');$('#logout').classList.add('hidden');$('#demoBanner').classList.add('hidden');return}
 $('#auth').classList.add('hidden');$('#app').classList.remove('hidden');$('#logout').classList.remove('hidden');$('#demoBanner').classList.toggle('hidden',!currentUser.demoMode);
 if(currentUser.isPlatformAdmin){
-  $('#identity').innerHTML=`<div style="font-weight:700;color:#f59e0b;font-size:13px;">👑 PLATFORM OWNER ADMIN</div><div style="font-size:11px;color:#94a3b8;margin-top:2px;">Master Lead Bank</div>`;
+  if($('#identity'))$('#identity').innerHTML=`<div style="font-weight:700;color:#f59e0b;font-size:13px;">👑 PLATFORM OWNER ADMIN</div><div style="font-size:11px;color:#94a3b8;margin-top:2px;">Master Lead Bank</div>`;
   const tInfo=$('#territoryInfo');if(tInfo)tInfo.innerHTML=`<div style="font-size:11px;color:#cbd5e1;background:#1e293b;padding:6px 8px;border-radius:4px;line-height:1.4;">🏦 <strong>Platform Owner Lead Bank</strong><br>Receives all inbound leads &amp; filters up to 2/day per ZIP to subscribed realtors.</div>`;
   const aNav=$('#areaIntelNav');if(aNav)aNav.classList.remove('hidden');
 }else{
-  $('#identity').innerHTML=`<div style="font-weight:700;color:#38bdf8;font-size:13px;">🏠 REALTOR SUBSCRIBER</div><div style="font-size:11px;color:#94a3b8;margin-top:2px;">${esc(currentUser.email)}</div>`;
+  if($('#identity'))$('#identity').innerHTML=`<div style="font-weight:700;color:#38bdf8;font-size:13px;">🏠 REALTOR SUBSCRIBER</div><div style="font-size:11px;color:#94a3b8;margin-top:2px;">${esc(currentUser.email)}</div>`;
   const tInfo=$('#territoryInfo');if(tInfo)tInfo.innerHTML=`<div style="font-size:11px;background:#f8fafc;padding:6px 8px;border-radius:4px;border:1px solid #e2e8f0;line-height:1.4;">📍 <strong>My Sales ZIPs:</strong><br><span id="myZipsText" style="font-weight:600;color:#0f172a;">${esc(currentUser.subscribedZipCodes||currentUser.postalCode||'None')}</span><br><button type="button" class="text-link" id="editTerritoryBtn" style="font-size:11px;margin-top:4px;">[Change 3 Coverage ZIPs]</button></div>`;
   const editBtn=$('#editTerritoryBtn');if(editBtn)editBtn.onclick=async()=>{
     const z=prompt('Enter the 3 sales ZIP codes for your account (separated by commas, e.g. 77084, 77002, 78701):',currentUser.subscribedZipCodes||currentUser.postalCode||'77084, 77002, 78701');
@@ -28,8 +224,8 @@ if(currentUser.isPlatformAdmin){
     }catch(err){notice(err.message,true)}
   };
 }
-$('#archivedNav').classList.toggle('hidden',currentUser.role!=='Owner');$('#integrationsNav').classList.toggle('hidden',currentUser.role!=='Owner'||currentUser.demoMode);try{await load()}catch(e){console.error('CRM data load failed:',e);notice(`Signed in, but CRM data could not be loaded: ${e.message}`,true)}}
-async function load(){[contacts,activities]=await Promise.all([api('/api/contacts'),api('/api/activities')]);try{teamData=await api('/api/team')}catch(e){console.error('Team list unavailable',e)}try{chatPeople=await api('/api/chat/people')}catch(e){console.error('Chat directory unavailable',e)}contacts.sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt));activities.sort((a,b)=>new Date(a.startsAt)-new Date(b.startsAt));render();renderTeam();renderChatPeople();if(view==='areaIntel')await loadAreaIntelligence();else if(view==='archived')await loadArchived();else if(view==='integrations')await loadIntegrationKeys();}
+$('#archivedNav')?.classList.toggle('hidden',currentUser.role!=='Owner');$('#integrationsNav')?.classList.toggle('hidden',currentUser.role!=='Owner'||currentUser.demoMode);renderSidebar();try{await load()}catch(e){console.error('CRM data load failed:',e);notice(`Signed in, but CRM data could not be loaded: ${e.message}`,true)}}
+async function load(){[contacts,activities]=await Promise.all([api('/api/contacts'),api('/api/activities')]);try{teamData=await api('/api/team')}catch(e){console.error('Team list unavailable',e)}try{chatPeople=await api('/api/chat/people')}catch(e){console.error('Chat directory unavailable',e)}contacts.sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt));activities.sort((a,b)=>new Date(a.startsAt)-new Date(b.startsAt));render();renderTeam();renderChatPeople();renderSidebar();if(view==='areaIntel')await loadAreaIntelligence();else if(view==='archived')await loadArchived();else if(view==='integrations')await loadIntegrationKeys();}
 function notice(t,bad=false){const n=$('#notice');n.textContent=t;n.classList.toggle('hidden',!t);n.classList.toggle('error-notice',bad);if(t)setTimeout(()=>n.classList.add('hidden'),5500)}
 function cardActivity(a){const c=contacts.find(x=>x.id===a.contactId)||a.contact;return `<article class="activity ${a.completed?'done':''}"><div class="activity-main"><strong>${esc(a.title)}</strong><div class="muted">${esc(a.kind)} · <button class="text-link" data-open-contact="${a.contactId}">${esc(c?.name||'Contact')}</button> · ${dateValue(a.startsAt)}${a.result?` · Result: ${esc(a.result)}`:''}</div>${a.location?`<p>📍 ${esc(a.location)}</p>`:''}${a.details?`<p>${esc(a.details)}</p>`:''}</div><div class="activity-actions">${!a.completed&&a.kind!=='Note'?`<button class="small" data-complete="${a.id}">Complete</button>`:''}${a.kind==='Appointment'?`<button class="small quiet" data-result-id="${a.id}">${a.result?'View / update result':'Result'}</button>`:''}${!a.completed?`<button class="small quiet" data-edit-activity="${a.id}">Edit</button>`:''}${currentUser?.role==='Owner'?`<button class="small quiet" data-delete-activity="${a.id}">Delete</button>`:''}</div></article>`}
 function bindActivityButtons(){document.querySelectorAll('[data-complete]').forEach(b=>b.onclick=async()=>{try{await api(`/api/activities/${b.dataset.complete}/complete`,{method:'PUT'});await load()}catch(e){notice(e.message,true)}});document.querySelectorAll('[data-result-id]').forEach(b=>b.onclick=()=>openResult(Number(b.dataset.resultId)));document.querySelectorAll('[data-edit-activity]').forEach(b=>b.onclick=()=>{const a=activities.find(x=>x.id===Number(b.dataset.editActivity));if(a)openActivity(a.kind,a.contactId,a)});document.querySelectorAll('[data-delete-activity]').forEach(b=>b.onclick=async()=>{if(!confirm('Delete this item?'))return;try{await api(`/api/activities/${b.dataset.deleteActivity}`,{method:'DELETE'});await load()}catch(e){notice(e.message,true)}});document.querySelectorAll('[data-open-contact]').forEach(b=>b.onclick=()=>{selected=Number(b.dataset.openContact);showView('contacts');render()})}
@@ -88,11 +284,87 @@ function renderReminders(){const now=Date.now(),limit=now+7*86400000,items=activ
 function renderPerformance(){const done=activities.filter(a=>a.completed),open=activities.filter(a=>!a.completed),verified=contacts.filter(c=>c.stage==='Verified Lead').length;$('#performanceMetrics').innerHTML=`<div class="card"><small>Total contacts</small><b>${contacts.length}</b></div><div class="card"><small>Verified leads</small><b>${verified}</b></div><div class="card"><small>Open tasks</small><b>${open.filter(a=>a.kind!=='Appointment').length}</b></div><div class="card"><small>Completed activities</small><b>${done.length}</b></div>`;$('#performanceStages').innerHTML=stages.map(s=>{const n=contacts.filter(c=>c.stage===s).length;return `<div class="stage-metric"><span>${esc(s)}</span><div><i style="width:${contacts.length?Math.max(n?4:0,n/contacts.length*100):0}%"></i></div><b>${n}</b></div>`}).join('');$('#performanceTypes').innerHTML=['Buyer','Seller','Other'].map(t=>`<div class="compact-metric"><span>${t}</span><b>${contacts.filter(c=>(c.leadType||'Other')===t).length}</b></div>`).join('');$('#performanceActivity').innerHTML=`<div class="compact-metric"><span>Open</span><b>${open.length}</b></div><div class="compact-metric"><span>Completed</span><b>${done.length}</b></div><div class="compact-metric"><span>Appointment count</span><b>${activities.filter(a=>a.kind==='Appointment').length}</b></div>`}
 function renderTeam(){const members=teamData.members||[];$('#teamFeatureStatus').textContent=teamData.teamInvitationsEnabled===false?'Team invitations are turned off for this CRM system.':currentUser?.role==='Owner'?'You are signed in as the Subscriber for this workspace.':'Only the Subscriber can invite or manage teammates.';$('#teamMembers').innerHTML=members.map(m=>`<div class="team-member"><div><strong>${esc(m.email)}</strong><span>${m.role==='Owner'?'Subscriber':'Team member'} · ${m.active===false?'Inactive':'Active'}</span></div><div>${Number(m.id)===Number(currentUser?.workspaceId)?'<span class="badge">Subscriber</span>':teamData.canInvite?`<button class="small ${m.active===false?'':'quiet'}" data-member-action="${m.active===false?'activate':'deactivate'}" data-member-id="${m.id}">${m.active===false?'Reactivate':'Disable access'}</button>`:''}</div></div>`).join('')||'<p class="muted">No team members yet. Invite someone if you want to use team features.</p>';$('#invitePanel').classList.toggle('hidden',!teamData.canInvite);document.querySelectorAll('[data-member-action]').forEach(b=>b.onclick=async()=>{const action=b.dataset.memberAction;if(action==='deactivate'&&!confirm('Disable this teammate? Reassign all their contacts first; history will be kept.'))return;try{await api(`/api/team/${b.dataset.memberId}/${action}`,{method:'POST'});await load();notice(action==='activate'?'Team access restored.':'Team access disabled.')}catch(e){notice(e.message,true)}})}
 async function loadIntegrationKeys(){const keys=await api('/api/integrations/keys');$('#integrationKeys').innerHTML=keys.map(k=>`<article class="integration-key-row"><div><strong>${esc(k.name)}</strong><small>${esc(k.tokenPrefix)}… · Created ${dateValue(k.createdAt)}${k.lastUsedAt?` · Last used ${dateValue(k.lastUsedAt)}`:''}${k.revokedAt?` · Revoked ${dateValue(k.revokedAt)}`:''}</small></div>${k.revokedAt?'<span class="badge">Revoked</span>':`<button class="small danger" data-integration-key-revoke="${k.id}">Revoke</button>`}</article>`).join('')||'<p class="muted">No integration keys. Create one only when you want another product to deliver leads here.</p>'}
-function renderChatPeople(){const sel=$('#chatPeer');if(!sel)return;const old=sel.value;sel.innerHTML=chatPeople.map(p=>`<option value="${p.id}">${esc(p.email)} · ${p.role==='Owner'?'Subscriber':'Team member'}</option>`).join('');if(!chatPeople.length){sel.innerHTML='<option value="">No teammates yet</option>';$('#chatMessages').innerHTML='<div class="empty-state"><strong>Team chat is ready when a teammate joins this workspace.</strong></div>';$('#chatBody').disabled=true;$('#chatForm').querySelector('button').disabled=true;return}$('#chatBody').disabled=false;$('#chatForm').querySelector('button').disabled=false;if(chatPeople.some(p=>String(p.id)===old))sel.value=old;else sel.value=String(chatPeople[0].id);loadMessages().catch(e=>notice(e.message,true))}
-async function loadMessages(){const peer=Number($('#chatPeer').value);if(!peer)return;const messages=await api(`/api/chat/${peer}`);$('#chatMessages').innerHTML=messages.map(m=>`<article class="chat-message ${Number(m.senderUserId)===Number(currentUser.id)?'mine':''}"><div>${esc(m.body)}</div><small>${Number(m.senderUserId)===Number(currentUser.id)?'You':esc(chatPeople.find(p=>Number(p.id)===Number(m.senderUserId))?.email||'Teammate')} · ${dateValue(m.createdAt)}</small></article>`).join('')||'<p class="muted">No messages yet. Start the conversation.</p>';$('#chatMessages').scrollTop=$('#chatMessages').scrollHeight}
-function openChatWindow(){const panel=$('#chatView');panel.classList.remove('hidden','minimized');$('#chatMinimize').setAttribute('aria-expanded','true');document.querySelectorAll('.nav-item').forEach(x=>x.classList.toggle('active',x.dataset.view==='chat'));if(chatTimer)clearInterval(chatTimer);loadMessages().catch(e=>notice(e.message,true));chatTimer=setInterval(()=>loadMessages().catch(()=>{}),5000)}
-function closeChatWindow(){const panel=$('#chatView');panel.classList.add('hidden');panel.classList.remove('minimized');$('#chatMinimize').setAttribute('aria-expanded','true');$('#chatMinimize').setAttribute('aria-label','Minimize chat');if(chatTimer){clearInterval(chatTimer);chatTimer=null}document.querySelectorAll('.nav-item').forEach(x=>x.classList.toggle('active',x.dataset.view===view))}
-function showView(name){if(name==='chat'){openChatWindow();return}if(name==='integrations'&&(currentUser?.role!=='Owner'||currentUser?.demoMode)){notice('Lead integrations are available to Subscriber accounts outside demo mode.',true);return}closeChatWindow();view=name;const titles={today:'Overview',contacts:'Leads & contacts',pipeline:'Pipeline',areaIntel:'Area Performance & Lead Intelligence',calendar:'Calendar & results',reminders:'Appointments & reminders',performance:'Performance',team:'My Team',integrations:'Lead integrations',archived:'Archived contacts'};$('#viewTitle').textContent=titles[name]||name;document.querySelectorAll('.view').forEach(x=>x.classList.add('hidden'));$(`#${name}View`).classList.remove('hidden');document.querySelectorAll('.nav-item').forEach(x=>x.classList.toggle('active',x.dataset.view===name));render();if(name==='archived')loadArchived().catch(e=>notice(e.message,true));if(name==='integrations')loadIntegrationKeys().catch(e=>notice(e.message,true));if(name==='areaIntel')loadAreaIntelligence().catch(e=>notice(e.message,true))}
+function renderChatPeople(){
+  const sel=$('#chatPeer');
+  if(!sel)return;
+  const old=sel.value;
+  let options='<option value="ai">🤖 Nyra AI Site Concierge (Instant Help)</option>';
+  if(currentUser?.role==='Owner'){
+    options+=chatPeople.map(p=>`<option value="${p.id}">👤 ${esc(p.email)} · ${p.role==='Owner'?'Subscriber (Owner)':'Team Member'}</option>`).join('');
+  }else{
+    options+=chatPeople.map(p=>`<option value="${p.id}">${p.role==='Owner'?'🏠 Realtor Owner':'👤 Teammate'}: ${esc(p.email)}</option>`).join('');
+  }
+  sel.innerHTML=options;
+  $('#chatBody').disabled=false;
+  $('#chatForm').querySelector('button').disabled=false;
+  if(old&&(old==='ai'||chatPeople.some(p=>String(p.id)===old)))sel.value=old;
+  else sel.value='ai';
+  loadMessages().catch(e=>notice(e.message,true));
+}
+async function loadMessages(){
+  const peerVal=$('#chatPeer')?.value;
+  if(!peerVal)return;
+  if(peerVal==='ai'){
+    if(!aiChatHistory.length){
+      let welcome=`👋 Hello! I am **Nyra**, your AI Platform & CRM Concierge.\n\n`+
+        `• **Private Valuation Tool:** Run home valuations privately for clients without creating inbound CRM leads.\n`+
+        `• **Lead Privacy:** Origin leads are shielded so competitors cannot see source data.\n`+
+        `• **Nyrava Team Meet:** Instant HD video meetings with zero install.`;
+      if(currentUser?.role==='Owner'){
+        welcome+=`\n\nAs the Realtor Account Owner, you can chat with me anytime or choose Nyrava Platform Support Admin (admin@nyrava.com) in the selector for direct live staff support.`;
+      }else{
+        welcome+=`\n\nAs an invited team member, if you encounter any account, territory, or billing issues, please contact your Realtor Account Owner. I can assist you with your day-to-day leads, tasks, and appointments!`;
+      }
+      aiChatHistory.push({sender:'Nyra AI',body:welcome,at:new Date(),suggestedActions:['How does Private Valuation work?','Tell me about ZIP coverage rules','How to schedule follow-up appointments']});
+    }
+    $('#chatMessages').innerHTML=aiChatHistory.map(m=>{
+      const isMine=m.sender==='You';
+      let chipsHtml='';
+      if(m.suggestedActions&&m.suggestedActions.length){
+        chipsHtml=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">${m.suggestedActions.map(act=>`<button type="button" class="small quiet chip-action-btn" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;cursor:pointer;border-radius:12px;padding:3px 8px;font-size:11px;">${esc(act)}</button>`).join('')}</div>`;
+      }
+      return `<article class="chat-message ${isMine?'mine':''}"><div>${esc(m.body).replace(/\n/g,'<br>')}</div>${chipsHtml}<small>${esc(m.sender)} · ${dateValue(m.at)}</small></article>`;
+    }).join('');
+    $('#chatMessages').querySelectorAll('.chip-action-btn').forEach(btn=>{
+      btn.onclick=()=>{
+        $('#chatBody').value=btn.textContent;
+        $('#chatForm').requestSubmit();
+      };
+    });
+    $('#chatMessages').scrollTop=$('#chatMessages').scrollHeight;
+    return;
+  }
+  const peer=Number(peerVal);
+  if(!peer)return;
+  const messages=await api(`/api/chat/${peer}`);
+  const peerObj=chatPeople.find(p=>Number(p.id)===peer);
+  $('#chatMessages').innerHTML=messages.map(m=>{
+    const isMine=Number(m.senderUserId)===Number(currentUser.id);
+    const senderLabel=isMine?'You':(peerObj?esc(peerObj.email):'Teammate');
+    return `<article class="chat-message ${isMine?'mine':''}"><div>${esc(m.body)}</div><small>${senderLabel} · ${dateValue(m.createdAt)}</small></article>`;
+  }).join('')||'<p class="muted">No messages yet. Start the conversation.</p>';
+  $('#chatMessages').scrollTop=$('#chatMessages').scrollHeight;
+}
+function openChatWindow(peer=null){
+  const panel=$('#chatView');
+  panel.classList.remove('hidden','minimized');
+  $('#chatMinimize').setAttribute('aria-expanded','true');
+  if(peer&&$('#chatPeer'))$('#chatPeer').value=peer;
+  if(chatTimer){clearInterval(chatTimer);chatTimer=null;}
+  loadMessages().catch(e=>notice(e.message,true));
+  if($('#chatPeer')?.value!=='ai'){
+    chatTimer=setInterval(()=>loadMessages().catch(()=>{}),5000);
+  }
+}
+function closeChatWindow(){
+  const panel=$('#chatView');
+  panel.classList.add('hidden');
+  panel.classList.remove('minimized');
+  $('#chatMinimize').setAttribute('aria-expanded','true');
+  $('#chatMinimize').setAttribute('aria-label','Minimize chat');
+  if(chatTimer){clearInterval(chatTimer);chatTimer=null}
+}
+function showView(name){if(name==='chat'){openChatWindow();return}if(name==='integrations'&&(currentUser?.role!=='Owner'||currentUser?.demoMode)){notice('Lead integrations are available to Subscriber accounts outside demo mode.',true);return}closeChatWindow();view=name;const titles={today:'Overview',contacts:'Leads & contacts',pipeline:'Pipeline',areaIntel:'Area Performance & Lead Intelligence',calendar:'Calendar & results',reminders:'Appointments & reminders',performance:'Performance',team:'My Team',integrations:'Lead integrations',archived:'Archived contacts'};$('#viewTitle').textContent=titles[name]||name;document.querySelectorAll('.view').forEach(x=>x.classList.add('hidden'));$(`#${name}View`).classList.remove('hidden');renderSidebar();render();if(name==='archived')loadArchived().catch(e=>notice(e.message,true));if(name==='integrations')loadIntegrationKeys().catch(e=>notice(e.message,true));if(name==='areaIntel')loadAreaIntelligence().catch(e=>notice(e.message,true))}
 async function loadAreaIntelligence(force=false){try{if(!intelData||force)intelData=await api('/api/admin/area-intelligence');if(!intelData)return;if($('#intelTotalLeads'))$('#intelTotalLeads').textContent=intelData.totalLeads;if($('#intelBankedLeads'))$('#intelBankedLeads').textContent=intelData.bankedLeads;if($('#intelDispatchedLeads'))$('#intelDispatchedLeads').textContent=intelData.dispatchedLeads;if($('#intelMonitoredZips'))$('#intelMonitoredZips').textContent=intelData.zipAnalytics.length;renderAreaIntelligence();}catch(e){console.error('Failed to load area intelligence:',e)}}
 function renderAreaIntelligence(){if(!intelData)return;const q=($('#intelSearch')?.value||'').toLowerCase().trim(),yFilter=$('#intelYieldFilter')?.value||'',sFilter=$('#intelSourceFilter')?.value||'',pSize=Number($('#intelPageSize')?.value)||intelPageSize||10;intelPageSize=pSize;const filteredZips=intelData.zipAnalytics.filter(z=>{const leadsStr=(z.leads||[]).map(l=>[l.name,l.email,l.phone,l.company,l.notes,l.stage].join(' ')).join(' ').toLowerCase();const matchQ=!q||z.zip.toLowerCase().includes(q)||leadsStr.includes(q)||z.sources.join(' ').toLowerCase().includes(q);let matchY=true;if(yFilter==='top')matchY=(z.totalLeads>=3);else if(yFilter==='active')matchY=(z.totalLeads===2);else if(yFilter==='low')matchY=(z.totalLeads<=1);const matchS=!sFilter||z.sources.includes(sFilter);return matchQ&&matchY&&matchS;});const totalPages=Math.ceil(filteredZips.length/intelPageSize)||1;if(intelPage>totalPages)intelPage=totalPages;if(intelPage<1)intelPage=1;const startIdx=(intelPage-1)*intelPageSize,pageRows=filteredZips.slice(startIdx,startIdx+intelPageSize);if($('#intelZipCount'))$('#intelZipCount').textContent=`Showing ${filteredZips.length} of ${intelData.zipAnalytics.length} ZIP areas (Page ${intelPage} of ${totalPages})`;const topPag=$('#intelTopPagination');if(topPag){topPag.innerHTML=`<button id="intelTopPrev" class="compact-pag-btn" ${intelPage<=1?'disabled':''}>‹</button><span style="font-size:11px;font-weight:700;color:#64748b;">${intelPage}/${totalPages}</span><button id="intelTopNext" class="compact-pag-btn" ${intelPage>=totalPages?'disabled':''}>›</button>`;const tp=$('#intelTopPrev');if(tp)tp.onclick=()=>{if(intelPage>1){intelPage--;renderAreaIntelligence()}};const tn=$('#intelTopNext');if(tn)tn.onclick=()=>{if(intelPage<totalPages){intelPage++;renderAreaIntelligence()}};}const btmPag=$('#intelBottomPagination');if(btmPag){btmPag.innerHTML=`<button id="intelBtmPrev" class="button" style="padding:5px 12px;font-size:12px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:4px;cursor:pointer;" ${intelPage<=1?'disabled':''}>‹ Prev</button><span style="font-size:12px;font-weight:700;color:#1e293b;">Page ${intelPage} of ${totalPages} (${filteredZips.length} ZIP codes)</span><button id="intelBtmNext" class="button" style="padding:5px 12px;font-size:12px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:4px;cursor:pointer;" ${intelPage>=totalPages?'disabled':''}>Next ›</button>`;const bp=$('#intelBtmPrev');if(bp)bp.onclick=()=>{if(intelPage>1){intelPage--;renderAreaIntelligence()}};const bn=$('#intelBtmNext');if(bn)bn.onclick=()=>{if(intelPage<totalPages){intelPage++;renderAreaIntelligence()}};}const tableHtml=pageRows.length?`<table style="width:100%;border-collapse:collapse;margin-top:12px;font-size:13px;"><thead><tr style="text-align:left;border-bottom:2px solid #e2e8f0;background:#f8fafc;"><th style="padding:10px 12px;">Area ZIP</th><th style="padding:10px 12px;">Homeowner Leads in ZIP</th><th style="padding:10px 12px;">Total Ingested</th><th style="padding:10px 12px;">Master Bank</th><th style="padding:10px 12px;">Dispatched</th><th style="padding:10px 12px;">Active Pipeline</th><th style="padding:10px 12px;">Monthly Yield</th><th style="padding:10px 12px;">Origin Source</th></tr></thead><tbody>${pageRows.map(z=>{const ratingBadge=z.totalLeads>=3?'<span class="badge" style="background:#dcfce7;color:#166534;font-weight:600;">🔥 Top Producer</span>':z.totalLeads>=2?'<span class="badge" style="background:#e0f2fe;color:#0369a1;font-weight:600;">⚡ Active Yield</span>':'<span class="badge" style="background:#f1f5f9;color:#64748b;">❄️ Low Yield</span>';const leadsList=(z.leads||[]).map(l=>{const matchName=q&&l.name?.toLowerCase().includes(q);const style=matchName?'background:#fef08a;color:#854d0e;font-weight:700;':'background:#eff6ff;color:#1d4ed8;';return `<button type="button" class="badge text-link" data-open-contact="${l.id}" style="${style}border:1px solid #bfdbfe;border-radius:12px;padding:2px 8px;margin:2px;cursor:pointer;display:inline-block;text-align:left;font-size:11px;" title="Phone: ${esc(l.phone||'N/A')} · Stage: ${esc(l.stage)}">👤 <strong>${esc(l.name)}</strong>${l.phone?` <span style="font-size:10px;opacity:0.8;">(${esc(l.phone)})</span>`:''}</button>`;}).join(' ')||'<span class="muted" style="font-size:11px;">None</span>';return `<tr style="border-bottom:1px solid #f1f5f9;"><td style="padding:10px 12px;white-space:nowrap;"><strong>📍 ${esc(z.zip)}</strong></td><td style="padding:10px 12px;max-width:280px;">${leadsList}</td><td style="padding:10px 12px;font-weight:700;">${z.totalLeads} leads</td><td style="padding:10px 12px;"><span style="color:#b91c1c;font-weight:600;">${z.totalLeads-(z.verifiedCount||0)}</span></td><td style="padding:10px 12px;"><span style="color:#15803d;font-weight:600;">${z.verifiedCount||(z.totalLeads>1?1:0)}</span></td><td style="padding:10px 12px;white-space:nowrap;">${z.newCount} New · ${z.contactedCount} In Progress</td><td style="padding:10px 12px;white-space:nowrap;">${ratingBadge}</td><td style="padding:10px 12px;color:#64748b;">${esc(z.sources.join(', '))} ${z.sampleSourceUrl?`<br><a href="${esc(z.sampleSourceUrl)}" target="_blank" style="font-size:11px;color:#2563eb;text-decoration:underline;">View Listing Portal</a>`:''}</td></tr>`;}).join('')}</tbody></table>`:`<div class="empty-state" style="padding:24px;text-align:center;"><p class="muted">No matching ZIP areas found for "${esc(q)}".</p></div>`;if($('#zipAnalyticsTable'))$('#zipAnalyticsTable').innerHTML=tableHtml;$('#zipAnalyticsTable').querySelectorAll('[data-open-contact]').forEach(b=>{b.onclick=()=>{selected=Number(b.dataset.openContact);showView('contacts');render();}});const sourcesHtml=intelData.sourceAnalytics.length?`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;">${intelData.sourceAnalytics.map(s=>`<div class="card" style="flex:1;min-width:180px;background:#f8fafc;"><small style="color:#64748b;">Origin Channel</small><div style="font-size:16px;font-weight:700;color:#0f172a;margin-top:4px;">${esc(s.source)}</div><div style="font-size:13px;color:#475569;margin-top:2px;">${s.count} total leads delivered</div></div>`).join('')}</div>`:'<p class="muted">No sources identified yet.</p>';if($('#sourceAnalyticsTable'))$('#sourceAnalyticsTable').innerHTML=sourcesHtml;}
 async function loadArchived(){const rows=await api('/api/contacts/archived');$('#archivedContacts').innerHTML=rows.map(c=>`<article class="activity"><div><strong>${esc(c.name)}</strong><div class="muted">${esc(c.email||'')} ${c.phone?'· '+esc(c.phone):''} · Archived ${dateValue(c.archivedAt)}</div><p>${esc(c.notes||'')}</p></div><button class="small" data-restore="${c.id}">Restore</button></article>`).join('')||'<p class="muted">No archived contacts.</p>';document.querySelectorAll('[data-restore]').forEach(b=>b.onclick=async()=>{try{await api(`/api/contacts/${b.dataset.restore}/restore`,{method:'POST'});await load();await loadArchived();notice('Contact restored.')}catch(e){notice(e.message,true)}})}
@@ -103,9 +375,39 @@ const pageParams=new URLSearchParams(location.search),joinCode=pageParams.get('i
 $('#authForm').onsubmit=async e=>{e.preventDefault();try{await api(register?'/api/register':'/api/login',{method:'POST',body:JSON.stringify({email:$('#authEmail').value,password:$('#authPassword').value,invitationCode:register?$('#invitationCode').value.trim():null})});await init()}catch(err){$('#authError').textContent=err.message}};
 $('#logout').onclick=async()=>{const button=$('#logout');button.disabled=true;try{await api('/api/logout',{method:'POST'});currentUser=null;location.replace('/')}catch(e){button.disabled=false;notice(`Sign out failed: ${e.message}`,true)}};$('#refresh').onclick=async()=>{const btn=$('#refresh');const prev=btn.textContent;btn.disabled=true;btn.textContent='Updating...';try{await load();notice('Workspace refreshed with latest live data.');}catch(e){notice(e.message,true)}finally{btn.disabled=false;btn.textContent=prev}};$('#refreshReminders').onclick=()=>load().then(()=>notice('Reminders & agenda updated.')).catch(e=>notice(e.message,true));$('#search').oninput=()=>{contactsPage=1;render()};$('#typeFilter').onchange=()=>{contactsPage=1;render()};$('#stageFilter').onchange=()=>{contactsPage=1;render()};if($('#bankFilter'))$('#bankFilter').onchange=()=>{contactsPage=1;render()};if($('#intelSearch'))$('#intelSearch').oninput=()=>{intelPage=1;renderAreaIntelligence()};if($('#intelYieldFilter'))$('#intelYieldFilter').onchange=()=>{intelPage=1;renderAreaIntelligence()};if($('#intelSourceFilter'))$('#intelSourceFilter').onchange=()=>{intelPage=1;renderAreaIntelligence()};if($('#intelPageSize'))$('#intelPageSize').onchange=()=>{intelPage=1;renderAreaIntelligence()};if($('#refreshAreaIntel'))$('#refreshAreaIntel').onclick=async()=>{const btn=$('#refreshAreaIntel');btn.disabled=true;btn.textContent='Updating...';try{await loadAreaIntelligence(true);notice('Area performance & intelligence updated.');}catch(e){notice(e.message,true)}finally{btn.disabled=false;btn.textContent='Refresh Intelligence'}};$('#pipelineType').onchange=render;$('#agendaDate').onchange=renderCalendar;$('#calendarFilter').onchange=renderCalendar;$('#calendarResultFilter').onchange=renderCalendar;$('#calendarContactSearch').oninput=()=>{calendarContactsPage=1;renderCalendar()};$('#agendaDate').value=localDay(new Date());document.querySelectorAll('[data-calendar-view]').forEach(b=>b.onclick=()=>{calendarMode=b.dataset.calendarView;renderCalendar()});$('#stageFilter').innerHTML='<option value="">All stages</option>'+stages.map(s=>`<option>${s}</option>`).join('');$('#calendarToday').onclick=()=>{$('#agendaDate').value=localDay(new Date());renderCalendar()};$('#calendarPrev').onclick=()=>moveCalendar(-1);$('#calendarNext').onclick=()=>moveCalendar(1);
 function moveCalendar(step){const d=new Date(`${$('#agendaDate').value||localDay(new Date())}T12:00:00`),mode=calendarMode;if(mode==='month'||mode==='agenda'){const day=d.getDate();d.setDate(1);d.setMonth(d.getMonth()+step);d.setDate(Math.min(day,new Date(d.getFullYear(),d.getMonth()+1,0).getDate()))}else d.setDate(d.getDate()+step*(mode==='week'?7:1));$('#agendaDate').value=localDay(d);renderCalendar()}
-function openNyraMeet(){const isLocal=location.hostname==='localhost'||location.hostname==='127.0.0.1';const meetUrl=isLocal?'http://localhost:5000':`${location.protocol}//meet.${location.hostname.replace('crm.','')}`;window.open(meetUrl,'_blank');}const startMeetBtn=$('#startMeetBtn');if(startMeetBtn)startMeetBtn.onclick=openNyraMeet;const teamMeetBtn=$('#teamMeetBtn');if(teamMeetBtn)teamMeetBtn.onclick=openNyraMeet;$('#chatClose').onclick=closeChatWindow;$('#chatMinimize').onclick=()=>{const minimized=$('#chatView').classList.toggle('minimized');$('#chatMinimize').setAttribute('aria-expanded',String(!minimized));$('#chatMinimize').setAttribute('aria-label',minimized?'Expand chat':'Minimize chat')};$('#chatTeamLink').onclick=()=>showView('team');
+function openNyraMeet(){const isLocal=location.hostname==='localhost'||location.hostname==='127.0.0.1';const meetUrl=isLocal?'http://localhost:5000':`${location.protocol}//meet.${location.hostname.replace('crm.','')}`;window.open(meetUrl,'_blank');}const chatSupportBtn=$('#chatSupportBtn');if(chatSupportBtn)chatSupportBtn.onclick=openAiSupportChat;
+const startMeetBtn=$('#startMeetBtn');if(startMeetBtn)startMeetBtn.onclick=openNyraMeet;const teamMeetBtn=$('#teamMeetBtn');if(teamMeetBtn)teamMeetBtn.onclick=openNyraMeet;$('#chatClose').onclick=closeChatWindow;$('#chatMinimize').onclick=()=>{const minimized=$('#chatView').classList.toggle('minimized');$('#chatMinimize').setAttribute('aria-expanded',String(!minimized));$('#chatMinimize').setAttribute('aria-label',minimized?'Expand chat':'Minimize chat')};$('#chatTeamLink').onclick=()=>showView('team');
 $('#inviteForm').onsubmit=async e=>{e.preventDefault();const email=new FormData(e.target).get('email');try{const result=await api('/api/team/invitations',{method:'POST',body:JSON.stringify({email})});$('#inviteResult').classList.remove('hidden');if(demoMode){$('#inviteResult').innerHTML=`<strong>Demo invitation for ${esc(email)}</strong><input readonly value="${esc(result.code)}"><p>Enter 1234 on the demo account-creation screen to join Test One’s workspace. This demo code is reusable only in the local demo profile. <a href="${esc(location.origin+result.joinUrl)}">Open demo invite</a></p>`}else{$('#inviteResult').innerHTML=`<strong>Email invitation sent</strong><p>An invitation link was sent to ${esc(result.email)}. It expires ${dateValue(result.expiresAt)} and grants access only to this Subscriber’s workspace.</p>`}}catch(err){notice(err.message,true)}};
-$('#integrationKeyForm').onsubmit=async e=>{e.preventDefault();const name=new FormData(e.target).get('name');try{const key=await api('/api/integrations/keys',{method:'POST',body:JSON.stringify({name})});$('#integrationKeyOnce').innerHTML=`<strong>Copy this key now. It will not be shown again.</strong><label>Secret key<textarea id="newIntegrationToken" readonly></textarea></label><button id="copyIntegrationKey" type="button">Copy key</button><button id="dismissIntegrationKey" class="quiet" type="button">Dismiss</button>`;$('#newIntegrationToken').value=key.token;$('#integrationKeyOnce').classList.remove('hidden');$('#copyIntegrationKey').onclick=async()=>{await navigator.clipboard.writeText(key.token);notice('Integration key copied. Keep it private.')};$('#dismissIntegrationKey').onclick=()=>{$('#newIntegrationToken').value='';$('#integrationKeyOnce').classList.add('hidden')};e.target.reset();await loadIntegrationKeys();notice('Integration key created. Copy the secret before dismissing it.')}catch(err){notice(err.message,true)}};$('#refreshIntegrationKeys').onclick=()=>loadIntegrationKeys().catch(e=>notice(e.message,true));$('#integrationKeys').onclick=async e=>{const b=e.target.closest('[data-integration-key-revoke]');if(!b)return;if(!confirm('Revoke this integration key? The connected product will stop delivering leads.'))return;try{await api(`/api/integrations/keys/${b.dataset.integrationKeyRevoke}`,{method:'DELETE'});await loadIntegrationKeys();notice('Integration key revoked.')}catch(err){notice(err.message,true)}};$('#chatPeer').onchange=()=>loadMessages().catch(e=>notice(e.message,true));$('#chatForm').onsubmit=async e=>{e.preventDefault();const peer=Number($('#chatPeer').value),body=$('#chatBody').value;try{await api(`/api/chat/${peer}`,{method:'POST',body:JSON.stringify({body})});$('#chatBody').value='';await loadMessages()}catch(err){notice(err.message,true)}};
+$('#integrationKeyForm').onsubmit=async e=>{e.preventDefault();const name=new FormData(e.target).get('name');try{const key=await api('/api/integrations/keys',{method:'POST',body:JSON.stringify({name})});$('#integrationKeyOnce').innerHTML=`<strong>Copy this key now. It will not be shown again.</strong><label>Secret key<textarea id="newIntegrationToken" readonly></textarea></label><button id="copyIntegrationKey" type="button">Copy key</button><button id="dismissIntegrationKey" class="quiet" type="button">Dismiss</button>`;$('#newIntegrationToken').value=key.token;$('#integrationKeyOnce').classList.remove('hidden');$('#copyIntegrationKey').onclick=async()=>{await navigator.clipboard.writeText(key.token);notice('Integration key copied. Keep it private.')};$('#dismissIntegrationKey').onclick=()=>{$('#newIntegrationToken').value='';$('#integrationKeyOnce').classList.add('hidden')};e.target.reset();await loadIntegrationKeys();notice('Integration key created. Copy the secret before dismissing it.')}catch(err){notice(err.message,true)}};$('#refreshIntegrationKeys').onclick=()=>loadIntegrationKeys().catch(e=>notice(e.message,true));$('#integrationKeys').onclick=async e=>{const b=e.target.closest('[data-integration-key-revoke]');if(!b)return;if(!confirm('Revoke this integration key? The connected product will stop delivering leads.'))return;try{await api(`/api/integrations/keys/${b.dataset.integrationKeyRevoke}`,{method:'DELETE'});await loadIntegrationKeys();notice('Integration key revoked.')}catch(err){notice(err.message,true)}};$('#chatPeer').onchange=()=>{
+  if(chatTimer){clearInterval(chatTimer);chatTimer=null;}
+  if($('#chatPeer').value!=='ai'){chatTimer=setInterval(()=>loadMessages().catch(()=>{}),5000);}
+  loadMessages().catch(e=>notice(e.message,true));
+};
+$('#chatForm').onsubmit=async e=>{
+  e.preventDefault();
+  const peerVal=$('#chatPeer').value;
+  const body=$('#chatBody').value.trim();
+  if(!body)return;
+  if(peerVal==='ai'){
+    $('#chatBody').value='';
+    aiChatHistory.push({sender:'You',body:body,at:new Date()});
+    await loadMessages();
+    try{
+      const res=await api('/api/support/ai-assistant',{method:'POST',body:JSON.stringify({query:body})});
+      aiChatHistory.push({sender:'Nyra AI',body:res.answer,suggestedActions:res.suggestedActions||[],at:new Date()});
+    }catch(err){
+      aiChatHistory.push({sender:'Nyra AI',body:`Error reaching Nyra AI: ${err.message}`,at:new Date()});
+    }
+    await loadMessages();
+    return;
+  }
+  const peer=Number(peerVal);
+  try{
+    await api(`/api/chat/${peer}`,{method:'POST',body:JSON.stringify({body})});
+    $('#chatBody').value='';
+    await loadMessages();
+  }catch(err){notice(err.message,true)}
+};
 document.querySelectorAll('.nav-item').forEach(b=>b.onclick=()=>showView(b.dataset.view));document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>showView(b.dataset.go));document.querySelectorAll('[data-add-kind]').forEach(b=>b.onclick=()=>openActivity(b.dataset.addKind));$('#addContact').onclick=()=>$('#contactDialog').showModal();$('#contactForm').onsubmit=async e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target));try{const c=await api('/api/contacts',{method:'POST',body:JSON.stringify(f)});e.target.reset();$('#contactDialog').close();selected=c.id;notice('Contact added.');await load()}catch(err){notice(err.message,true)}};
 $('#activityForm').onsubmit=async e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target)),id=Number(f.activityId);delete f.activityId;f.contactId=Number(f.contactId);f.startsAt=new Date(f.startsAt).toISOString();f.timeZone=Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC';try{await api(id?`/api/activities/${id}`:'/api/activities',{method:id?'PUT':'POST',body:JSON.stringify(f)});e.target.reset();$('#activityDialog').close();notice(f.kind==='Appointment'?'Appointment saved.':'Item saved.');await load()}catch(err){notice(err.message,true)}};$('#cancelActivity').onclick=async()=>{const id=Number($('#activityForm').elements.activityId.value);if(!id||!confirm('Cancel this appointment?'))return;try{await api(`/api/activities/${id}/result`,{method:'POST',body:JSON.stringify({result:'Canceled',notes:'Canceled from calendar'})});$('#activityDialog').close();await load()}catch(e){notice(e.message,true)}};document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());init();
 $('#resultForm').onsubmit=async e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target)),id=Number(f.activityId);try{await api(`/api/activities/${id}/result`,{method:'POST',body:JSON.stringify({result:f.result,notes:f.notes})});$('#resultDialog').close();notice('Appointment result saved.');await load()}catch(err){notice(err.message,true)}};
