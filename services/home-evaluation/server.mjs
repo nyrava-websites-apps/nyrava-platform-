@@ -25,6 +25,14 @@ try {
   config = { ...config, ...JSON.parse(configFile) };
 } catch {}
 
+config.smtp = {
+  host: process.env.SMTP_HOST || config.smtp?.host || 'smtp.zoho.com',
+  port: parseInt(process.env.SMTP_PORT || config.smtp?.port || '587', 10),
+  user: process.env.SMTP_USER || config.smtp?.user || 'notifications@nyrava.com',
+  pass: process.env.SMTP_PASS || config.smtp?.pass || '',
+  from: process.env.EMAIL_FROM || config.smtp?.from || 'Nyrava Home <notifications@nyrava.com>'
+};
+
 function sendJson(res, statusCode, data) {
   res.writeHead(statusCode, {
     'Content-Type': 'application/json',

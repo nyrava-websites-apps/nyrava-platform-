@@ -239,6 +239,19 @@ app.MapPost("/api/register", async (RegisterRequest request, CrmDb db, HttpConte
     db.Memberships.Add(new CrmMembership { OwnerUserId = user.WorkspaceId, UserId = user.Id, Role = user.Role, Active = true });
     await db.SaveChangesAsync();
     await transaction.CommitAsync();
+
+    if (isSubscriber) {
+        var verifyToken = Guid.NewGuid().ToString("N");
+        var verificationUrl = $"https://home.nyrava.com/verify-account.html?token={verifyToken}&email={Uri.EscapeDataString(user.Email)}";
+        _ = Task.Run(async () => {
+            try {
+                await EmailService.SendSubscriberVerificationEmailAsync(builder.Configuration, user.Email, verificationUrl);
+            } catch (Exception ex) {
+                Console.WriteLine($"[Register] Verification email error: {ex.Message}");
+            }
+        });
+    }
+
     await SignIn(http, user);
     var regToken = Guid.NewGuid().ToString("N");
     oneTimeAuthTokens[regToken] = (user.Id, DateTimeOffset.UtcNow.AddMinutes(5));
