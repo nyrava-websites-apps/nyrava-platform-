@@ -204,7 +204,24 @@ function renderSidebar(){
   if(signoutBtn)signoutBtn.onclick=()=>$('#logout').click();
 }
 
-async function init(){try{const demo=await api('/api/demo-info');demoMode=!!demo.enabled;$('#demoAuthHint').classList.toggle('hidden',!demo.enabled||!register)}catch{demoMode=false}$('#accountRoleHint').classList.toggle('hidden',!register);
+async function init(){
+  const urlParams = new URLSearchParams(location.search);
+  const authToken = urlParams.get('auth_token');
+  if (authToken) {
+    try {
+      await api('/api/auth/token-login', {
+        method: 'POST',
+        body: JSON.stringify({ token: authToken })
+      });
+      urlParams.delete('auth_token');
+      const newSearch = urlParams.toString();
+      const cleanUrl = location.pathname + (newSearch ? '?' + newSearch : '');
+      history.replaceState({}, '', cleanUrl);
+    } catch(err) {
+      console.error('Token SSO login error:', err);
+    }
+  }
+  try{const demo=await api('/api/demo-info');demoMode=!!demo.enabled;$('#demoAuthHint').classList.toggle('hidden',!demo.enabled||!register)}catch{demoMode=false}$('#accountRoleHint').classList.toggle('hidden',!register);
 async function doQuickLogin(email, password, label) {
   notice(`Signing in as ${label}...`, false);
   try {

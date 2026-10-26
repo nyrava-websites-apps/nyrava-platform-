@@ -68,6 +68,7 @@ builder.Services.AddAuthorization();
 builder.Services.AddAntiforgery();
 var app = builder.Build();
 var inboundLeadSources = new HashSet<string>(StringComparer.Ordinal) { "Fsbo", "Zillow", "Facebook", "Craigslist", "FsboCom", "HomeEvaluation", "LeadGenerator", "RealtorAssistance" };
+var oneTimeAuthTokens = new System.Collections.Concurrent.ConcurrentDictionary<string, (long UserId, DateTimeOffset ExpiresAt)>();
 
 await using (var scope = app.Services.CreateAsyncScope())
 {
@@ -234,6 +235,8 @@ app.MapPost("/api/register", async (RegisterRequest request, CrmDb db, HttpConte
     await db.SaveChangesAsync();
     await transaction.CommitAsync();
     await SignIn(http, user);
+    var regToken = Guid.NewGuid().ToString("N");
+    oneTimeAuthTokens[regToken] = (user.Id, DateTimeOffset.UtcNow.AddMinutes(5));
     return Results.Ok(new {
         email = user.Email,
         country = user.Country,
@@ -242,7 +245,8 @@ app.MapPost("/api/register", async (RegisterRequest request, CrmDb db, HttpConte
         subscriptionStatus = user.SubscriptionStatus,
         subscriptionPlan = user.SubscriptionPlan,
         subscriptionPrice = user.SubscriptionPrice,
-        currency = user.Currency
+        currency = user.Currency,
+        authToken = regToken
     });
 }).AllowAnonymous();
 
@@ -255,12 +259,37 @@ app.MapPost("/api/login", async (LoginRequest request, CrmDb db, HttpContext htt
         return Results.Unauthorized();
     if(!await db.Memberships.AnyAsync(m=>m.OwnerUserId==user.WorkspaceId&&m.UserId==user.Id&&m.Active))return Results.Unauthorized();
     await SignIn(http, user);
+    var logToken = Guid.NewGuid().ToString("N");
+    oneTimeAuthTokens[logToken] = (user.Id, DateTimeOffset.UtcNow.AddMinutes(5));
     return Results.Ok(new {
         email = user.Email,
         country = user.Country,
         postalCode = user.PostalCode,
         subscribedZipCodes = user.SubscribedZipCodes,
-        subscriptionStatus = user.SubscriptionStatus
+        subscriptionStatus = user.SubscriptionStatus,
+        authToken = logToken
+    });
+}).AllowAnonymous();
+
+app.MapPost("/api/auth/token-login", async (TokenLoginInput input, CrmDb db, HttpContext http) => {
+    if (string.IsNullOrWhiteSpace(input.Token) || !oneTimeAuthTokens.TryRemove(input.Token, out var entry)) {
+        return Results.BadRequest(new { error = "Invalid or expired authorization token." });
+    }
+    if (DateTimeOffset.UtcNow > entry.ExpiresAt) {
+        return Results.BadRequest(new { error = "Token has expired." });
+    }
+    var user = await db.Users.FindAsync(entry.UserId);
+    if (user is null) return Results.NotFound(new { error = "User not found." });
+    if (!await db.Memberships.AnyAsync(m => m.OwnerUserId == user.WorkspaceId && m.UserId == user.Id && m.Active)) {
+        return Results.Unauthorized();
+    }
+    await SignIn(http, user);
+    return Results.Ok(new {
+        id = user.Id,
+        email = user.Email,
+        role = user.Role,
+        isPlatformAdmin = IsPlatformAdmin(user),
+        workspaceId = user.WorkspaceId
     });
 }).AllowAnonymous();
 
@@ -296,6 +325,8 @@ app.MapPost("/api/auth/google", async (GoogleAuthInput input, CrmDb db, HttpCont
     }
 
     await SignIn(http, user);
+    var gToken = Guid.NewGuid().ToString("N");
+    oneTimeAuthTokens[gToken] = (user.Id, DateTimeOffset.UtcNow.AddMinutes(5));
 
     return Results.Ok(new {
         id = user.Id,
@@ -307,7 +338,8 @@ app.MapPost("/api/auth/google", async (GoogleAuthInput input, CrmDb db, HttpCont
         postalCode = user.PostalCode,
         subscribedZipCodes = user.SubscribedZipCodes,
         subscriptionStatus = user.SubscriptionStatus,
-        subscriptionPlan = user.SubscriptionPlan
+        subscriptionPlan = user.SubscriptionPlan,
+        authToken = gToken
     });
 }).AllowAnonymous();
 
@@ -1355,3 +1387,5 @@ record AdminLeadAssignInput(long RealtorUserId);
 public partial class Program { }
 
 record GoogleAuthInput(string? Email, string? Name, string? GoogleId, string? Credential);
+
+record TokenLoginInput(string? Token);

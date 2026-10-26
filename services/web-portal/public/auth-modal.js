@@ -264,10 +264,14 @@
           throw new Error(err.error || 'Google sign-in failed.');
         }
 
-        showAlert('Google authentication verified! Opening your workspace...', false);
+        const gData = await res.json().catch(() => ({}));
+        const targetUrl = gData.authToken
+          ? `${CRM_PORTAL_URL}/?auth_token=${encodeURIComponent(gData.authToken)}`
+          : CRM_PORTAL_URL;
+        showAlert('Google identity verified! Opening your workspace...', false);
         setTimeout(() => {
-          window.location.href = CRM_PORTAL_URL;
-        }, 400);
+          window.location.href = targetUrl;
+        }, 200);
       } catch (err) {
         showAlert(err.message, true);
       }
@@ -321,10 +325,14 @@
           throw new Error(err.error || 'Invalid email or password.');
         }
 
-        showAlert('Authenticated! Opening your workspace...', false);
+        const logData = await res.json().catch(() => ({}));
+        const targetUrl = logData.authToken
+          ? `${CRM_PORTAL_URL}/?auth_token=${encodeURIComponent(logData.authToken)}`
+          : CRM_PORTAL_URL;
+        showAlert('Signed in successfully! Opening your workspace...', false);
         setTimeout(() => {
-          window.location.href = CRM_PORTAL_URL;
-        }, 400);
+          window.location.href = targetUrl;
+        }, 200);
       } catch (err) {
         showAlert(err.message, true);
         if (btn) { btn.disabled = false; btn.textContent = 'Sign In to Workspace'; }
@@ -400,10 +408,14 @@
           throw new Error(err.error || 'Registration failed.');
         }
 
+        const rData = await res.json().catch(() => ({}));
+        const targetUrl = rData.authToken
+          ? `${CRM_PORTAL_URL}/?auth_token=${encodeURIComponent(rData.authToken)}`
+          : CRM_PORTAL_URL;
         showAlert('Account created! Opening your workspace...', false);
         setTimeout(() => {
-          window.location.href = CRM_PORTAL_URL;
-        }, 500);
+          window.location.href = targetUrl;
+        }, 200);
       } catch (err) {
         showAlert(err.message, true);
         btn.disabled = false;
