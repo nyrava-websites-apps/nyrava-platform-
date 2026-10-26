@@ -252,7 +252,7 @@ app.MapPost("/api/logout", async (HttpContext http) => {
 app.MapGet("/api/demo-info", () => Results.Ok(new { enabled=demoMode, inviteCode=demoMode?"1234":null, teamInvitationsEnabled })).AllowAnonymous();
 app.MapGet("/api/me", async (CrmDb db, HttpContext http) => {
     var u=await CurrentUser(db,http);
-    var isPlatformAdmin = u.Email == "admin@nyrava.com" || u.Email == "testadmin@example.test";
+    var isPlatformAdmin = IsPlatformAdmin(u);
     return Results.Ok(new {
         id=u.Id,
         email=u.Email,
@@ -401,17 +401,24 @@ app.MapGet("/api/chat/people", async (CrmDb db,HttpContext http)=>{
         return Results.Ok(teammates);
     }
 
+    if (IsPlatformAdmin(actor)) {
+        // Admin sees ALL Realtor Account Owners for direct support
+        var realtors = await db.Users
+            .Where(u => u.Email != "admin@home.nyrava.com" && u.Email != "admin@nyrava.com" && u.Email != "testadmin@example.test" && u.Role == "Owner")
+            .Select(u => new { id = u.Id, email = $"{u.Email} (Realtor Subscriber)", role = "Realtor", isSupport = false })
+            .ToListAsync();
+        return Results.Ok(realtors);
+    }
+
     // Realtor Owner: workspace teammates + Platform Support Admin
     var people=await db.Memberships
         .Where(m=>m.OwnerUserId==actor.WorkspaceId&&m.Active&&m.UserId!=actor.Id)
         .Join(db.Users,m=>m.UserId,u=>u.Id,(m,u)=>new{id=u.Id,email=u.Email,role=m.Role,isSupport=false})
         .ToListAsync();
 
-    if (actor.Email != "admin@nyrava.com" && actor.Email != "testadmin@example.test") {
-        var adminUser = await db.Users.SingleOrDefaultAsync(u => u.Email == "admin@nyrava.com");
-        if (adminUser != null && !people.Any(p => p.id == adminUser.Id)) {
-            people.Insert(0, new { id = adminUser.Id, email = "Nyrava Platform Support (Admin)", role = "Support", isSupport = true });
-        }
+    var adminUser = await db.Users.FirstOrDefaultAsync(u => u.Role == "Admin" || u.Email == "admin@home.nyrava.com" || u.Email == "admin@nyrava.com");
+    if (adminUser != null && !people.Any(p => p.id == adminUser.Id)) {
+        people.Insert(0, new { id = adminUser.Id, email = "Nyrava Platform Support Admin", role = "Support", isSupport = true });
     }
 
     return Results.Ok(people);
@@ -436,7 +443,7 @@ app.MapPost("/api/support/ai-assistant", async (SupportAiInput input, CrmDb db, 
 
 app.MapGet("/api/contacts", async (CrmDb db, HttpContext http) => {
     var actor=await CurrentUser(db,http); var userId=actor.Id; var owner=actor.WorkspaceId;
-    var isPlatformAdmin = actor.Email == "admin@nyrava.com" || actor.Email == "testadmin@example.test";
+    var isPlatformAdmin = IsPlatformAdmin(actor);
     var items = await db.Contacts
         .Where(x => x.UserId == owner && x.ArchivedAt==null && (actor.Role=="Owner" || x.AssignedToUserId==userId))
         .ToListAsync();
@@ -455,7 +462,7 @@ app.MapGet("/api/contacts", async (CrmDb db, HttpContext http) => {
 }).RequireAuthorization();
 app.MapGet("/api/contacts/archived",async(CrmDb db,HttpContext http)=>{
     var actor=await CurrentUser(db,http);if(actor.Role!="Owner")return Results.Forbid();
-    var isPlatformAdmin = actor.Email == "admin@nyrava.com" || actor.Email == "testadmin@example.test";
+    var isPlatformAdmin = IsPlatformAdmin(actor);
     var rows=await db.Contacts.Where(x=>x.UserId==actor.WorkspaceId&&x.ArchivedAt!=null).ToListAsync();
     if (!isPlatformAdmin) {
         foreach (var c in rows) {
@@ -523,11 +530,11 @@ app.MapPost("/api/v1/inbound-leads", async (InboundLeadInput input, CrmDb db, Ht
         return Results.BadRequest(new { error = "Lead is missing a valid source ID, name, contact, ZIP code, verified contact and intent, consent evidence, or required external-FSBO Admin review." });
 
     var externalLeadId = input.ExternalLeadId!.Trim();
-    bool isSystemAdmin = owner.Email == "admin@nyrava.com" || owner.Email == "testadmin@example.test";
+    bool isSystemAdmin = IsPlatformAdmin(owner);
 
     // Find subscribed realtors covering this ZIP code
     var activeRealtors = await db.Users
-        .Where(u => u.Role == "Owner" && u.WorkspaceId == u.Id && u.Email != "admin@nyrava.com" && u.Email != "testadmin@example.test")
+        .Where(u => u.Role == "Owner" && u.WorkspaceId == u.Id && u.Email != "admin@home.nyrava.com" && u.Email != "admin@nyrava.com" && u.Email != "testadmin@example.test")
         .ToListAsync();
 
     var matchingRealtors = activeRealtors
@@ -640,7 +647,7 @@ app.MapPost("/api/v1/inbound-leads", async (InboundLeadInput input, CrmDb db, Ht
 
 app.MapGet("/api/admin/area-intelligence", async (CrmDb db, HttpContext http) => {
     var actor = await CurrentUser(db, http);
-    var isPlatformAdmin = actor.Email == "admin@nyrava.com" || actor.Email == "testadmin@example.test";
+    var isPlatformAdmin = IsPlatformAdmin(actor);
 
     var query = isPlatformAdmin 
         ? db.Contacts.AsQueryable() 
@@ -694,12 +701,54 @@ app.MapGet("/api/admin/area-intelligence", async (CrmDb db, HttpContext http) =>
     });
 }).RequireAuthorization();
 
+app.MapGet("/api/admin/accounts", async (CrmDb db, HttpContext http) => {
+    var actor = await CurrentUser(db, http);
+    if (!IsPlatformAdmin(actor)) return Results.Forbid();
+
+    var allUsers = await db.Users.OrderByDescending(u => u.Id).ToListAsync();
+    var allMemberships = await db.Memberships.Where(m => m.Active).ToListAsync();
+
+    var result = allUsers.Select(u => {
+        var isPlatformAdmin = IsPlatformAdmin(u);
+        var isOwner = u.WorkspaceId == u.Id;
+        var membership = allMemberships.FirstOrDefault(m => m.UserId == u.Id);
+        var ownerEmail = "";
+        if (!isOwner && membership != null) {
+            var owner = allUsers.FirstOrDefault(x => x.Id == membership.OwnerUserId);
+            ownerEmail = owner?.Email ?? $"Workspace #{membership.OwnerUserId}";
+        }
+
+        string accountType;
+        if (isPlatformAdmin) accountType = "Platform Admin";
+        else if (isOwner) accountType = "Realtor (Account Owner)";
+        else accountType = $"Team Member (under {ownerEmail})";
+
+        return new {
+            id = u.Id,
+            email = u.Email,
+            role = u.Role,
+            accountType,
+            isOwner,
+            isAdmin = isPlatformAdmin,
+            workspaceId = u.WorkspaceId,
+            ownerEmail,
+            subscribedZipCodes = u.SubscribedZipCodes ?? "",
+            subscriptionPlan = u.SubscriptionPlan ?? (isOwner ? "Realtor Pro Subscription" : "Team Member"),
+            subscriptionStatus = u.SubscriptionStatus ?? "Active",
+            country = u.Country ?? "US",
+            postalCode = u.PostalCode ?? "",
+            joinedAt = membership?.JoinedAt ?? u.TermsAcceptedAt
+        };
+    }).ToList();
+
+    return Results.Ok(result);
+}).RequireAuthorization();
+
 app.MapGet("/api/admin/realtors", async (CrmDb db, HttpContext http) => {
     var actor = await CurrentUser(db, http);
-    var isPlatformAdmin = actor.Email == "admin@nyrava.com" || actor.Email == "testadmin@example.test";
-    if (!isPlatformAdmin) return Results.Forbid();
+    if (!IsPlatformAdmin(actor)) return Results.Forbid();
     var realtors = await db.Users
-        .Where(u => u.Email != "admin@nyrava.com" && u.Email != "testadmin@example.test" && u.Role == "Owner")
+        .Where(u => u.Email != "admin@home.nyrava.com" && u.Email != "admin@nyrava.com" && u.Email != "testadmin@example.test" && u.Role == "Owner")
         .Select(u => new { u.Id, u.Email, u.SubscribedZipCodes, u.SubscriptionPlan, u.SubscriptionStatus })
         .ToListAsync();
     return Results.Ok(realtors);
@@ -710,7 +759,7 @@ app.MapGet("/admin/login", () => Results.Redirect("/index.html"));
 
 app.MapPost("/api/admin/dispatch-lead/{contactId:long}", async (long contactId, AdminLeadAssignInput input, CrmDb db, HttpContext http) => {
     var actor = await CurrentUser(db, http);
-    var isPlatformAdmin = actor.Email == "admin@nyrava.com" || actor.Email == "testadmin@example.test";
+    var isPlatformAdmin = IsPlatformAdmin(actor);
     if (!isPlatformAdmin) return Results.Forbid();
     var contact = await db.Contacts.SingleOrDefaultAsync(x => x.Id == contactId);
     if (contact is null) return Results.NotFound();
@@ -756,7 +805,7 @@ app.MapPost("/api/admin/dispatch-lead/{contactId:long}", async (long contactId, 
 }).RequireAuthorization();
 app.MapPut("/api/contacts/{id:long}", async (long id, ContactUpdate input, CrmDb db, HttpContext http) => {
     var actor=await CurrentUser(db,http); var userId=actor.Id;
-    var isPlatformAdmin = actor.Email == "admin@nyrava.com" || actor.Email == "testadmin@example.test";
+    var isPlatformAdmin = IsPlatformAdmin(actor);
     var item = await db.Contacts.SingleOrDefaultAsync(x => x.Id == id && x.UserId == actor.WorkspaceId && (actor.Role=="Owner"||x.AssignedToUserId==userId));
     if (item is null) return Results.NotFound();
     if (string.IsNullOrWhiteSpace(input.Name) || input.Name.Trim().Length > 160 || input.Email?.Length > 320 || (!string.IsNullOrWhiteSpace(input.Email) && !ValidEmail(input.Email.Trim())) || input.Phone?.Length > 40 || input.Company?.Length > 160 || input.Notes?.Length > 4000 || !stages.Contains(input.Stage) || !leadTypes.Contains(input.LeadType)) return Results.BadRequest(new { error = "Check the contact fields and pipeline stage." });
@@ -901,13 +950,12 @@ static async Task SeedDemoWorkspaceAsync(CrmDb db)
 }
 
 static async Task EnsureSystemAdminAsync(CrmDb db) {
-    const string adminEmail = "admin@nyrava.com";
-    var admin = await db.Users.SingleOrDefaultAsync(x => x.Email == adminEmail);
+    var admin = await db.Users.FirstOrDefaultAsync(x => x.Email == "admin@home.nyrava.com" || x.Email == "admin@nyrava.com");
     if (admin is null) {
         admin = new CrmUser {
-            Email = adminEmail,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("NyravaAdmin2026!"),
-            Role = "Owner",
+            Email = "admin@home.nyrava.com",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Shazbot!Dog5!"),
+            Role = "Admin",
             Country = "US",
             PostalCode = "77084",
             SubscribedZipCodes = "",
@@ -919,11 +967,7 @@ static async Task EnsureSystemAdminAsync(CrmDb db) {
         admin.WorkspaceId = admin.Id;
         await db.SaveChangesAsync();
     } else {
-        admin.Role = "Owner";
         if (admin.WorkspaceId == 0) admin.WorkspaceId = admin.Id;
-        if (!BCrypt.Net.BCrypt.Verify("NyravaAdmin2026!", admin.PasswordHash) && !BCrypt.Net.BCrypt.Verify("Admin2026!", admin.PasswordHash)) {
-            admin.PasswordHash = BCrypt.Net.BCrypt.HashPassword("NyravaAdmin2026!");
-        }
         await db.SaveChangesAsync();
     }
 
@@ -980,23 +1024,30 @@ static async Task EnsureDemoAdminAsync(CrmDb db) {
 static long UserId(HttpContext http) => long.Parse(http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value, System.Globalization.CultureInfo.InvariantCulture);
 static async Task<CrmUser> CurrentUser(CrmDb db,HttpContext http){var id=UserId(http);var u=await db.Users.SingleAsync(x=>x.Id==id);if(!await db.Memberships.AnyAsync(m=>m.OwnerUserId==u.WorkspaceId&&m.UserId==u.Id&&m.Active))throw new UnauthorizedAccessException("Your CRM workspace access has been disabled.");return u;}
 static string HashToken(string value)=>Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(value)));
+static bool IsPlatformAdmin(CrmUser? u) =>
+    u != null && (u.Role == "Admin" || u.Email == "admin@home.nyrava.com" || u.Email == "admin@nyrava.com" || u.Email == "testadmin@example.test");
+
+static bool IsPlatformAdminEmail(string? email) =>
+    !string.IsNullOrEmpty(email) && (email == "admin@home.nyrava.com" || email == "admin@nyrava.com" || email == "testadmin@example.test");
+
 static async Task<bool> CanChat(CrmDb db,CrmUser actor,long peerId){
     if (peerId == actor.Id) return false;
 
-    // Workspace internal: teammates can chat with other teammates and with their Realtor Account Owner
-    bool sameWorkspace = await db.Memberships.AnyAsync(m=>m.OwnerUserId==actor.WorkspaceId&&m.UserId==actor.Id&&m.Active) &&
-                         (await db.Memberships.AnyAsync(m=>m.OwnerUserId==actor.WorkspaceId&&m.UserId==peerId&&m.Active) || peerId == actor.WorkspaceId);
-    if (sameWorkspace) return true;
-
-    // Only Realtor Account Owners can message Platform Admin
-    if (actor.Role == "Owner") {
-        var adminUser = await db.Users.SingleOrDefaultAsync(u => u.Email == "admin@nyrava.com" || u.Email == "testadmin@example.test");
-        if (adminUser != null && (peerId == adminUser.Id || actor.Id == adminUser.Id)) {
-            return true;
-        }
+    // Platform Admin can chat with any Realtor Owner
+    if (IsPlatformAdmin(actor)) {
+        var target = await db.Users.SingleOrDefaultAsync(u => u.Id == peerId);
+        return target != null && target.Role == "Owner";
     }
 
-    return false;
+    var peer = await db.Users.SingleOrDefaultAsync(u => u.Id == peerId);
+    if (peer != null && IsPlatformAdmin(peer)) {
+        return actor.Role == "Owner";
+    }
+
+    // Teammates can chat with other teammates and with their Realtor Account Owner
+    bool sameWorkspace = await db.Memberships.AnyAsync(m=>m.OwnerUserId==actor.WorkspaceId&&m.UserId==actor.Id&&m.Active) &&
+                         (await db.Memberships.AnyAsync(m=>m.OwnerUserId==actor.WorkspaceId&&m.UserId==peerId&&m.Active) || peerId == actor.WorkspaceId);
+    return sameWorkspace;
 }
 static NyraAiResponse GenerateNyraAiResponse(string query, CrmUser actor) {
     var q = query.ToLowerInvariant();
