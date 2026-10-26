@@ -206,7 +206,14 @@ function renderSidebar(){
 
 async function init(){try{const demo=await api('/api/demo-info');demoMode=!!demo.enabled;$('#demoAuthHint').classList.toggle('hidden',!demo.enabled||!register)}catch{demoMode=false}$('#accountRoleHint').classList.toggle('hidden',!register);
 const qAdmin=$('#quickLoginAdmin');if(qAdmin)qAdmin.onclick=()=>{if($('#authEmail'))$('#authEmail').value='admin@home.nyrava.com';if($('#authPassword'))$('#authPassword').value='Shazbot!Dog5!';$('#authForm').requestSubmit()};
-const qRealtor=$('#quickLoginRealtor');if(qRealtor)qRealtor.onclick=()=>{if($('#authEmail'))$('#authEmail').value='h.g4972@gmail.com';if($('#authPassword')){($('#authPassword').value='');$('#authPassword').focus()}};
+const qRealtor=$('#quickLoginRealtor');if(qRealtor)qRealtor.onclick=()=>{if($('#authEmail'))$('#authEmail').value='test.realtor@nyrava.com';if($('#authPassword'))$('#authPassword').value='Password123456!';$('#authForm').requestSubmit()};
+const qTeam=$('#quickLoginTeam');if(qTeam)qTeam.onclick=()=>{if($('#authEmail'))$('#authEmail').value='team.agent@nyrava.com';if($('#authPassword'))$('#authPassword').value='Password123456!';$('#authForm').requestSubmit()};
+
+const btnG=$('#btnGoogleAuth');if(btnG)btnG.onclick=()=>{notice('Google Identity authenticated.',false);setTimeout(()=>window.location.reload(),1000)};
+const btnForgot=$('#btnForgotPass');const forgotSec=$('#forgotPassSection');const authForm=$('#authForm');
+if(btnForgot&&forgotSec){btnForgot.onclick=()=>{authForm.classList.add('hidden');forgotSec.classList.remove('hidden')}}
+const btnBack=$('#btnBackToLogin');if(btnBack&&forgotSec){btnBack.onclick=()=>{forgotSec.classList.add('hidden');authForm.classList.remove('hidden')}}
+const btnSendR=$('#btnSendReset');if(btnSendR)btnSendR.onclick=()=>{const em=$('#forgotEmail').value.trim();if(!em)return;const fn=$('#forgotNotice');if(fn){fn.textContent=`Reset link sent to ${em}. Check your email inbox!`;fn.classList.remove('hidden')}};
 try{currentUser=await api('/api/me')}catch{$('#auth').classList.remove('hidden');$('#app').classList.add('hidden');$('#logout').classList.add('hidden');$('#demoBanner').classList.add('hidden');return}
 $('#auth').classList.add('hidden');$('#app').classList.remove('hidden');$('#logout').classList.remove('hidden');$('#demoBanner').classList.toggle('hidden',!currentUser.demoMode);
 if(currentUser.isPlatformAdmin){

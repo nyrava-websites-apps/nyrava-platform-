@@ -1,0 +1,316 @@
+/* Nyrava Home - Unified Auth Modal */
+.ny-auth-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 21, 51, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.ny-auth-backdrop.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.ny-auth-modal {
+  background: #ffffff;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 25px 50px -12px rgba(4, 21, 51, 0.35), 0 0 0 1px rgba(226, 232, 240, 0.8);
+  position: relative;
+  overflow: hidden;
+  transform: scale(0.95) translateY(10px);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #0f172a;
+}
+
+.ny-auth-backdrop.active .ny-auth-modal {
+  transform: scale(1) translateY(0);
+}
+
+.ny-auth-close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  z-index: 10;
+}
+
+.ny-auth-close:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.ny-auth-body {
+  padding: 32px 28px 28px;
+}
+
+.ny-auth-brand {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.ny-auth-logo {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.8px;
+  color: #041533;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.ny-auth-logo span {
+  color: #0066ff;
+  font-weight: 700;
+}
+
+.ny-auth-tagline {
+  font-size: 13px;
+  color: #64748b;
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+/* Tabs */
+.ny-auth-tabs {
+  display: flex;
+  background: #f1f5f9;
+  border-radius: 10px;
+  padding: 4px;
+  margin-bottom: 20px;
+}
+
+.ny-auth-tab {
+  flex: 1;
+  text-align: center;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ny-auth-tab.active {
+  background: #ffffff;
+  color: #041533;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+/* Google Sign In */
+.btn-ny-google {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #1e293b;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-bottom: 18px;
+}
+
+.btn-ny-google:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.ny-auth-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 16px 0;
+  color: #94a3b8;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ny-auth-divider::before,
+.ny-auth-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.ny-auth-divider span {
+  padding: 0 10px;
+}
+
+/* Form Styles */
+.ny-form-group {
+  margin-bottom: 14px;
+  text-align: left;
+}
+
+.ny-form-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 6px;
+}
+
+.ny-form-input, .ny-form-select {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #0f172a;
+  background: #ffffff;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ny-form-input:focus, .ny-form-select:focus {
+  outline: none;
+  border-color: #0066ff;
+  box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.15);
+}
+
+.btn-ny-primary {
+  width: 100%;
+  padding: 13px 18px;
+  border: none;
+  border-radius: 10px;
+  background: #0066ff;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 4px 12px rgba(0, 102, 255, 0.25);
+  margin-top: 8px;
+}
+
+.btn-ny-primary:hover {
+  background: #0052cc;
+  box-shadow: 0 6px 16px rgba(0, 102, 255, 0.35);
+  transform: translateY(-1px);
+}
+
+.ny-text-link {
+  color: #0066ff;
+  background: none;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.ny-text-link:hover {
+  color: #0044bb;
+}
+
+.ny-auth-alert {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 14px;
+  display: none;
+}
+
+.ny-auth-alert.error {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+  display: block;
+}
+
+.ny-auth-alert.success {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  display: block;
+}
+
+/* Quick Demo Logins */
+.ny-quick-logins {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.ny-quick-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.ny-quick-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+}
+
+.ny-quick-btn {
+  padding: 8px 6px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ny-quick-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+.ny-quick-btn.admin {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+.ny-quick-btn.admin:hover {
+  background: #fef3c7;
+}

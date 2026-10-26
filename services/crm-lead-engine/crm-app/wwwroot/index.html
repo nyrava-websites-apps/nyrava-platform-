@@ -1,7 +1,72 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CRM Workspace</title><link rel="stylesheet" href="/styles.css?v=20261025_04"></head>
-<body><main class="shell"><header class="app-header"><div><div class="eyebrow">YOUR WORKSPACE</div><h1>CRM</h1><p>Leads, follow-ups, appointments, and your daily agenda.</p></div><button id="logout" class="quiet hidden">Sign out</button></header>
-<section id="auth" class="auth card"><h2 id="authTitle">Sign in</h2><p>Your CRM data is saved in the database configured for this installation.</p><p id="accountRoleHint" class="account-role-hint hidden">Create a free Subscriber account for your own workspace by leaving the invite code blank. Team Members must use an invitation sent by their Subscriber.</p><p id="demoAuthHint" class="demo-auth-hint hidden">Demo only: <strong>1234</strong> joins Test One’s team. In a normal installation, Team Members must use the email invitation sent by their Subscriber.</p><form id="authForm"><label>Email<input id="authEmail" type="email" autocomplete="username" required maxlength="320"></label><label>Password<input id="authPassword" type="password" autocomplete="current-password" minlength="8" required></label><label id="inviteLabel" class="hidden">Team invite code (for invited team members only)<input id="invitationCode" autocomplete="off" maxlength="200"></label><button id="authSubmit">Sign in</button></form><button id="toggleAuth" class="link">Create account</button><div class="quick-login-hints" style="margin-top:16px;padding-top:12px;border-top:1px solid #e2e8f0;display:flex;flex-direction:column;gap:8px;"><small style="color:#64748b;font-weight:600;">QUICK 1-CLICK SIGN-IN:</small><div style="display:flex;gap:8px;"><button type="button" class="small quiet" id="quickLoginAdmin" style="flex:1;background:#f8fafc;border:1px solid #cbd5e1;">👑 Platform Admin</button><button type="button" class="small quiet" id="quickLoginRealtor" style="flex:1;background:#f8fafc;border:1px solid #cbd5e1;">🏠 Realtor (h.g)</button></div></div><div id="authError" class="error"></div></section>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nyrava Home | Realtor &amp; Team Workspace</title><link rel="stylesheet" href="/styles.css?v=20261025_04"></head>
+<body><main class="shell"><header class="app-header"><div style="display:flex;align-items:center;gap:12px;"><a href="https://home.nyrava.com" style="text-decoration:none;font-size:24px;font-weight:800;letter-spacing:-0.8px;color:#041533;">nyrava <span style="color:#0066ff;">home</span></a><span style="font-size:12px;background:#f1f5f9;color:#475569;font-weight:600;padding:4px 8px;border-radius:6px;text-transform:uppercase;letter-spacing:0.5px;">Realtor Workspace</span></div><button id="logout" class="quiet hidden">Sign out</button></header>
+<section id="auth" class="auth card" style="max-width:440px;margin:30px auto;border-radius:18px;box-shadow:0 20px 40px -10px rgba(4,21,51,0.12),0 0 0 1px #e2e8f0;padding:32px 28px;">
+  <div style="text-align:center;margin-bottom:20px;">
+    <div style="font-size:26px;font-weight:800;letter-spacing:-0.8px;color:#041533;">nyrava <span style="color:#0066ff;">home</span></div>
+    <div style="font-size:13px;color:#64748b;margin-top:4px;font-weight:500;">Realtor &amp; Team Professional Workspace</div>
+  </div>
+
+  <h2 id="authTitle" style="margin:0 0 6px;font-size:20px;font-weight:700;color:#0f172a;">Sign in</h2>
+  <p id="authSubtitle" style="margin:0 0 18px;font-size:13px;color:#64748b;">Enter your credentials to access your leads and territory pipeline.</p>
+
+  <!-- Google Sign-In Button -->
+  <button type="button" id="btnGoogleAuth" class="btn-google" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:11px 14px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#1e293b;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+    <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.616z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/><path fill="#FBBC05" d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.173 0 7.55 0 9s.347 2.827.957 4.039l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z"/></svg>
+    <span>Continue with Google</span>
+  </button>
+
+  <div style="display:flex;align-items:center;text-align:center;margin:14px 0;color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">
+    <div style="flex:1;border-bottom:1px solid #e2e8f0;"></div>
+    <span style="padding:0 10px;">or with email</span>
+    <div style="flex:1;border-bottom:1px solid #e2e8f0;"></div>
+  </div>
+
+  <form id="authForm">
+    <label>
+      <span style="font-weight:600;font-size:13px;color:#334155;">Email address</span>
+      <input id="authEmail" type="email" autocomplete="username" placeholder="name@company.com" required maxlength="320">
+    </label>
+    <label>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <span style="font-weight:600;font-size:13px;color:#334155;">Password</span>
+        <button type="button" id="btnForgotPass" class="text-link" style="font-size:12px;color:#0066ff;background:none;border:none;cursor:pointer;padding:0;text-decoration:underline;">Forgot password?</button>
+      </div>
+      <input id="authPassword" type="password" autocomplete="current-password" placeholder="••••••••••••" minlength="8" required>
+    </label>
+    <label id="inviteLabel" class="hidden">
+      <span style="font-weight:600;font-size:13px;color:#334155;">Team invite code (for invited team members)</span>
+      <input id="invitationCode" autocomplete="off" placeholder="Enter invite code" maxlength="200">
+    </label>
+    <button id="authSubmit" style="width:100%;margin-top:10px;padding:12px;background:#0066ff;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;box-shadow:0 4px 10px rgba(0,102,255,0.25);">Sign in</button>
+  </form>
+
+  <!-- Forgot Password In-Place Section -->
+  <div id="forgotPassSection" class="hidden" style="margin-top:14px;padding:14px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
+    <h3 style="margin:0 0 6px;font-size:14px;font-weight:700;color:#0f172a;">Reset your password</h3>
+    <p style="margin:0 0 10px;font-size:12px;color:#64748b;">Enter your email and we'll send you a password reset link.</p>
+    <div style="display:flex;gap:6px;">
+      <input id="forgotEmail" type="email" placeholder="name@company.com" style="flex:1;padding:8px 10px;font-size:13px;">
+      <button type="button" id="btnSendReset" style="padding:8px 12px;background:#0066ff;color:#fff;border:none;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;">Send link</button>
+    </div>
+    <div id="forgotNotice" class="hidden" style="margin-top:8px;font-size:12px;color:#059669;font-weight:600;"></div>
+    <button type="button" id="btnBackToLogin" class="text-link" style="font-size:12px;margin-top:8px;color:#0066ff;background:none;border:none;cursor:pointer;padding:0;text-decoration:underline;">← Back to Sign in</button>
+  </div>
+
+  <div style="text-align:center;margin-top:14px;">
+    <button id="toggleAuth" class="link" style="font-size:13px;font-weight:600;color:#0066ff;">Create an account</button>
+  </div>
+
+  <div class="quick-login-hints" style="margin-top:18px;padding-top:14px;border-top:1px solid #e2e8f0;">
+    <div style="color:#64748b;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;text-align:center;margin-bottom:8px;">1-CLICK TEST SIGN-IN:</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
+      <button type="button" class="small quiet" id="quickLoginAdmin" style="padding:8px 4px;font-size:11px;font-weight:600;background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:6px;cursor:pointer;">👑 Admin</button>
+      <button type="button" class="small quiet" id="quickLoginRealtor" style="padding:8px 4px;font-size:11px;font-weight:600;background:#f8fafc;border:1px solid #cbd5e1;color:#1e293b;border-radius:6px;cursor:pointer;">🏠 Realtor</button>
+      <button type="button" class="small quiet" id="quickLoginTeam" style="padding:8px 4px;font-size:11px;font-weight:600;background:#f8fafc;border:1px solid #cbd5e1;color:#1e293b;border-radius:6px;cursor:pointer;">👥 Team</button>
+    </div>
+  </div>
+  <div id="authError" class="error"></div>
+</section>
 <section id="app" class="app-layout hidden"><aside id="appRail" class="rail"></aside>
 <div class="content"><header class="topbar"><div><div class="eyebrow">RELATIONSHIP WORKSPACE</div><h1 id="viewTitle">Today</h1></div><div class="top-actions"><button id="refresh" class="quiet">Refresh</button><button id="addContact">+ Add contact</button></div></header>
 <section id="demoBanner" class="demo-banner hidden" role="status">DEMO WORKSPACE — sample accounts and records only. Changes here are saved to a separate demo database.</section><section id="notice" class="notice hidden" role="status"></section>

@@ -445,9 +445,10 @@ app.MapPost("/api/support/ai-assistant", async (SupportAiInput input, CrmDb db, 
 app.MapGet("/api/contacts", async (CrmDb db, HttpContext http) => {
     var actor=await CurrentUser(db,http); var userId=actor.Id; var owner=actor.WorkspaceId;
     var isPlatformAdmin = IsPlatformAdmin(actor);
-    var items = await db.Contacts
-        .Where(x => x.UserId == owner && x.ArchivedAt==null && (actor.Role=="Owner" || x.AssignedToUserId==userId))
-        .ToListAsync();
+    var query = isPlatformAdmin 
+        ? db.Contacts.Where(x => x.ArchivedAt == null) 
+        : db.Contacts.Where(x => x.UserId == owner && x.ArchivedAt == null && (actor.Role == "Owner" || x.AssignedToUserId == userId));
+    var items = await query.ToListAsync();
 
     if (!isPlatformAdmin) {
         foreach (var c in items) {
@@ -491,7 +492,7 @@ app.MapPost("/api/v1/inbound-leads", async (InboundLeadInput input, CrmDb db, Ht
     var hash = HashToken(rawToken);
     var integrationKey = await db.IntegrationKeys.SingleOrDefaultAsync(k => k.TokenHash == hash && k.RevokedAt == null);
     if (integrationKey is null) return Results.Unauthorized();
-    var owner = await db.Users.SingleOrDefaultAsync(u => u.Id == integrationKey.OwnerUserId && u.WorkspaceId == u.Id && u.Role == "Owner");
+    var owner = await db.Users.SingleOrDefaultAsync(u => u.Id == integrationKey.OwnerUserId && u.WorkspaceId == u.Id && (u.Role == "Owner" || u.Role == "Admin"));
     if (owner is null || !await db.Memberships.AnyAsync(m => m.OwnerUserId == owner.Id && m.UserId == owner.Id && m.Active)) return Results.Unauthorized();
 
     var name = input.Name?.Trim();
@@ -589,23 +590,40 @@ app.MapPost("/api/v1/inbound-leads", async (InboundLeadInput input, CrmDb db, Ht
     };
     db.Contacts.Add(primaryContact);
 
-    // 2. If called by System Admin, also dispatch to matching territory realtors
-    if (isSystemAdmin && matchingRealtors.Count > 0) {
+    // 2. Automated Distribution Engine (Sections 4, 5, 6, 7 of Nyrava Business Workflow)
+    if (matchingRealtors.Count > 0) {
         var startOfDay = new DateTimeOffset(now.UtcDateTime.Date, TimeSpan.Zero);
-        int dispatchedCount = 0;
-        string dispatchedTo = "";
 
-        foreach (var targetRealtor in matchingRealtors) {
-            var realtorZipContacts = await db.Contacts
-                .Where(c => c.UserId == targetRealtor.Id && c.PropertyZipCode == zip)
-                .ToListAsync();
-            var leadsTodayForZip = realtorZipContacts.Count(c => c.UpdatedAt >= startOfDay);
+        // Sort realtors for fair round-robin rotation in shared ZIPs (least leads received today goes first)
+        var sortedRealtors = matchingRealtors.OrderBy(r => {
+            return db.Contacts.Count(c => c.UserId == r.Id && c.PropertyZipCode == zip && c.UpdatedAt >= startOfDay && c.Source == "Nyrava Verified");
+        }).ToList();
 
-            if (leadsTodayForZip >= 2) continue;
+        CrmUser? assignedRealtor = null;
 
-            var existing = await db.Contacts.SingleOrDefaultAsync(c => c.UserId == targetRealtor.Id && c.Source == source && c.ExternalLeadId == externalLeadId);
+        foreach (var targetRealtor in sortedRealtors) {
+            // Sole subscriber check in this ZIP
+            bool isSoleSubscriber = matchingRealtors.Count == 1;
+
+            // Active team check (realtor has active members who accepted invitation)
+            bool hasActiveTeam = await db.Memberships.AnyAsync(m => m.OwnerUserId == targetRealtor.Id && m.UserId != targetRealtor.Id && m.Active);
+
+            // Special Rule: 4 leads per day for sole realtor with active team; standard rule: 2 leads per day
+            int dailyLimit = (isSoleSubscriber && hasActiveTeam) ? 4 : 2;
+
+            var realtorZipLeadsToday = await db.Contacts
+                .Where(c => c.UserId == targetRealtor.Id && c.PropertyZipCode == zip && c.UpdatedAt >= startOfDay && c.Source == "Nyrava Verified" && c.ArchivedAt == null)
+                .CountAsync();
+
+            if (realtorZipLeadsToday >= dailyLimit) {
+                continue; // Capacity reached for this Realtor today
+            }
+
+            // Check if lead already dispatched to this Realtor
+            var existing = await db.Contacts.SingleOrDefaultAsync(c => c.UserId == targetRealtor.Id && c.Source == "Nyrava Verified" && c.ExternalLeadId != null && c.ExternalLeadId.Contains(externalLeadId));
             if (existing is not null) continue;
 
+            // Assign lead directly to the subscribing Realtor's CRM
             var realtorLead = new CrmContact {
                 UserId = targetRealtor.Id,
                 AssignedToUserId = targetRealtor.Id,
@@ -615,9 +633,9 @@ app.MapPost("/api/v1/inbound-leads", async (InboundLeadInput input, CrmDb db, Ht
                 Company = Clean(input.Company, 160),
                 LeadType = leadType!,
                 Stage = "New",
-                Notes = $"FSBO Lead for ZIP {zip}. Verified direct homeowner.",
+                Notes = $"Verified Lead for ZIP {zip}. Direct Homeowner Inquiry.",
                 Source = "Nyrava Verified",
-                ExternalLeadId = $"nyr-{targetRealtor.Id}-{zip}-{Guid.NewGuid().ToString("N")[..8]}",
+                ExternalLeadId = $"nyr-{targetRealtor.Id}-{zip}-{externalLeadId}",
                 PropertyZipCode = zip!,
                 ContactVerificationMethod = method!,
                 ContactVerifiedAt = input.ContactVerifiedAt,
@@ -632,13 +650,22 @@ app.MapPost("/api/v1/inbound-leads", async (InboundLeadInput input, CrmDb db, Ht
                 UpdatedAt = now
             };
             db.Contacts.Add(realtorLead);
-            dispatchedCount++;
-            dispatchedTo = targetRealtor.Email;
+            assignedRealtor = targetRealtor;
+            break; // Delivered to one rotating Realtor, do not duplicate across shared accounts
         }
 
-        if (dispatchedCount > 0) {
-            primaryContact.Notes = $"[Dispatched to {dispatchedTo}] FSBO Lead for ZIP {zip}. Verified direct homeowner.";
+        if (assignedRealtor != null) {
+            primaryContact.Notes = $"[Dispatched to {assignedRealtor.Email}] Lead for ZIP {zip}. Verified direct homeowner.";
+            primaryContact.Stage = "Dispatched";
+        } else {
+            // All eligible subscribers reached daily delivery capacity -> Place in Pending-Delivery Queue
+            primaryContact.Notes = $"[Pending Delivery - Daily Limit Reached] Lead for ZIP {zip}. Queued for next delivery window.";
+            primaryContact.Stage = "Queued";
         }
+    } else {
+        // No paying subscriber covers this ZIP -> Retain in Central Lead Bank
+        primaryContact.Notes = $"[In Master Bank - Unassigned] Lead for ZIP {zip}. No active subscriber for this territory.";
+        primaryContact.Stage = "New";
     }
 
     integrationKey.LastUsedAt = now;
