@@ -188,7 +188,7 @@ services:
 
   # 11. Object Storage & Backup Target (MinIO S3 Compatible)
   object-storage:
-    image: minio/minio:RELEASE.2024-03-30T09-41-56Z-cpuv1
+    image: minio/minio:latest
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
