@@ -193,10 +193,7 @@ services:
     environment:
       SCALITY_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-nyrava_minio}
       SCALITY_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-NyravaMinioSecret2026!}
-      S3DATAPATH: /data
-      S3METADATAPATH: /metadata
-    volumes:
-      - minio_data:/data
+      S3BACKEND: mem
     ports:
       - "8000:8000"
     networks:
