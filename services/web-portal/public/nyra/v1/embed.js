@@ -3,9 +3,10 @@
   'use strict';
   if (document.getElementById('nyra-sales-bot')) return;
 
-  const script = document.currentScript;
-  const rootUrl = new URL('.', script.src);
-  const homeTour = ['/', '/index.html'].includes(location.pathname);
+  // Safe rootUrl resolution that never crashes even with defer/async
+  const script = document.currentScript || document.querySelector('script[src*="embed.js"]');
+  const scriptSrc = script ? script.src : '/nyra/v1/embed.js';
+  const rootUrl = new URL('.', new URL(scriptSrc, window.location.href));
 
   // Section Tour Definition
   const tourSections = [
@@ -77,6 +78,7 @@
         all: initial;
         display: inline-block;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+        vertical-align: middle;
       }
       .nyra-companion {
         display: inline-flex;
@@ -84,7 +86,6 @@
         gap: 6px;
         position: relative;
         z-index: 9999;
-        transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
       }
       .nyra-avatar-btn {
         background: transparent;
@@ -94,22 +95,22 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 44px;
-        height: 44px;
+        width: 38px;
+        height: 38px;
         position: relative;
         transition: transform 0.2s ease;
       }
       .nyra-avatar-btn:hover {
-        transform: scale(1.08);
+        transform: scale(1.1);
       }
       .nyra-avatar-img {
         width: 100%;
         height: 100%;
         object-fit: contain;
-        filter: drop-shadow(0 2px 6px rgba(8, 102, 255, 0.25));
+        filter: drop-shadow(0 2px 5px rgba(8, 102, 255, 0.3));
       }
       .nyra-avatar-btn.is-talking .nyra-avatar-img {
-        animation: nyraBounce 0.6s infinite alternate ease-in-out;
+        animation: nyraBounce 0.5s infinite alternate ease-in-out;
       }
       @keyframes nyraBounce {
         from { transform: translateY(0); }
@@ -117,15 +118,17 @@
       }
       .nyra-badge {
         position: absolute;
-        top: -2px;
-        right: -2px;
+        top: -3px;
+        right: -3px;
         background: #0866ff;
         color: #fff;
-        font-size: 9px;
+        font-size: 8px;
         font-weight: 800;
-        border-radius: 10px;
+        border-radius: 8px;
         padding: 1px 4px;
         border: 1px solid #fff;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
       }
 
       /* Compact Floating Action Pill */
@@ -135,9 +138,9 @@
         gap: 8px;
         background: #081a3a;
         color: #ffffff;
-        padding: 6px 12px;
+        padding: 5px 12px;
         border-radius: 20px;
-        box-shadow: 0 4px 16px rgba(8, 26, 58, 0.3);
+        box-shadow: 0 4px 16px rgba(8, 26, 58, 0.35);
         font-size: 12px;
         font-weight: 600;
         white-space: nowrap;
@@ -146,7 +149,7 @@
         display: inline-flex;
       }
       .btn-pill-action {
-        background: rgba(255, 255, 255, 0.15);
+        background: rgba(255, 255, 255, 0.2);
         color: #fff;
         border: none;
         border-radius: 12px;
@@ -157,7 +160,7 @@
         transition: background 0.15s ease;
       }
       .btn-pill-action:hover {
-        background: rgba(255, 255, 255, 0.3);
+        background: rgba(255, 255, 255, 0.35);
       }
       .btn-pill-stop {
         background: #ef4444;
@@ -176,8 +179,8 @@
         border: 1px solid #dce5ef;
         padding: 6px 12px;
         border-radius: 30px;
-        box-shadow: 0 8px 28px rgba(8, 26, 58, 0.2);
-        animation: nyraFlyIn 0.35s ease-out;
+        box-shadow: 0 8px 28px rgba(8, 26, 58, 0.25);
+        z-index: 999999;
       }
       .nyra-companion.floating .nyra-tour-pill {
         display: inline-flex;
@@ -191,16 +194,10 @@
         color: #081a3a;
         border: 1px solid #cbd5e1;
       }
-      .nyra-companion.floating .btn-pill-action:hover {
-        background: #e2e8f0;
-      }
       .nyra-companion.floating .btn-pill-stop {
         background: #fee2e2;
         color: #991b1b;
         border-color: #fecaca;
-      }
-      .nyra-companion.floating .btn-pill-stop:hover {
-        background: #fecaca;
       }
 
       /* Audio Wave Animation */
@@ -220,14 +217,14 @@
       .nyra-audio-wave span:nth-child(2) { animation-delay: 0.15s; }
       .nyra-audio-wave span:nth-child(3) { animation-delay: 0.3s; }
       @keyframes waveAnim {
-        0%, 100% { height: 4px; }
+        0%, 100% { height: 3px; }
         50% { height: 12px; }
       }
     </style>
 
     <div class="nyra-companion" id="nyraCompanion">
-      <button type="button" class="nyra-avatar-btn" id="nyraAvatarBtn" title="Nyra: Listen to Platform Tour" aria-label="Nyra Tour">
-        <img class="nyra-avatar-img" id="nyraImg" src="${new URL('assets/nyra-original.png', rootUrl).href}" alt="Nyra Bot">
+      <button type="button" class="nyra-avatar-btn" id="nyraAvatarBtn" title="Click to listen to Nyra explain the platform" aria-label="Listen to Nyra Tour">
+        <img class="nyra-avatar-img" id="nyraImg" src="${new URL('assets/nyra-original.png', rootUrl).href}" alt="Nyra Mascot">
         <span class="nyra-badge" id="nyraBadge">Tour</span>
       </button>
 
@@ -236,14 +233,15 @@
           <span></span><span></span><span></span>
         </div>
         <span id="nyraStatusText">Touring</span>
-        <button type="button" class="btn-pill-action" id="btnNextStep" title="Next Section">Next ❯</button>
-        <button type="button" class="btn-pill-action btn-pill-stop" id="btnStopTour" title="Stop Tour">⏹ Stop</button>
+        <button type="button" class="btn-pill-action" id="btnNextStep" title="Next Section">Next &gt;</button>
+        <button type="button" class="btn-pill-action btn-pill-stop" id="btnStopTour" title="Stop Tour">&#9209; Stop</button>
       </div>
     </div>
   `;
 
   // Attach into the companion slot next to the logo in the header
   function mountCompanion() {
+    if (host.parentNode) return;
     const slot = document.getElementById('nyra-companion-slot');
     if (slot) {
       slot.appendChild(host);
@@ -262,6 +260,8 @@
   } else {
     mountCompanion();
   }
+  // Fallback mount after window load
+  window.addEventListener('load', mountCompanion);
 
   const companion = shadow.getElementById('nyraCompanion');
   const avatarBtn = shadow.getElementById('nyraAvatarBtn');

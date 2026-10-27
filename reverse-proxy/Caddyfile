@@ -102,3 +102,13 @@ http://{$MEET_DOMAIN:meet.nyrava.com}, https://{$MEET_DOMAIN:meet.nyrava.com} {
     }
     encode gzip zstd
 }
+# 5. Elemed E-Commerce Platform (elemed.com.mx)
+http://elemed.com.mx, https://elemed.com.mx, http://www.elemed.com.mx, https://www.elemed.com.mx {
+    reverse_proxy elemed-app:5000 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+    encode gzip zstd
+}
