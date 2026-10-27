@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <!-- Twilight City Sky Gradient -->
+    <linearGradient id="twilightSky" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#020617"/>
+      <stop offset="45%" stop-color="#0f172a"/>
+      <stop offset="85%" stop-color="#1e1b4b"/>
+      <stop offset="100%" stop-color="#311042"/>
+    </linearGradient>
+    
+    <!-- Interior Ceiling & Columns -->
+    <linearGradient id="interiorWall" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b1329"/>
+      <stop offset="100%" stop-color="#030712"/>
+    </linearGradient>
+
+    <!-- Amber Glow from High-Rise Lights -->
+    <radialGradient id="cityGlow" cx="50%" cy="80%" r="50%">
+      <stop offset="0%" stop-color="rgba(245, 158, 11, 0.35)"/>
+      <stop offset="60%" stop-color="rgba(56, 189, 248, 0.15)"/>
+      <stop offset="100%" stop-color="rgba(2, 6, 23, 0)"/>
+    </radialGradient>
+
+    <!-- Dark Polished Floor Reflection -->
+    <linearGradient id="floorReflect" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0c1222"/>
+      <stop offset="40%" stop-color="#070a14"/>
+      <stop offset="100%" stop-color="#02040a"/>
+    </linearGradient>
+
+    <filter id="cityBlur">
+      <feGaussianBlur stdDeviation="3"/>
+    </filter>
+  </defs>
+
+  <!-- Outside Twilight Sky -->
+  <rect width="1280" height="580" fill="url(#twilightSky)"/>
+  <rect width="1280" height="580" fill="url(#cityGlow)"/>
+
+  <!-- Iconic Skyline Towers with Lit Windows -->
+  <g filter="url(#cityBlur)">
+    <!-- Deep background skyline -->
+    <rect x="40" y="220" width="70" height="360" fill="#09142b"/>
+    <rect x="130" y="160" width="90" height="420" fill="#0c1836"/>
+    <rect x="250" y="100" width="80" height="480" fill="#0a1631"/>
+    <!-- Spire -->
+    <polygon points="290,40 293,100 287,100" fill="#38bdf8"/>
+    <rect x="350" y="190" width="110" height="390" fill="#0f1d3d"/>
+    <rect x="490" y="140" width="75" height="440" fill="#0c1938"/>
+    <rect x="580" y="240" width="90" height="340" fill="#091329"/>
+    <rect x="700" y="110" width="120" height="470" fill="#112247"/>
+    <!-- Diagonal architectural top -->
+    <polygon points="700,110 820,70 820,110" fill="#112247"/>
+    <rect x="850" y="180" width="80" height="400" fill="#0e1a38"/>
+    <rect x="960" y="130" width="100" height="450" fill="#0b1733"/>
+    <rect x="1090" y="210" width="140" height="370" fill="#081229"/>
+
+    <!-- Sparkling Window Matrix -->
+    <g fill="#fef08a" opacity="0.75">
+      <!-- Tower 1 -->
+      <rect x="145" y="180" width="6" height="4"/><rect x="165" y="180" width="6" height="4"/><rect x="185" y="180" width="6" height="4"/>
+      <rect x="145" y="200" width="6" height="4"/><rect x="185" y="200" width="6" height="4"/>
+      <rect x="165" y="220" width="6" height="4"/><rect x="185" y="220" width="6" height="4"/>
+      <rect x="145" y="240" width="6" height="4"/><rect x="165" y="240" width="6" height="4"/>
+      <!-- Main Spire Tower -->
+      <rect x="265" y="120" width="8" height="5"/><rect x="285" y="120" width="8" height="5"/><rect x="305" y="120" width="8" height="5"/>
+      <rect x="265" y="140" width="8" height="5"/><rect x="305" y="140" width="8" height="5"/>
+      <rect x="265" y="160" width="8" height="5"/><rect x="285" y="160" width="8" height="5"/>
+      <rect x="285" y="180" width="8" height="5"/><rect x="305" y="180" width="8" height="5"/>
+      <rect x="265" y="200" width="8" height="5"/><rect x="285" y="200" width="8" height="5"/><rect x="305" y="200" width="8" height="5"/>
+      <!-- Mid-right Tower -->
+      <rect x="720" y="140" width="7" height="5"/><rect x="745" y="140" width="7" height="5"/><rect x="770" y="140" width="7" height="5"/><rect x="795" y="140" width="7" height="5"/>
+      <rect x="720" y="165" width="7" height="5"/><rect x="770" y="165" width="7" height="5"/><rect x="795" y="165" width="7" height="5"/>
+      <rect x="745" y="190" width="7" height="5"/><rect x="770" y="190" width="7" height="5"/>
+      <rect x="720" y="215" width="7" height="5"/><rect x="745" y="215" width="7" height="5"/><rect x="795" y="215" width="7" height="5"/>
+      <rect x="745" y="240" width="7" height="5"/><rect x="770" y="240" width="7" height="5"/><rect x="795" y="240" width="7" height="5"/>
+      <!-- Far right -->
+      <rect x="980" y="160" width="6" height="4"/><rect x="1010" y="160" width="6" height="4"/>
+      <rect x="980" y="180" width="6" height="4"/><rect x="1030" y="180" width="6" height="4"/>
+      <rect x="1010" y="200" width="6" height="4"/><rect x="1030" y="200" width="6" height="4"/>
+    </g>
+  </g>
+
+  <!-- Penthouse Floor-to-Ceiling Glass Mullions -->
+  <line x1="320" y1="0" x2="320" y2="570" stroke="#090d16" stroke-width="14"/>
+  <line x1="640" y1="0" x2="640" y2="570" stroke="#090d16" stroke-width="14"/>
+  <line x1="960" y1="0" x2="960" y2="570" stroke="#090d16" stroke-width="14"/>
+
+  <!-- Interior Architectural Ceiling Soffit with LED Strip -->
+  <rect x="0" y="0" width="1280" height="48" fill="url(#interiorWall)"/>
+  <line x1="0" y1="48" x2="1280" y2="48" stroke="#38bdf8" stroke-width="3" opacity="0.85"/>
+
+  <!-- Dark Architectural Columns -->
+  <rect x="0" y="0" width="70" height="720" fill="url(#interiorWall)"/>
+  <rect x="1210" y="0" width="70" height="720" fill="url(#interiorWall)"/>
+
+  <!-- Penthouse Dark Polished Marble Floor with Soft Glass Reflections -->
+  <polygon points="0,570 1280,570 1280,720 0,720" fill="url(#floorReflect)"/>
+  <line x1="0" y1="570" x2="1280" y2="570" stroke="#1e293b" stroke-width="4"/>
+  <!-- Floor Ambient LED Strip -->
+  <line x1="0" y1="572" x2="1280" y2="572" stroke="#f59e0b" stroke-width="2" opacity="0.75"/>
+</svg>

@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <!-- Modern Studio Wall Gradient -->
+    <linearGradient id="studioWall" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#262626"/>
+      <stop offset="50%" stop-color="#171717"/>
+      <stop offset="100%" stop-color="#0a0a0a"/>
+    </linearGradient>
+
+    <!-- Warm Acoustic Wood Diffuser Panel -->
+    <linearGradient id="diffuserSlat" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#7c2d12"/>
+      <stop offset="50%" stop-color="#9a3412"/>
+      <stop offset="100%" stop-color="#431407"/>
+    </linearGradient>
+
+    <!-- Warm Spotlight Radiance -->
+    <radialGradient id="spotWarm" cx="30%" cy="30%" r="55%">
+      <stop offset="0%" stop-color="rgba(251, 191, 36, 0.3)"/>
+      <stop offset="60%" stop-color="rgba(251, 146, 60, 0.08)"/>
+      <stop offset="100%" stop-color="rgba(0, 0, 0, 0)"/>
+    </radialGradient>
+
+    <!-- Cool Teal Rim Light Radiance (Right Side) -->
+    <radialGradient id="rimTeal" cx="85%" cy="35%" r="45%">
+      <stop offset="0%" stop-color="rgba(20, 184, 166, 0.28)"/>
+      <stop offset="70%" stop-color="rgba(13, 148, 136, 0.05)"/>
+      <stop offset="100%" stop-color="rgba(0, 0, 0, 0)"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Studio Main Wall -->
+  <rect width="1280" height="720" fill="url(#studioWall)"/>
+  <!-- Ambient Studio Lighting Cones -->
+  <rect width="1280" height="720" fill="url(#spotWarm)"/>
+  <rect width="1280" height="720" fill="url(#rimTeal)"/>
+
+  <!-- Left: Acoustic Diffuser Feature Wall -->
+  <g opacity="0.85">
+    <rect x="60" y="80" width="22" height="480" rx="3" fill="url(#diffuserSlat)"/>
+    <rect x="94" y="80" width="22" height="480" rx="3" fill="url(#diffuserSlat)"/>
+    <rect x="128" y="80" width="22" height="480" rx="3" fill="url(#diffuserSlat)"/>
+    <rect x="162" y="80" width="22" height="480" rx="3" fill="url(#diffuserSlat)"/>
+    <rect x="196" y="80" width="22" height="480" rx="3" fill="url(#diffuserSlat)"/>
+    <rect x="230" y="80" width="22" height="480" rx="3" fill="url(#diffuserSlat)"/>
+    <rect x="264" y="80" width="22" height="480" rx="3" fill="url(#diffuserSlat)"/>
+    <rect x="298" y="80" width="22" height="480" rx="3" fill="url(#diffuserSlat)"/>
+  </g>
+
+  <!-- Center Floating Minimalist Art Frame with Warm Backlight -->
+  <rect x="420" y="90" width="440" height="260" rx="6" fill="#1c1917" stroke="#44403c" stroke-width="4"/>
+  <!-- Abstract Canvas Geometry -->
+  <circle cx="580" cy="220" r="65" fill="#ea580c" opacity="0.8"/>
+  <polygon points="680,140 760,270 600,270" fill="#0d9488" opacity="0.75"/>
+  <line x1="450" y1="280" x2="830" y2="160" stroke="#facc15" stroke-width="5"/>
+
+  <!-- Right: Studio Lighting Rig & Accent Lamp -->
+  <line x1="1100" y1="0" x2="1100" y2="280" stroke="#525252" stroke-width="4"/>
+  <circle cx="1100" cy="290" r="14" fill="#0d9488"/>
+  <!-- Soft Diffused Light Halo -->
+  <circle cx="1100" cy="290" r="60" fill="rgba(45, 212, 191, 0.18)"/>
+
+  <!-- Modern Credenza / Studio Console -->
+  <rect x="360" y="440" width="560" height="150" rx="4" fill="#1c1917"/>
+  <line x1="360" y1="440" x2="920" y2="440" stroke="#f59e0b" stroke-width="2" opacity="0.8"/>
+  
+  <!-- Minimalist Studio Floor -->
+  <polygon points="0,590 1280,590 1280,720 0,720" fill="#0f0f11"/>
+  <line x1="0" y1="590" x2="1280" y2="590" stroke="#262626" stroke-width="3"/>
+</svg>

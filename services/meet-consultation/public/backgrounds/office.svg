@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <!-- Wall & Ceiling Gradients -->
+    <linearGradient id="wallGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="60%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </linearGradient>
+    <linearGradient id="windowView" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="40%" stop-color="#93c5fd"/>
+      <stop offset="70%" stop-color="#e2e8f0"/>
+      <stop offset="100%" stop-color="#86efac"/>
+    </linearGradient>
+    <linearGradient id="woodPanel" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#451a03"/>
+      <stop offset="50%" stop-color="#78350f"/>
+      <stop offset="100%" stop-color="#451a03"/>
+    </linearGradient>
+    <linearGradient id="lightBeam" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="rgba(254, 240, 138, 0.25)"/>
+      <stop offset="100%" stop-color="rgba(254, 240, 138, 0)"/>
+    </linearGradient>
+    <linearGradient id="floorGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e1b4b"/>
+      <stop offset="100%" stop-color="#090514"/>
+    </linearGradient>
+    <filter id="softDepth">
+      <feGaussianBlur stdDeviation="4"/>
+    </filter>
+  </defs>
+
+  <!-- Base Wall -->
+  <rect width="1280" height="720" fill="url(#wallGrad)"/>
+
+  <!-- Large Executive Window Frame (Left & Center) -->
+  <rect x="60" y="40" width="600" height="480" rx="12" fill="url(#windowView)" filter="url(#softDepth)"/>
+  
+  <!-- Distant Cityscape Silhouette in Window -->
+  <g opacity="0.35" fill="#1e3a8a">
+    <rect x="80" y="240" width="50" height="280"/>
+    <rect x="140" y="180" width="70" height="340"/>
+    <rect x="220" y="220" width="45" height="300"/>
+    <rect x="280" y="140" width="85" height="380"/>
+    <polygon points="320,80 325,140 315,140"/>
+    <rect x="380" y="260" width="60" height="260"/>
+    <rect x="450" y="200" width="90" height="320"/>
+    <rect x="550" y="270" width="80" height="250"/>
+  </g>
+  <!-- Window Glass Muntins & Mullions -->
+  <line x1="260" y1="40" x2="260" y2="520" stroke="#0f172a" stroke-width="12"/>
+  <line x1="460" y1="40" x2="460" y2="520" stroke="#0f172a" stroke-width="12"/>
+  <line x1="60" y1="280" x2="660" y2="280" stroke="#0f172a" stroke-width="12"/>
+  <rect x="52" y="32" width="616" height="496" rx="14" fill="none" stroke="#1e293b" stroke-width="16"/>
+
+  <!-- Warm Sun Beam from Window -->
+  <polygon points="120,40 500,40 780,720 180,720" fill="url(#lightBeam)"/>
+
+  <!-- Architectural Wood Acoustic Slat Accent Wall (Right Side) -->
+  <g opacity="0.9">
+    <rect x="740" y="0" width="24" height="600" fill="url(#woodPanel)"/>
+    <rect x="780" y="0" width="24" height="600" fill="url(#woodPanel)"/>
+    <rect x="820" y="0" width="24" height="600" fill="url(#woodPanel)"/>
+    <rect x="860" y="0" width="24" height="600" fill="url(#woodPanel)"/>
+    <rect x="900" y="0" width="24" height="600" fill="url(#woodPanel)"/>
+    <rect x="940" y="0" width="24" height="600" fill="url(#woodPanel)"/>
+    <rect x="980" y="0" width="24" height="600" fill="url(#woodPanel)"/>
+    <rect x="1020" y="0" width="24" height="600" fill="url(#woodPanel)"/>
+    <rect x="1060" y="0" width="24" height="600" fill="url(#woodPanel)"/>
+    <rect x="1100" y="0" width="24" height="600" fill="url(#woodPanel)"/>
+    <rect x="1140" y="0" width="24" height="600" fill="url(#woodPanel)"/>
+    <rect x="1180" y="0" width="24" height="600" fill="url(#woodPanel)"/>
+    <rect x="1220" y="0" width="24" height="600" fill="url(#woodPanel)"/>
+  </g>
+
+  <!-- Modern Office Shelving Unit on Right -->
+  <rect x="760" y="140" width="460" height="14" rx="4" fill="#334155"/>
+  <rect x="760" y="300" width="460" height="14" rx="4" fill="#334155"/>
+  <rect x="760" y="460" width="460" height="14" rx="4" fill="#334155"/>
+
+  <!-- Decorative Architectural Books & Planter on Shelf -->
+  <rect x="790" y="80" width="16" height="60" fill="#0284c7" rx="2"/>
+  <rect x="810" y="70" width="20" height="70" fill="#e2e8f0" rx="2"/>
+  <rect x="834" y="85" width="18" height="55" fill="#f59e0b" rx="2"/>
+  
+  <!-- Indoor Plant Pot -->
+  <polygon points="1120,300 1160,300 1150,250 1130,250" fill="#e2e8f0"/>
+  <circle cx="1140" cy="235" r="24" fill="#15803d"/>
+  <circle cx="1125" cy="225" r="18" fill="#16a34a"/>
+  <circle cx="1155" cy="225" r="18" fill="#22c55e"/>
+
+  <!-- Designer Minimalist Ceiling Pendant Lamp -->
+  <line x1="680" y1="0" x2="680" y2="120" stroke="#94a3b8" stroke-width="3"/>
+  <ellipse cx="680" cy="120" rx="45" ry="16" fill="#0f172a"/>
+  <ellipse cx="680" cy="120" rx="36" ry="10" fill="#fef08a" opacity="0.9"/>
+  <!-- Light Glow Cone -->
+  <polygon points="650,126 710,126 840,480 520,480" fill="url(#lightBeam)" opacity="0.6"/>
+
+  <!-- Hardwood Reflective Floor -->
+  <polygon points="0,560 1280,560 1280,720 0,720" fill="url(#floorGrad)"/>
+  <line x1="0" y1="560" x2="1280" y2="560" stroke="#334155" stroke-width="4"/>
+</svg>
