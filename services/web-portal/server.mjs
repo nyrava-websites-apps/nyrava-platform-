@@ -94,7 +94,8 @@ app.use((req, res, next) => {
     req.path === '/api/register' ||
     req.path === '/api/logout' ||
     req.path === '/api/me' ||
-    req.path.startsWith('/api/auth')
+    req.path.startsWith('/api/auth') ||
+    req.path.startsWith('/api/account-registration')
   ) {
     return crmAuthProxy(req, res, next);
   }
