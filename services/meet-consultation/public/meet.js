@@ -385,6 +385,35 @@
   let isSegmenterReady = false;
   let isSegmenterInitializing = false;
   let isProcessingFrame = false;
+  let maskCanvas = null;
+  let maskCtx = null;
+  let currentBalance = 'balanced';
+  const maskLut = new Uint32Array(256);
+
+  function updateMaskLut(balance) {
+    let low = 24;
+    let high = 65;
+    if (balance === 'wide') {
+      low = 14;
+      high = 48;
+    } else if (balance === 'crisp') {
+      low = 34;
+      high = 80;
+    }
+    for (let i = 0; i < 256; i++) {
+      let a;
+      if (i < low) {
+        a = 0;
+      } else if (i >= high) {
+        a = 255; // 100% OPAQUE - Solid human body, zero translucency!
+      } else {
+        const t = (i - low) / (high - low);
+        a = Math.round(t * t * (3 - 2 * t) * 255);
+      }
+      maskLut[i] = (a << 24) | 0x00FFFFFF;
+    }
+  }
+  updateMaskLut('balanced');
 
   function initMediaPipe() {
     if (typeof SelfieSegmentation === 'undefined') {
@@ -429,17 +458,23 @@
         console.warn('captureStream error', e);
       }
     }
+    if (!maskCanvas) {
+      maskCanvas = document.createElement('canvas');
+      maskCanvas.width = 480;
+      maskCanvas.height = 270;
+      maskCtx = maskCanvas.getContext('2d', { willReadFrequently: true });
+    }
     if (!isSegmenterReady && !isSegmenterInitializing) {
       initMediaPipe();
     }
   }
 
   function getToneFilterString() {
-    if (currentFilter === 'bright') return 'brightness(1.28) contrast(1.10) saturate(1.15)';
-    if (currentFilter === 'warm') return 'brightness(1.08) sepia(0.24) saturate(1.35) contrast(1.08)';
-    if (currentFilter === 'cool') return 'brightness(1.08) hue-rotate(16deg) saturate(1.15) contrast(1.12)';
-    if (currentFilter === 'vivid') return 'brightness(1.10) contrast(1.25) saturate(1.45)';
-    if (currentFilter === 'cinema') return 'brightness(1.08) grayscale(1) contrast(1.30)';
+    if (currentFilter === 'bright') return 'brightness(1.12) contrast(1.04) saturate(1.05)';
+    if (currentFilter === 'warm') return 'brightness(1.04) sepia(0.18) saturate(1.15) contrast(1.04)';
+    if (currentFilter === 'cool') return 'brightness(1.04) hue-rotate(12deg) saturate(1.08) contrast(1.06)';
+    if (currentFilter === 'vivid') return 'brightness(1.05) contrast(1.12) saturate(1.20)';
+    if (currentFilter === 'cinema') return 'brightness(1.04) grayscale(1) contrast(1.18)';
     return 'none';
   }
 
@@ -448,36 +483,51 @@
     if (currentBg === 'none' && currentFilter === 'none') return;
     if (!canvasCtx || !canvasElem) return;
 
+    setupCanvasPipeline();
+
+    // 1. Draw raw neural segmentation mask onto 480x270 mask canvas
+    maskCtx.drawImage(results.segmentationMask, 0, 0, 480, 270);
+
+    // 2. Transform confidence into 100% solid silhouette with anti-aliasing
+    const imgData = maskCtx.getImageData(0, 0, 480, 270);
+    const u8 = imgData.data;
+    const u32 = new Uint32Array(u8.buffer);
+    for (let i = 0; i < u32.length; i++) {
+      const raw = u8[i * 4 + 3] < 255 ? u8[i * 4 + 3] : u8[i * 4];
+      u32[i] = maskLut[raw];
+    }
+    maskCtx.putImageData(imgData, 0, 0);
+
     const filterStr = getToneFilterString();
 
     canvasCtx.save();
     canvasCtx.clearRect(0, 0, 1280, 720);
 
     if (currentBg === 'blur-soft' || currentBg === 'blur-deep') {
-      // 1. Draw AI segmentation mask as clipping boundary
-      canvasCtx.drawImage(results.segmentationMask, 0, 0, 1280, 720);
+      // Step A: Draw 100% solid, anti-aliased mask
+      canvasCtx.drawImage(maskCanvas, 0, 0, 1280, 720);
 
-      // 2. Keep ONLY the person (sharp foreground) inside mask
+      // Step B: Draw crisp, solid person inside mask (100% opaque, NO blur on person)
       canvasCtx.globalCompositeOperation = 'source-in';
       if (filterStr !== 'none') canvasCtx.filter = filterStr;
       canvasCtx.drawImage(results.image, 0, 0, 1280, 720);
 
-      // 3. Composite blurred room background BEHIND the person
+      // Step C: Draw blurred room background BEHIND the person
       canvasCtx.globalCompositeOperation = 'destination-over';
       const blurRadius = currentBg === 'blur-deep' ? '28px' : '14px';
       canvasCtx.filter = (filterStr !== 'none' ? filterStr + ' ' : '') + `blur(${blurRadius})`;
       canvasCtx.drawImage(results.image, -25, -15, 1330, 750);
 
     } else if (currentBg === 'penthouse' || currentBg === 'office' || currentBg === 'studio') {
-      // 1. Draw AI segmentation mask as clipping boundary
-      canvasCtx.drawImage(results.segmentationMask, 0, 0, 1280, 720);
+      // Step A: Draw 100% solid, anti-aliased mask
+      canvasCtx.drawImage(maskCanvas, 0, 0, 1280, 720);
 
-      // 2. Keep ONLY the person inside mask
+      // Step B: Draw crisp, solid person inside mask (100% opaque, NO translucency)
       canvasCtx.globalCompositeOperation = 'source-in';
       if (filterStr !== 'none') canvasCtx.filter = filterStr;
       canvasCtx.drawImage(results.image, 0, 0, 1280, 720);
 
-      // 3. Composite photorealistic luxury backdrop BEHIND the person
+      // Step C: Draw photorealistic luxury backdrop BEHIND the person
       canvasCtx.globalCompositeOperation = 'destination-over';
       canvasCtx.filter = 'none';
 
@@ -919,10 +969,18 @@
   const btnDoneSettings = document.getElementById('btnDoneSettings');
   const btnSettingShare = document.getElementById('btnSettingScreenShare');
 
+  function updateBalanceCardVisibility() {
+    const balanceCard = document.getElementById('balanceCard');
+    if (balanceCard) {
+      balanceCard.style.display = currentBg !== 'none' ? 'block' : 'none';
+    }
+  }
+
   function openSettings() {
     if (modalBackdrop) {
       modalBackdrop.hidden = false;
       populateDeviceList();
+      updateBalanceCardVisibility();
     }
   }
 
@@ -948,7 +1006,28 @@
       bgGrid.querySelectorAll('.bg-option').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       currentBg = btn.dataset.bg || 'none';
+      updateBalanceCardVisibility();
       applyEffects();
+    });
+  }
+
+  // Silhouette Balance Selection
+  const balanceGrid = document.getElementById('balanceGrid');
+  if (balanceGrid) {
+    balanceGrid.addEventListener('click', (e) => {
+      const btn = e.target.closest('.filter-pill');
+      if (!btn) return;
+      balanceGrid.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const bal = btn.dataset.balance || 'balanced';
+      currentBalance = bal;
+      updateMaskLut(bal);
+      const balanceLabel = document.getElementById('balanceLabel');
+      if (balanceLabel) {
+        if (bal === 'wide') balanceLabel.textContent = 'Wide Coverage (Full Head & Hair)';
+        else if (bal === 'crisp') balanceLabel.textContent = 'Crisp Edge';
+        else balanceLabel.textContent = 'Balanced (Solid Human)';
+      }
     });
   }
 
