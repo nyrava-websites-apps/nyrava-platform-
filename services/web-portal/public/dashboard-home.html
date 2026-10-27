@@ -13,21 +13,88 @@ body { overflow-x: hidden; }
 <button type="button" data-crm-view="contacts">Client Activity &amp; Notes</button>
 <button type="button" disabled title="Not yet supported by the current CRM" class="crm-coming">Transactions · Coming soon</button>
 </div><button data-tab="ai" type="button">Nyra Assistance</button><button data-tab="valuation" type="button">Private Valuation</button><button data-tab="meet" type="button" style="display:flex;align-items:center;gap:8px;background:#0866FF;color:#ffffff;border:none;border-radius:9px;padding:12px 14px;font-weight:700;font-size:14px;margin:6px 0;cursor:pointer;box-shadow:0 3px 10px rgba(8,102,255,0.35);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg><span>Video Meet (HD) 📹</span></button>
-<a href="/business-calendar.html" target="_top">Calendar &amp; results</a><a href="/personal-reminders.html" target="_top">Appointments &amp; Reminders ↗</a><button data-tab="team">My Team</button><a href="/team-chat.html" target="_top">Team Chat ↗</a><button data-tab="zips">ZIP Territories</button><button data-tab="notifications">Notifications</button><button data-tab="performance">Performance</button><button data-tab="account">Account & Billing</button><a class="secondary" href="/billing-checkout.html">Billing &amp; subscription</a></nav><div class="rail-footer">Only your authorized clients and territories are visible here.</div></aside><div class="content"><header class="top"><div><h1 id="pageTitle">Good to see you</h1><p class="sub">Your real estate business, all in one place.</p></div><div style="display:flex;align-items:center;gap:14px;"><button type="button" onclick="navigate('meet')" style="background:#0866FF;color:#ffffff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(8,102,255,0.25);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg><span>Launch Video Meet 📹</span></button><div class="identity" id="identity">Checking account…</div></div></header><main><div id="error" class="error" hidden role="alert"></div><div id="message" class="ok" hidden role="status"></div>
+<a href="/business-calendar.html" target="_top">Calendar &amp; results</a><a href="/personal-reminders.html" target="_top">Appointments &amp; Reminders ↗</a><button data-tab="team">My Team</button><a href="/team-chat.html" target="_top">Team Chat ↗</a><button data-tab="zips">ZIP Territories</button><button data-tab="notifications">Notifications</button><button data-tab="performance">Performance</button><button data-tab="account">Account & Billing</button><a class="secondary" href="/billing-checkout.html">Billing &amp; subscription</a></nav><div class="rail-footer">Only your authorized clients and territories are visible here.</div></aside><div class="content"><header class="top"><div><h1 id="pageTitle">Good to see you</h1><p class="sub">Your real estate business, all in one place.</p></div><div style="display:flex;align-items:center;gap:14px;"><div id="headerCallIndicator" style="display:none;align-items:center;gap:8px;background:#fee2e2;color:#b91c1c;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700;"><span style="width:8px;height:8px;border-radius:50%;background:#ef4444;display:inline-block;"></span><span>Call Live</span><button type="button" onclick="realtorEndMeeting()" style="background:#dc2626;color:#fff;border:none;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;margin-left:4px;cursor:pointer;">End</button></div><button type="button" onclick="navigate('meet')" style="background:#0866FF;color:#ffffff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(8,102,255,0.25);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg><span>Launch Video Meet 📹</span></button><div class="identity" id="identity">Checking account…</div></div></header><main><div id="error" class="error" hidden role="alert"></div><div id="message" class="ok" hidden role="status"></div>
 <section class="panel active" id="panel-overview"><div class="headline"><div><h2>Today's workspace</h2><p>Leads, appointments, and next actions at a glance.</p></div><div class="actions"><button class="secondary" id="refresh">Refresh</button></div></div><div class="kpis"><div class="kpi"><strong id="countLeads">—</strong><small>Assigned leads</small></div><div class="kpi"><strong id="countZips">—</strong><small>ZIP territories</small></div><div class="kpi"><strong id="countAppointments">—</strong><small>Upcoming appointments</small></div><div class="kpi"><strong id="countTasks">—</strong><small>Tasks to complete</small></div></div><div class="columns"><div class="box"><h3>Recent assigned leads</h3><div id="overviewLeads" class="list"></div></div><div><div class="box"><h3>Your next appointments</h3><div id="overviewAppts" class="list"></div></div><div class="box"><h3>Priority follow-ups</h3><div id="overviewTasks" class="list"></div></div></div></div></section>
 <section class="panel" id="panel-meet">
   <div class="headline">
     <div>
-      <h2>Nyrava Team Meet & Client Video Consultation</h2>
-      <p>HD video meetings with virtual backgrounds, studio lighting tone filters, and screen sharing.</p>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <h2>Team Meet &amp; Client Video Consultation</h2>
+        <span id="realtorMeetBadge" class="pill" style="font-size:0.78rem;font-weight:700;padding:5px 12px;background:#e2e8f0;color:#475569;border-radius:20px;">⚪ Standby · Camera &amp; Mic Off</span>
+      </div>
+      <p>HD multi-party video consultation with virtual backdrops, noise suppression, and presentation sharing.</p>
     </div>
-    <div class="actions">
-      <button type="button" class="secondary" onclick="navigator.clipboard.writeText('https://meet.nyrava.com');alert('Meeting link copied to clipboard: https://meet.nyrava.com');">Copy Invite Link</button>
-      <a href="https://meet.nyrava.com" target="_blank" rel="noopener noreferrer" class="primary" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;">Open Fullscreen Window ↗</a>
+    <div class="actions" id="realtorMeetControls">
+      <div id="activeCallControls" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;">
+        <button type="button" id="btnRealtorEndMeet" style="background:#dc2626;color:#ffffff;border:none;border-radius:8px;padding:9px 14px;font-weight:700;font-size:13px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;box-shadow:0 2px 6px rgba(220,38,38,0.3);">
+          <span>🛑 End Call &amp; Stop Camera</span>
+        </button>
+        <button type="button" id="btnRealtorMute" class="secondary" title="Mute / Unmute Microphone" style="padding:8px 12px;font-size:13px;">
+          <span id="btnRealtorMuteLabel">🎙️ Mute</span>
+        </button>
+        <button type="button" id="btnRealtorCam" class="secondary" title="Turn Camera On / Off" style="padding:8px 12px;font-size:13px;">
+          <span id="btnRealtorCamLabel">📹 Stop Cam</span>
+        </button>
+        <button type="button" id="btnRealtorShare" class="secondary" title="Share Screen" style="padding:8px 12px;font-size:13px;">
+          <span>🖥️ Share</span>
+        </button>
+        <button type="button" id="btnRealtorSettings" class="secondary" title="Device Settings" style="padding:8px 12px;font-size:13px;">
+          <span>⚙️ Settings</span>
+        </button>
+      </div>
+
+      <button type="button" id="btnRealtorCopyInvite" class="secondary">📋 Copy Client Link</button>
+      <a id="btnRealtorFullscreenLink" href="https://meet.nyrava.com" target="_blank" rel="noopener noreferrer" class="primary" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;">Open Fullscreen Window ↗</a>
     </div>
   </div>
-  <div class="box" style="padding:0;overflow:hidden;border-radius:14px;height:820px;background:#0b1329;">
-    <iframe id="nyrava-meet-frame" src="https://meet.nyrava.com" title="Nyrava Team Meet Video Consultation" style="width:100%;height:100%;border:none;" allow="camera; microphone; display-capture; autoplay; clipboard-write; fullscreen"></iframe>
+
+  <!-- Standby Launcher Card (Shown when call is NOT active) -->
+  <div id="meetStandbyCard" class="box" style="padding:32px;background:linear-gradient(135deg, #0b1938 0%, #081226 100%);color:#ffffff;border-radius:16px;border:1px solid #1e293b;box-shadow:0 8px 32px rgba(8,26,58,0.18);">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:20px;flex-wrap:wrap;">
+      <div style="max-width:680px;">
+        <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(8,102,255,0.2);border:1px solid rgba(8,102,255,0.4);color:#60a5fa;font-size:12px;font-weight:700;padding:4px 12px;border-radius:20px;margin-bottom:12px;">
+          🔒 PRIVACY LOCKED · CAMERA &amp; MIC HARDWARE POWERED OFF
+        </div>
+        <h3 style="font-size:1.45rem;color:#ffffff;margin:0 0 10px;font-weight:750;">Instant Client Consultation &amp; Listing Walkthrough</h3>
+        <p style="color:#94a3b8;font-size:0.95rem;line-height:1.5;margin-bottom:22px;">
+          Your webcam and microphone are completely idle and released. Launch your secure room below to meet with clients, show listing media, or review net sheets with real-time AI assistance.
+        </p>
+
+        <!-- Room Setup & Launch Bar -->
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:rgba(255,255,255,0.06);padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);max-width:580px;">
+          <div style="display:flex;flex-direction:column;flex:1;min-width:200px;">
+            <label for="realtorRoomInput" style="font-size:11px;color:#94a3b8;font-weight:600;margin-bottom:4px;">MEETING ROOM NAME</label>
+            <input type="text" id="realtorRoomInput" value="consultation-austin" style="background:#08142c;border:1px solid rgba(8,102,255,0.4);color:#ffffff;border-radius:6px;padding:8px 12px;font-size:14px;font-weight:600;outline:none;" placeholder="Enter room name...">
+          </div>
+          <button type="button" id="btnStartRealtorCall" style="background:#0866FF;color:#ffffff;border:none;border-radius:8px;padding:11px 20px;font-size:14px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:8px;align-self:flex-end;box-shadow:0 4px 14px rgba(8,102,255,0.4);">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+            <span>Start Consultation Now</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Feature List -->
+      <div style="display:grid;gap:10px;background:rgba(0,0,0,0.25);padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);min-width:240px;">
+        <div style="font-size:12px;font-weight:700;color:#94a3b8;letter-spacing:0.5px;">CONSULTATION SPECS</div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#e2e8f0;">
+          <span style="color:#10b981;">✓</span> Echo cancellation &amp; noise filter
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#e2e8f0;">
+          <span style="color:#10b981;">✓</span> Virtual backdrops (Office &amp; Blur)
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#e2e8f0;">
+          <span style="color:#10b981;">✓</span> Max 25 simultaneous attendees
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#e2e8f0;">
+          <span style="color:#10b981;">✓</span> 1-click camera power-off
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Video Box Container (Active during call) -->
+  <div id="meetVideoBox" class="box" style="padding:0;overflow:hidden;border-radius:14px;height:820px;background:#0b1329;display:none;">
+    <iframe id="nyrava-meet-frame" src="about:blank" title="Nyrava Team Meet Video Consultation" style="width:100%;height:100%;border:none;" allow="camera; microphone; display-capture; autoplay; clipboard-write; fullscreen"></iframe>
   </div>
 </section>
 <section class="panel" id="panel-leads"><div class="headline"><div><h2>My Leads</h2><p>Only leads assigned to your account.</p></div></div><div class="box"><div class="actions" style="margin-bottom:16px"><input class="field search" id="leadSearch" placeholder="Search name or ZIP" aria-label="Search leads"><select class="field" id="leadType"><option value="">All lead types</option><option value="BUYER">Buyer</option><option value="SELLER">Seller</option></select></div><div id="leadList" class="list"></div></div><div id="leadDetails" class="box" hidden></div></section>
@@ -53,7 +120,127 @@ document.addEventListener('change',async e=>{const input=e.target.closest('[data
 const displayLead=l=>'<div class="item"><div><strong>'+esc(l.fullName||'Contact')+'</strong><small>'+esc(l.leadType||'Inquiry')+' · ZIP '+esc(l.zipCode||'Not provided')+' · '+esc(l.crmStatus||'New')+'</small></div><button class="secondary" data-lead="'+esc(l.id)+'">View contact</button></div>';function render(){const d=state.dashboard||{};const c=state.crm||{};const leads=c.leads||[];const summary=c.summary||{};const zips=d.subscribedZips||[];text('countLeads',leads.length);text('countZips',zips.length);text('countAppointments',summary.upcomingAppointments??0);text('countTasks',summary.openTasks??0);$('overviewLeads').innerHTML=leads.length?leads.slice(0,5).map(displayLead).join(''):empty('No qualified leads assigned yet.');const q=$('leadSearch').value.trim().toLowerCase(),t=$('leadType').value;const filtered=leads.filter(l=>(!t||String(l.leadType).toUpperCase()===t)&&(!q||[l.fullName,l.zipCode,l.email].some(v=>String(v||'').toLowerCase().includes(q))));$('leadList').innerHTML=filtered.length?filtered.map(displayLead).join(''):empty('No assigned leads match your search.');$('myZips').innerHTML=zips.length?zips.map(z=>'<div class="item"><div><strong>ZIP '+esc(z.zipCode)+'</strong><small>Slot '+esc(z.slotNumber)+' · New ZIP limit: 2 businesses</small></div><button class="secondary" data-remove="'+esc(z.zipCode)+'">Remove ZIP</button></div>').join(''):empty('No active ZIP subscriptions.');let appts=(c.appointments||[]).filter(a=>a.status==='SCHEDULED'&&new Date(a.startsAt)>new Date()).sort((a,b)=>new Date(a.startsAt)-new Date(b.startsAt));let tasks=(c.tasks||[]).filter(t=>!t.completed).sort((a,b)=>new Date(a.dueAt)-new Date(b.dueAt));const renderAppt=a=>'<div class="item"><div><strong>'+esc(a.title||'Appointment')+'</strong><small>'+esc(new Date(a.startsAt).toLocaleString())+'</small></div></div>';const renderTask=t=>'<div class="item"><div><strong>'+esc(t.title||'Follow-up')+'</strong><small>Due '+esc(new Date(t.dueAt).toLocaleString())+'</small></div><button class="secondary" data-complete="'+esc(t.id)+'">Complete</button></div>';$('overviewAppts').innerHTML=appts.length?appts.slice(0,3).map(renderAppt).join(''):empty('No upcoming appointments');$('calendarAppts').innerHTML=appts.length?appts.map(renderAppt).join(''):empty('No upcoming appointments');$('overviewTasks').innerHTML=tasks.length?tasks.slice(0,3).map(renderTask).join(''):empty('No open follow-ups');$('calendarTasks').innerHTML=tasks.length?tasks.map(renderTask).join(''):empty('No open follow-ups');$('notificationList').innerHTML=leads.length?'<h3>Recent assignments</h3>'+leads.slice(0,10).map(displayLead).join(''):empty('No new assignments.');text('perfContacted',leads.filter(l=>l.crmStatus==='CONTACTED').length);text('perfAppointment',leads.filter(l=>l.crmStatus==='APPOINTMENT').length);text('perfClosed',leads.filter(l=>l.crmStatus==='CLOSED').length);text('perfAssigned',leads.length);renderTeam();const me=state.me||{};$('accountInfo').innerHTML=[['Name',me.fullName],['Email',me.email],['Brokerage',me.brokerage],['Role',me.role],['Subscription',me.subscriptionStatus]].map(([k,v])=>'<div class="item"><strong>'+esc(k)+'</strong><span>'+esc(v||'Not provided')+'</span></div>').join('');text('planInfo',state.plans?.billingStatus==='NOT_CONFIGURED_NO_CHECKOUT'?'Billing checkout is not yet available.':(state.plans?.billingStatus||'Plan status not available'));}
 async function reload(){try{const me=await request('/api/auth/me');state.me=me;text('identity',me.fullName||me.email);const rs=await Promise.allSettled([request('/api/dashboard/summary'),request('/api/crm/workspace'),request('/api/plans')]);if(rs[0].status==='rejected'||rs[1].status==='rejected')throw (rs[0].reason||rs[1].reason);state.dashboard=rs[0].value;state.crm=rs[1].value;try{state.team=await request('/api/team/workspace')}catch(e){state.team=null}state.plans=rs[2].status==='fulfilled'?rs[2].value:null;$('error').hidden=true;render()}catch(e){message('Unable to load workspace: '+e.message,true)}}$('refresh').onclick=reload;$('leadSearch').oninput=render;$('leadType').onchange=render;
 document.addEventListener('click',async ev=>{const lead=ev.target.closest('[data-lead]'),remove=ev.target.closest('[data-remove]'),complete=ev.target.closest('[data-complete]');if(lead){const l=(state.crm?.leads||[]).find(x=>String(x.id)===lead.dataset.lead);if(!l)return;const div=$('leadDetails');div.hidden=false;div.innerHTML='<h3>'+esc(l.fullName)+'</h3><div class="grid-two">'+[['Lead type',l.leadType],['ZIP code',l.zipCode],['Phone',l.phone],['Email',l.email],['Property',l.propertyAddress],['Timeframe',l.timeframe],['Buying budget',l.budgetMax],['Property value',l.estimatedPropertyValue]].map(([k,v])=>'<div class="readout"><small class="muted">'+esc(k)+'</small><br><strong>'+esc(v??'Not supplied')+'</strong></div>').join('')+'</div><p class="muted">'+esc(l.statement||'No additional statement')+'</p><a class="card-link" href="/dashboard/crm">Manage notes and appointments in CRM →</a>';navigate('leads');div.scrollIntoView({behavior:'smooth',block:'nearest'});}if(remove){if(!confirm('Remove ZIP '+remove.dataset.remove+' from future lead assignments? Existing assigned contacts remain yours.'))return;try{await request('/api/territories/'+remove.dataset.remove,{method:'DELETE'});message('ZIP removed.');await reload()}catch(e){message(e.message,true)}}if(complete){try{await request('/api/crm/tasks/'+complete.dataset.complete+'/complete',{method:'POST'});message('Task completed.');await reload()}catch(e){message(e.message,true)}}});
-$('zipCheck').onclick=async()=>{let z=$('zipQuery').value.trim();if(!/^\d{5}$/.test(z)){message('Enter a valid 5-digit ZIP.',true);return}try{const d=await request('/api/territories/check/'+z);$('zipResult').textContent=JSON.stringify(d,null,2)}catch(e){message(e.message,true)}};$('zipForm').onsubmit=async e=>{e.preventDefault();const z=$('zipQuery').value.trim();try{await request('/api/territories/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({zipCode:z})});message('ZIP added.');await reload()}catch(e){message(e.message,true)}};reload();const initial=location.hash.replace('#','');if($('panel-'+initial))navigate(initial);
+$('zipCheck').onclick=async()=>{let z=$('zipQuery').value.trim();if(!/^\d{5}$/.test(z)){message('Enter a valid 5-digit ZIP.',true);return}try{const d=await request('/api/territories/check/'+z);$('zipResult').textContent=JSON.stringify(d,null,2)}catch(e){message(e.message,true)}};$('zipForm').onsubmit=async e=>{e.preventDefault();const z=$('zipQuery').value.trim();try{await request('/api/territories/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({zipCode:z})});message('ZIP added.');await reload()}catch(e){message(e.message,true)}};reload();
+// --- Nyrava Realtor Video Meet Command Center ---
+let realtorMeetActive = false;
+let currentMeetRoom = 'consultation-austin';
+
+function getRealtorName() {
+  return state.me?.fullName || state.me?.email?.split('@')[0] || 'Realtor';
+}
+
+function updateRealtorMeetRoom() {
+  const input = $('realtorRoomInput');
+  if (input) {
+    const val = input.value.trim().replace(/[^a-zA-Z0-9_-]/g, '-');
+    if (val) currentMeetRoom = val;
+  }
+  const inviteUrl = 'https://meet.nyrava.com/room/' + encodeURIComponent(currentMeetRoom);
+  const fsLink = $('btnRealtorFullscreenLink');
+  if (fsLink) fsLink.href = inviteUrl;
+  return inviteUrl;
+}
+
+function startRealtorMeeting(roomOverride) {
+  if (roomOverride) currentMeetRoom = roomOverride;
+  else updateRealtorMeetRoom();
+
+  const realtorName = getRealtorName();
+  const frame = $('nyrava-meet-frame');
+  const standby = $('meetStandbyCard');
+  const box = $('meetVideoBox');
+  const badge = $('realtorMeetBadge');
+  const activeCtrls = $('activeCallControls');
+  const headerInd = $('headerCallIndicator');
+
+  const meetUrl = 'https://meet.nyrava.com/room/' + encodeURIComponent(currentMeetRoom) + '?embed=1&name=' + encodeURIComponent(realtorName);
+
+  if (frame) {
+    frame.src = meetUrl;
+  }
+  if (standby) standby.style.display = 'none';
+  if (box) box.style.display = 'block';
+  if (activeCtrls) activeCtrls.style.display = 'inline-flex';
+  if (headerInd) headerInd.style.display = 'inline-flex';
+
+  if (badge) {
+    badge.textContent = '🟢 Consultation Live';
+    badge.style.background = '#dcfce7';
+    badge.style.color = '#15803d';
+  }
+
+  realtorMeetActive = true;
+  message('Video consultation launched in room "' + currentMeetRoom + '". Camera and microphone connected.');
+}
+
+function realtorEndMeeting() {
+  const frame = $('nyrava-meet-frame');
+  const standby = $('meetStandbyCard');
+  const box = $('meetVideoBox');
+  const badge = $('realtorMeetBadge');
+  const activeCtrls = $('activeCallControls');
+  const headerInd = $('headerCallIndicator');
+
+  if (frame) {
+    try {
+      frame.contentWindow?.postMessage({ source: 'nyrava-team-meet-api', command: 'shutdown' }, '*');
+      frame.contentWindow?.postMessage({ type: 'NYRAVA_MEET_SHUTDOWN' }, '*');
+    } catch (_) {}
+    frame.src = 'about:blank';
+  }
+
+  if (box) box.style.display = 'none';
+  if (standby) standby.style.display = 'block';
+  if (activeCtrls) activeCtrls.style.display = 'none';
+  if (headerInd) headerInd.style.display = 'none';
+
+  if (badge) {
+    badge.textContent = '⚪ Standby · Camera & Mic Off';
+    badge.style.background = '#e2e8f0';
+    badge.style.color = '#475569';
+  }
+
+  realtorMeetActive = false;
+  message('Video consultation ended. Camera and microphone hardware powered off.');
+}
+
+function sendMeetCommand(command) {
+  const frame = $('nyrava-meet-frame');
+  if (frame && frame.contentWindow) {
+    frame.contentWindow.postMessage({ source: 'nyrava-team-meet-api', command }, '*');
+  }
+}
+
+$('btnStartRealtorCall')?.addEventListener('click', () => startRealtorMeeting());
+$('btnRealtorEndMeet')?.addEventListener('click', realtorEndMeeting);
+$('btnRealtorMute')?.addEventListener('click', () => sendMeetCommand('toggleAudio'));
+$('btnRealtorCam')?.addEventListener('click', () => sendMeetCommand('toggleVideo'));
+$('btnRealtorShare')?.addEventListener('click', () => sendMeetCommand('shareScreen'));
+$('btnRealtorSettings')?.addEventListener('click', () => sendMeetCommand('openSettings'));
+$('btnRealtorCopyInvite')?.addEventListener('click', () => {
+  const url = updateRealtorMeetRoom();
+  navigator.clipboard.writeText(url).then(() => {
+    message('Client consultation link copied: ' + url);
+  }).catch(() => {
+    prompt('Copy this client consultation link:', url);
+  });
+});
+$('realtorRoomInput')?.addEventListener('input', updateRealtorMeetRoom);
+
+window.addEventListener('message', (e) => {
+  if (e.data?.type === 'NYRAVA_MEET_CLOSED' || e.data?.type === 'NYRAVA_MEET_TERMINATED') {
+    realtorEndMeeting();
+  }
+  if (e.data?.type === 'NYRAVA_MEET_STATE') {
+    const muteLabel = $('btnRealtorMuteLabel');
+    if (muteLabel) muteLabel.textContent = e.data.micActive ? '🎙️ Mute' : '🎙️ Unmute';
+    const camLabel = $('btnRealtorCamLabel');
+    if (camLabel) camLabel.textContent = e.data.camActive ? '📹 Stop Cam' : '📹 Start Cam';
+  }
+});
+
+const initial=location.hash.replace('#','');if($('panel-'+initial))navigate(initial);
+
 </script><script src="/session-controls.js?v=20261019-leads-1" defer></script><!-- nyrava-unified-workspace-v2 -->
 <style>
 html,body,.content,.shell{background:#fff!important}

@@ -135,27 +135,152 @@
     }
   };
 
-  // 4. Local Media Initializer
+  // 4. Local Media Initializer with Robust Tiered Fallbacks
   async function startLocalMedia(videoDeviceId, audioDeviceId) {
+    if (rawCameraStream) {
+      try {
+        rawCameraStream.getTracks().forEach(t => { t.stop(); t.enabled = false; });
+      } catch (_) {}
+      rawCameraStream = null;
+    }
+
+    const audioConstraints = {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true
+    };
+    if (audioDeviceId) {
+      audioConstraints.deviceId = { exact: audioDeviceId };
+    }
+
+    let stream = null;
+    let cameraFailure = null;
+
+    // Tier 1: Optimal 720p with echo-cancelled audio
     try {
       const constraints = {
-        video: videoDeviceId ? { deviceId: { exact: videoDeviceId } } : { width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: audioDeviceId ? { deviceId: { exact: audioDeviceId } } : true
+        video: videoDeviceId
+          ? { deviceId: { exact: videoDeviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+          : { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+        audio: audioConstraints
       };
-      rawCameraStream = await navigator.mediaDevices.getUserMedia(constraints);
-      activeVideoStream = rawCameraStream;
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (err1) {
+      console.warn('[Media Tier 1 Failed] HD video constraints rejected:', err1.message);
+      cameraFailure = err1;
 
-      const localVid = document.getElementById('localVideo');
-      const localVidBg = document.getElementById('localVideoBg');
-      if (localVid) localVid.srcObject = activeVideoStream;
-      if (localVidBg) localVidBg.srcObject = activeVideoStream;
+      // Tier 2: Unconstrained video + audio fallback
+      try {
+        const fallbackConstraints = {
+          video: videoDeviceId ? { deviceId: { exact: videoDeviceId } } : true,
+          audio: audioConstraints
+        };
+        stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
+        cameraFailure = null;
+      } catch (err2) {
+        console.warn('[Media Tier 2 Failed] Standard video rejected:', err2.message);
+        cameraFailure = err2;
 
-      // Populate hardware devices list in settings
-      populateDeviceList();
-      updateVideoGridLayout();
-    } catch (err) {
-      console.warn('[Media Error] Could not access camera/mic:', err.message);
-      addSysMessage('Camera or microphone access denied. You are joined in listen-only mode.');
+        // Tier 3: Audio-only fallback if camera is busy or locked by another app
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints, video: false });
+        } catch (err3) {
+          console.warn('[Media Tier 3 Failed] Audio-only rejected:', err3.message);
+        }
+      }
+    }
+
+    if (!stream) {
+      console.warn('[Media Error] Could not access camera or microphone:', cameraFailure?.message);
+      addSysMessage('⚠️ Camera and microphone access could not be acquired. You are joined in listen-only mode.');
+      updateCameraStateUI(false);
+      updateMicStateUI(false);
+      return;
+    }
+
+    rawCameraStream = stream;
+    activeVideoStream = stream;
+
+    const hasVideo = stream.getVideoTracks().length > 0;
+    const hasAudio = stream.getAudioTracks().length > 0;
+    isCamActive = hasVideo;
+    isMicActive = hasAudio;
+
+    const localVid = document.getElementById('localVideo');
+    const localVidBg = document.getElementById('localVideoBg');
+
+    // CRITICAL: Local preview MUST be completely muted to prevent acoustic feedback screaming
+    if (localVid) {
+      localVid.muted = true;
+      localVid.defaultMuted = true;
+      localVid.volume = 0;
+      localVid.srcObject = activeVideoStream;
+    }
+    if (localVidBg) {
+      localVidBg.muted = true;
+      localVidBg.defaultMuted = true;
+      localVidBg.volume = 0;
+      localVidBg.srcObject = activeVideoStream;
+    }
+
+    updateCameraStateUI(hasVideo);
+    updateMicStateUI(hasAudio);
+
+    if (!hasVideo && cameraFailure) {
+      addSysMessage('⚠️ Camera is occupied or unavailable. Microphone audio is active.');
+    }
+
+    // Populate hardware devices list in settings
+    populateDeviceList();
+    updateVideoGridLayout();
+
+    // Broadcast track updates to existing peers if re-acquiring
+    const vTrack = stream.getVideoTracks()[0];
+    if (vTrack) broadcastVideoTrack(vTrack);
+    const aTrack = stream.getAudioTracks()[0];
+    if (aTrack) broadcastAudioTrack(aTrack);
+  }
+
+  function updateMicStateUI(active) {
+    isMicActive = active;
+    const btnMic = document.getElementById('btnToggleMic');
+    if (btnMic) {
+      btnMic.classList.toggle('active', active);
+      const icon = btnMic.querySelector('.tool-icon');
+      if (icon) icon.innerHTML = active ? '&#127908;' : '&#127908;&#xFE0E; ✕';
+      btnMic.title = active ? 'Mute Microphone' : 'Unmute Microphone';
+    }
+    notifyParentState();
+  }
+
+  function updateCameraStateUI(active) {
+    isCamActive = active;
+    const btnCam = document.getElementById('btnToggleCam');
+    if (btnCam) {
+      btnCam.classList.toggle('active', active);
+      const icon = btnCam.querySelector('.tool-icon');
+      if (icon) icon.innerHTML = active ? '&#128249;' : '&#128249;&#xFE0E; ✕';
+      btnCam.title = active ? 'Turn Off Camera' : 'Turn On Camera';
+    }
+    const localCard = document.getElementById('localCard');
+    if (localCard) {
+      localCard.classList.toggle('cam-off', !active);
+    }
+    notifyParentState();
+  }
+
+  function notifyParentState() {
+    if (window.parent && window.parent !== window) {
+      try {
+        window.parent.postMessage({
+          source: 'nyrava-team-meet-api',
+          type: 'NYRAVA_MEET_STATE',
+          micActive: isMicActive,
+          camActive: isCamActive,
+          isSharing: isScreenSharing,
+          room: room
+        }, '*');
+      } catch (_) {}
     }
   }
 
@@ -355,7 +480,21 @@
     peerConnections.forEach(pc => {
       const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
       if (sender) {
-        sender.replaceTrack(newTrack).catch(e => console.warn('replaceTrack error', e));
+        sender.replaceTrack(newTrack).catch(e => console.warn('replaceTrack video error', e));
+      } else if (rawCameraStream || screenStream) {
+        try { pc.addTrack(newTrack, rawCameraStream || screenStream); } catch (_) {}
+      }
+    });
+  }
+
+  function broadcastAudioTrack(newTrack) {
+    if (!newTrack) return;
+    peerConnections.forEach(pc => {
+      const sender = pc.getSenders().find(s => s.track && s.track.kind === 'audio');
+      if (sender) {
+        sender.replaceTrack(newTrack).catch(e => console.warn('replaceTrack audio error', e));
+      } else if (rawCameraStream) {
+        try { pc.addTrack(newTrack, rawCameraStream); } catch (_) {}
       }
     });
   }
@@ -408,7 +547,8 @@
     };
 
     pc.ontrack = (event) => {
-      renderRemoteVideo(peerId, peerName, event.streams[0]);
+      let stream = (event.streams && event.streams[0]) ? event.streams[0] : new MediaStream([event.track]);
+      renderRemoteVideo(peerId, peerName, stream, event.track);
     };
 
     if (isInitiator) {
@@ -422,7 +562,7 @@
     }
   }
 
-  function renderRemoteVideo(peerId, peerName, stream) {
+  function renderRemoteVideo(peerId, peerName, stream, track) {
     let card = document.getElementById(`card-${peerId}`);
     if (!card) {
       card = document.createElement('div');
@@ -432,11 +572,30 @@
       const video = document.createElement('video');
       video.autoplay = true;
       video.playsInline = true;
+      video.muted = false; // MUST be unmuted to hear other attendees!
+      video.volume = 1.0;
       video.srcObject = stream;
 
       const label = document.createElement('div');
       label.className = 'participant-label';
       label.innerHTML = `<span class="status-dot"></span><span>${escapeHtml(peerName)}</span>`;
+
+      // Autoplay blocker recovery: if browser blocks unmuted audio, provide an instant tap-to-unmute pill
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(err => {
+          console.warn('[Remote video play blocked by browser policy]', err);
+          const unmuteBtn = document.createElement('button');
+          unmuteBtn.type = 'button';
+          unmuteBtn.className = 'remote-unmute-btn';
+          unmuteBtn.innerHTML = '🔊 Click to listen';
+          unmuteBtn.onclick = () => {
+            video.muted = false;
+            video.play().then(() => unmuteBtn.remove()).catch(e => console.warn(e));
+          };
+          card.appendChild(unmuteBtn);
+        });
+      }
 
       card.appendChild(video);
       card.appendChild(label);
@@ -444,18 +603,45 @@
       updateVideoGridLayout();
     } else {
       const video = card.querySelector('video');
-      if (video) video.srcObject = stream;
+      if (video) {
+        if (!video.srcObject) {
+          video.srcObject = stream;
+        } else if (stream && video.srcObject !== stream) {
+          stream.getTracks().forEach(t => {
+            if (!video.srcObject.getTracks().some(existing => existing.id === t.id)) {
+              video.srcObject.addTrack(t);
+            }
+          });
+        } else if (track) {
+          if (!video.srcObject.getTracks().some(existing => existing.id === track.id)) {
+            video.srcObject.addTrack(track);
+          }
+        }
+        video.muted = false;
+        video.play().catch(e => console.warn('Remote video play retry error:', e));
+      }
     }
   }
 
   function removePeer(peerId) {
     const pc = peerConnections.get(peerId);
     if (pc) {
-      pc.close();
+      try {
+        pc.ontrack = null;
+        pc.onicecandidate = null;
+        pc.close();
+      } catch (_) {}
       peerConnections.delete(peerId);
     }
     const card = document.getElementById(`card-${peerId}`);
-    if (card) card.remove();
+    if (card) {
+      const video = card.querySelector('video');
+      if (video) {
+        video.srcObject = null;
+        try { video.pause(); } catch (_) {}
+      }
+      card.remove();
+    }
     addSysMessage('A participant left the meeting.');
     updateVideoGridLayout();
   }
@@ -652,22 +838,27 @@
 
   if (btnMic) {
     btnMic.onclick = () => {
-      if (rawCameraStream) {
-        isMicActive = !isMicActive;
-        rawCameraStream.getAudioTracks().forEach(t => t.enabled = isMicActive);
-        btnMic.classList.toggle('active', isMicActive);
-        btnMic.querySelector('.tool-icon').innerHTML = isMicActive ? '&#127908;' : '&#127908;&#xFE0E; ✕';
+      if (rawCameraStream && rawCameraStream.getAudioTracks().length > 0) {
+        const nextState = !isMicActive;
+        rawCameraStream.getAudioTracks().forEach(t => t.enabled = nextState);
+        updateMicStateUI(nextState);
+        addSysMessage(nextState ? 'Microphone unmuted.' : 'Microphone muted.');
+      } else {
+        startLocalMedia(document.getElementById('selectCamera')?.value, document.getElementById('selectMic')?.value);
       }
     };
   }
 
   if (btnCam) {
-    btnCam.onclick = () => {
-      if (rawCameraStream) {
-        isCamActive = !isCamActive;
-        rawCameraStream.getVideoTracks().forEach(t => t.enabled = isCamActive);
-        btnCam.classList.toggle('active', isCamActive);
-        btnCam.querySelector('.tool-icon').innerHTML = isCamActive ? '&#128249;' : '&#128249;&#xFE0E; ✕';
+    btnCam.onclick = async () => {
+      if (rawCameraStream && rawCameraStream.getVideoTracks().length > 0) {
+        const nextState = !isCamActive;
+        rawCameraStream.getVideoTracks().forEach(t => t.enabled = nextState);
+        updateCameraStateUI(nextState);
+        addSysMessage(nextState ? 'Camera turned on.' : 'Camera turned off.');
+      } else {
+        await startLocalMedia(document.getElementById('selectCamera')?.value, document.getElementById('selectMic')?.value);
+        applyEffects();
       }
     };
   }
@@ -689,38 +880,99 @@
     };
   }
 
-  // Teardown & Exit
+  // Teardown & Exit (Cleanly releases all hardware tracks and closes connections)
   function terminateAllMediaAndConnections() {
     console.log('[Nyrava Team Meet] Terminating camera, microphone, screen tracks and connections...');
-    if (animFrameId) cancelAnimationFrame(animFrameId);
+    if (animFrameId) {
+      cancelAnimationFrame(animFrameId);
+      animFrameId = null;
+    }
+
+    // 1. Explicitly stop and disable all local tracks to power off camera/mic hardware
     if (rawCameraStream) {
       rawCameraStream.getTracks().forEach(track => {
-        try { track.stop(); track.enabled = false; } catch (e) {}
+        try {
+          track.stop();
+          track.enabled = false;
+        } catch (e) {}
       });
       rawCameraStream = null;
     }
+
+    if (canvasStream) {
+      canvasStream.getTracks().forEach(track => {
+        try {
+          track.stop();
+          track.enabled = false;
+        } catch (e) {}
+      });
+      canvasStream = null;
+    }
+
     if (screenStream) {
       screenStream.getTracks().forEach(track => {
-        try { track.stop(); track.enabled = false; } catch (e) {}
+        try {
+          track.stop();
+          track.enabled = false;
+        } catch (e) {}
       });
       screenStream = null;
     }
+
+    isScreenSharing = false;
+    activeVideoStream = null;
+
+    // 2. Clear local video elements
     const localVid = document.getElementById('localVideo');
     if (localVid) {
       localVid.srcObject = null;
       try { localVid.pause(); } catch (_) {}
     }
-    peerConnections.forEach((pc) => {
+    const localVidBg = document.getElementById('localVideoBg');
+    if (localVidBg) {
+      localVidBg.srcObject = null;
+      try { localVidBg.pause(); } catch (_) {}
+    }
+
+    // 3. Close and destroy all peer connections and remote video cards
+    peerConnections.forEach((pc, peerId) => {
       try {
         pc.ontrack = null;
         pc.onicecandidate = null;
         pc.close();
       } catch (e) {}
+      const card = document.getElementById(`card-${peerId}`);
+      if (card) {
+        const v = card.querySelector('video');
+        if (v) {
+          v.srcObject = null;
+          try { v.pause(); } catch (_) {}
+        }
+        card.remove();
+      }
     });
     peerConnections.clear();
 
-    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
-      try { ws.close(); } catch (e) {}
+    // 4. Close WebSocket
+    if (ws) {
+      try {
+        ws.onopen = null;
+        ws.onmessage = null;
+        ws.onerror = null;
+        ws.onclose = null;
+        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+          ws.close();
+        }
+      } catch (e) {}
+    }
+
+    updateCameraStateUI(false);
+    updateMicStateUI(false);
+
+    // 5. Display Consultation Ended Overlay (DO NOT reload page, keeps hardware powered off)
+    const endedOverlay = document.getElementById('meetEndedOverlay');
+    if (endedOverlay) {
+      endedOverlay.hidden = false;
     }
   }
 
@@ -730,13 +982,28 @@
 
   if (btnEnd) {
     btnEnd.onclick = () => {
-      if (confirm('Leave Nyrava Team Meet consultation?')) {
-        terminateAllMediaAndConnections();
-        if (window.parent && window.parent !== window) {
-          window.parent.postMessage({ source: 'nyrava-team-meet-api', type: 'NYRAVA_MEET_CLOSED' }, '*');
-        } else {
-          window.location.href = '/';
-        }
+      terminateAllMediaAndConnections();
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ source: 'nyrava-team-meet-api', type: 'NYRAVA_MEET_CLOSED' }, '*');
+      }
+    };
+  }
+
+  // Rejoin and Close handlers on Ended Overlay
+  const btnRejoin = document.getElementById('btnRejoinMeeting');
+  if (btnRejoin) {
+    btnRejoin.onclick = () => {
+      window.location.reload();
+    };
+  }
+
+  const btnCloseTab = document.getElementById('btnCloseMeetingTab');
+  if (btnCloseTab) {
+    btnCloseTab.onclick = () => {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ source: 'nyrava-team-meet-api', type: 'NYRAVA_MEET_CLOSED' }, '*');
+      } else {
+        window.location.href = 'https://home.nyrava.com/dashboard/home';
       }
     };
   }
@@ -834,12 +1101,13 @@
 
   // Embed PostMessage Commands
   window.addEventListener('message', (event) => {
-    if (event.data && (event.data.source === 'nyrava-team-meet-api' || event.data.type === 'NYRAVA_MEET_SHUTDOWN')) {
+    if (event.data && (event.data.source === 'nyrava-team-meet-api' || event.data.type === 'NYRAVA_MEET_SHUTDOWN' || event.data.type === 'NYRAVA_MEET_COMMAND')) {
       const { command, type } = event.data;
       if (command === 'shutdown' || command === 'leave' || type === 'NYRAVA_MEET_SHUTDOWN') {
         terminateAllMediaAndConnections();
         if (window.parent && window.parent !== window) {
           window.parent.postMessage({ source: 'nyrava-team-meet-api', type: 'NYRAVA_MEET_TERMINATED' }, '*');
+          window.parent.postMessage({ source: 'nyrava-team-meet-api', type: 'NYRAVA_MEET_CLOSED' }, '*');
         }
       }
       if (command === 'toggleAudio' && btnMic) btnMic.click();
@@ -847,7 +1115,11 @@
       if (command === 'shareScreen' && btnScreen) btnScreen.click();
       if (command === 'toggleFullscreen' && btnFs) btnFs.click();
       if (command === 'openSettings') openSettings();
+      if (command === 'requestState') notifyParentState();
     }
   });
+
+  // Announce initial ready state
+  notifyParentState();
 
 })();

@@ -869,3 +869,130 @@ body.embed-mode .meet-header {
     grid-template-columns: 1fr;
   }
 }
+
+/* Meeting Ended Overlay */
+.meet-ended-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 26, 58, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.meet-ended-overlay[hidden] {
+  display: none !important;
+}
+.meet-ended-card {
+  background: #0e244d;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 36px 32px;
+  max-width: 480px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+.ended-icon {
+  font-size: 42px;
+  margin-bottom: 16px;
+  color: #ef4444;
+}
+.meet-ended-card h2 {
+  font-size: 22px;
+  color: #ffffff;
+  margin-bottom: 10px;
+  font-weight: 700;
+}
+.meet-ended-card p {
+  color: #94a3b8;
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+.ended-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.ended-actions .btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  border: none;
+}
+.ended-actions .btn-primary {
+  background: #0866FF;
+  color: #ffffff;
+}
+.ended-actions .btn-primary:hover {
+  background: #0756d6;
+}
+.ended-actions .btn-secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+.ended-actions .btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* Local Camera Off Placeholder */
+.cam-off-placeholder {
+  display: none;
+  position: absolute;
+  inset: 0;
+  background: #040d1e;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 500;
+  z-index: 2;
+}
+.cam-off-placeholder .placeholder-icon {
+  font-size: 28px;
+  color: #64748b;
+}
+.video-card.cam-off .cam-off-placeholder {
+  display: flex;
+}
+.video-card.cam-off video {
+  opacity: 0;
+}
+
+/* Remote Unmute Audio Button (Autoplay recovery) */
+.remote-unmute-btn {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(8, 102, 255, 0.92);
+  color: #ffffff;
+  border: none;
+  border-radius: 24px;
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  z-index: 5;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  animation: pulse 1.8s infinite;
+}
+.remote-unmute-btn:hover {
+  background: #0866FF;
+}
+@keyframes pulse {
+  0% { transform: translate(-50%, -50%) scale(1); }
+  50% { transform: translate(-50%, -50%) scale(1.06); }
+  100% { transform: translate(-50%, -50%) scale(1); }
+}
+

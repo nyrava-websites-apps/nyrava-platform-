@@ -33,6 +33,10 @@
           <div class="video-card local-card" id="localCard">
             <video id="localVideoBg" class="local-video-bg" autoplay playsinline muted></video>
             <video id="localVideo" class="local-video-fg" autoplay playsinline muted></video>
+            <div class="cam-off-placeholder">
+              <span class="placeholder-icon">&#128249;&#xFE0E; ✕</span>
+              <span>Camera Off</span>
+            </div>
             <div class="participant-label">
               <span class="status-dot"></span>
               <span id="localLabelName">You (Local)</span>
@@ -195,6 +199,19 @@
 
         <div class="meet-modal-footer">
           <button type="button" class="btn btn-sm btn-primary" id="btnDoneSettings">Apply &amp; Done</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Meeting Ended Overlay (Hardware powered off) -->
+    <div class="meet-ended-overlay" id="meetEndedOverlay" hidden>
+      <div class="meet-ended-card">
+        <div class="ended-icon">&#128249;&#xFE0E; ✕</div>
+        <h2>Consultation Ended</h2>
+        <p>Your camera and microphone hardware have been completely powered off and disconnected.</p>
+        <div class="ended-actions">
+          <button type="button" class="btn btn-primary" id="btnRejoinMeeting">Rejoin Consultation</button>
+          <button type="button" class="btn btn-secondary" id="btnCloseMeetingTab">Return to Workspace</button>
         </div>
       </div>
     </div>
