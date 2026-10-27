@@ -1,4 +1,37 @@
-<!doctype html><html data-ny-page="subscriber-profile.html" lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Profile & Communications | Nyrava Home</title><style>
+<!doctype html><html data-ny-page="subscriber-profile.html" lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Profile & Communications | Nyrava Home</title>
+<script>
+  if (window.self !== window.top || new URLSearchParams(location.search).get('workspace') === '1') {
+    document.documentElement.classList.add('is-embedded');
+  }
+</script>
+<style>
+  html.is-embedded .rail,
+  html.is-embedded #rail,
+  html.is-embedded header,
+  html.is-embedded .brand,
+  html.is-embedded .rail-footer {
+    display: none !important;
+  }
+  html.is-embedded body,
+  html.is-embedded .realtor-shell,
+  html.is-embedded .shell {
+    display: block !important;
+    background: transparent !important;
+    min-height: auto !important;
+    overflow-x: hidden !important;
+  }
+  html.is-embedded .workspace-main {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+  html.is-embedded main {
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 10px 16px !important;
+  }
+</style>
+<style>
 :root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#081A3A;background:#F4F7FC}*{box-sizing:border-box}body{margin:0}header{background:#fff;border-bottom:1px solid #DFE6F0;padding:18px max(20px,calc((100vw - 1140px)/2));display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}.brand{font-weight:800;font-size:22px;letter-spacing:-.5px;color:#0866FF}.brand small{display:block;font-size:11px;color:#596579;letter-spacing:2px}nav{display:flex;gap:20px;align-items:center;flex-wrap:wrap}a{color:#0866FF;text-decoration:none}a:hover{text-decoration:underline}main{max-width:1140px;margin:34px auto;padding:0 20px}.intro{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:23px}h1{font-size:34px;letter-spacing:-1.1px;margin:0 0 6px}h2{font-size:19px;margin:0 0 18px}p{color:#596579;margin:0}.chip{border:1px solid #DFE6F0;background:#F4F7FC;color:#0866FF;border-radius:100px;padding:8px 12px;font-weight:700;font-size:12px}.layout{display:grid;grid-template-columns:300px 1fr;gap:22px}.card{background:#fff;border:1px solid #DFE6F0;border-radius:15px;padding:25px;box-shadow:0 2px 11px #081A3A09;margin-bottom:20px}.identity{text-align:center}.avatar{height:104px;width:104px;border-radius:50%;margin:0 auto 15px;background:#DFE6F0;display:grid;place-items:center;font-size:36px;font-weight:800;color:#0866FF}.identity h2{margin:0 0 4px}.meta{font-size:14px;overflow-wrap:anywhere}.divider{border-top:1px solid #F4F7FC;margin:22px 0}.fact{display:flex;justify-content:space-between;gap:12px;font-size:14px;margin:15px 0}.fact span{color:#596579}.fact strong{font-weight:700;text-align:right}.fieldgrid{display:grid;grid-template-columns:1fr 1fr;gap:18px}label{display:block;font-size:13px;font-weight:700;margin-bottom:7px;color:#596579}input{display:block;width:100%;background:#fff;border:1px solid #DFE6F0;border-radius:9px;padding:13px;font:inherit;color:#081A3A}input:focus{outline:2px solid #0866FF;outline-offset:1px}input:read-only{background:#F4F7FC;color:#596579}small{color:#596579;display:block;margin-top:7px}button{background:#0866FF;color:white;border:0;border-radius:9px;font:inherit;padding:12px 20px;font-weight:700;cursor:pointer}button:hover{background:#0866FF}button:disabled{opacity:.65;cursor:wait}.outline{background:white;color:#0866FF;border:1px solid #DFE6F0}.outline:hover{background:#F4F7FC}.actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:24px}.status{padding:12px 14px;background:#F4F7FC;border:1px solid #DFE6F0;border-radius:9px;margin:0 0 20px;display:none}.status.error{background:#fff2f0;border-color:#edc5bf;color:#8a3327}.statgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.stat{padding:18px;border:1px solid #DFE6F0;border-radius:12px;background:#F4F7FC}.stat b{font-size:25px;display:block}.stat span{font-size:12px;color:#596579}.ziplist{display:flex;gap:8px;flex-wrap:wrap}.zip{background:#F4F7FC;color:#0866FF;border:1px solid #DFE6F0;border-radius:7px;padding:7px 12px;font-weight:700}.muted{color:#596579;font-size:13px}.disablednote{font-size:13px;line-height:1.6;padding:14px;background:#F4F7FC;border-radius:9px;border:1px solid #DFE6F0}#signin{display:none}@media(max-width:850px){.layout{grid-template-columns:1fr}.fieldgrid{grid-template-columns:1fr}.statgrid{grid-template-columns:1fr 1fr}h1{font-size:29px}}@media(max-width:480px){.statgrid{grid-template-columns:1fr}}
 [hidden]{display:none!important}textarea{width:100%;min-height:110px;border:1px solid #DFE6F0;border-radius:6px;padding:10px;font:inherit}.card{padding:20px;border-radius:9px}input{padding:10px;border-radius:6px}h1{font-size:28px}.layout{grid-template-columns:260px minmax(0,1fr)}.fieldgrid{gap:14px}.full{grid-column:1/-1}.agency{padding:12px 0;border-bottom:1px solid #F4F7FC}.agency p{white-space:pre-line}.brand small{letter-spacing:1px}@media(max-width:850px){.layout{grid-template-columns:1fr}}.profile-cover{height:160px;position:relative;overflow:hidden;background:#081A3A;border-radius:10px;margin:0 0 22px;border:1px solid #DFE6F0}.profile-cover>img{width:100%;height:100%;object-fit:cover;object-position:center}.cover-caption{position:absolute;inset:auto 0 0;padding:32px 20px 14px;color:white;background:linear-gradient(transparent,rgba(0,0,0,.65));pointer-events:none}.cover-caption small{color:#DFE6F0;font-size:11px}.cover-caption strong{font-size:20px}.banner-choice{margin-bottom:14px;font-size:13px}.banner-choice select{max-width:320px;padding:8px;width:100%;border:1px solid #DFE6F0;border-radius:6px}.banner-preview-note{font-size:12px;line-height:1.6;margin:10px 0}@media(max-width:600px){.profile-cover{height:115px}.cover-caption strong{font-size:17px}}
 </style><script src="/profile-details.js?v=20261019-checkout-1" defer></script><link rel="stylesheet" href="/realtor-workspace.css?v=20261027-1"><link rel="stylesheet" href="/design-20261019/theme.css?v=20261019-theme-1" data-nyrava-theme="20261019-theme-1"><link rel="stylesheet" href="/site-navigation.css?v=1"><script defer src="/site-navigation.js?v=1"></script></head><body><div class="realtor-shell">

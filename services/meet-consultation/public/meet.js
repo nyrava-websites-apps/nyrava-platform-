@@ -52,9 +52,9 @@
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:meet.nyrava.com:3478' },
-      { urls: 'turn:meet.nyrava.com:3478', username: 'nyrava_user', credential: 'turn_secure_pass_2026' }
+      { urls: 'stun:188.172.228.105:3478' },
+      { urls: 'turn:188.172.228.105:3478?transport=udp', username: 'nyrava_user', credential: 'turn_secure_pass_2026' },
+      { urls: 'turn:188.172.228.105:3478?transport=tcp', username: 'nyrava_user', credential: 'turn_secure_pass_2026' }
     ]
   };
 
@@ -387,18 +387,20 @@
   let isProcessingFrame = false;
   let maskCanvas = null;
   let maskCtx = null;
+  let personCanvas = null;
+  let personCtx = null;
   let currentBalance = 'balanced';
   const maskLut = new Uint32Array(256);
 
   function updateMaskLut(balance) {
-    let low = 24;
-    let high = 65;
+    let low = 45;
+    let high = 115;
     if (balance === 'wide') {
-      low = 14;
-      high = 48;
+      low = 28;
+      high = 95;
     } else if (balance === 'crisp') {
-      low = 34;
-      high = 80;
+      low = 60;
+      high = 135;
     }
     for (let i = 0; i < 256; i++) {
       let a;
@@ -464,6 +466,12 @@
       maskCanvas.height = 270;
       maskCtx = maskCanvas.getContext('2d', { willReadFrequently: true });
     }
+    if (!personCanvas) {
+      personCanvas = document.createElement('canvas');
+      personCanvas.width = 1280;
+      personCanvas.height = 720;
+      personCtx = personCanvas.getContext('2d');
+    }
     if (!isSegmenterReady && !isSegmenterInitializing) {
       initMediaPipe();
     }
@@ -488,7 +496,7 @@
     // 1. Draw raw neural segmentation mask onto 480x270 mask canvas
     maskCtx.drawImage(results.segmentationMask, 0, 0, 480, 270);
 
-    // 2. Transform confidence into 100% solid silhouette with anti-aliasing
+    // 2. Transform confidence into clean silhouette mask (smooth anti-aliasing curve)
     const imgData = maskCtx.getImageData(0, 0, 480, 270);
     const u8 = imgData.data;
     const u32 = new Uint32Array(u8.buffer);
@@ -500,37 +508,17 @@
 
     const filterStr = getToneFilterString();
 
+    // 3. STEP A: Draw the 100% SOLID BACKDROP FIRST onto canvasCtx!
+    // This guarantees the backdrop covers the entire screen, and can NEVER be erased when moving your head!
     canvasCtx.save();
     canvasCtx.clearRect(0, 0, 1280, 720);
 
     if (currentBg === 'blur-soft' || currentBg === 'blur-deep') {
-      // Step A: Draw 100% solid, anti-aliased mask
-      canvasCtx.drawImage(maskCanvas, 0, 0, 1280, 720);
-
-      // Step B: Draw crisp, solid person inside mask (100% opaque, NO blur on person)
-      canvasCtx.globalCompositeOperation = 'source-in';
-      if (filterStr !== 'none') canvasCtx.filter = filterStr;
-      canvasCtx.drawImage(results.image, 0, 0, 1280, 720);
-
-      // Step C: Draw blurred room background BEHIND the person
-      canvasCtx.globalCompositeOperation = 'destination-over';
       const blurRadius = currentBg === 'blur-deep' ? '28px' : '14px';
       canvasCtx.filter = (filterStr !== 'none' ? filterStr + ' ' : '') + `blur(${blurRadius})`;
       canvasCtx.drawImage(results.image, -25, -15, 1330, 750);
-
     } else if (currentBg === 'penthouse' || currentBg === 'office' || currentBg === 'studio') {
-      // Step A: Draw 100% solid, anti-aliased mask
-      canvasCtx.drawImage(maskCanvas, 0, 0, 1280, 720);
-
-      // Step B: Draw crisp, solid person inside mask (100% opaque, NO translucency)
-      canvasCtx.globalCompositeOperation = 'source-in';
-      if (filterStr !== 'none') canvasCtx.filter = filterStr;
-      canvasCtx.drawImage(results.image, 0, 0, 1280, 720);
-
-      // Step C: Draw photorealistic luxury backdrop BEHIND the person
-      canvasCtx.globalCompositeOperation = 'destination-over';
       canvasCtx.filter = 'none';
-
       const bgImg = bgImages[currentBg];
       if (bgImg && bgImg.complete && bgImg.naturalWidth > 0) {
         canvasCtx.drawImage(bgImg, 0, 0, 1280, 720);
@@ -542,14 +530,29 @@
         canvasCtx.fillStyle = grad;
         canvasCtx.fillRect(0, 0, 1280, 720);
       }
-
     } else {
       // Raw background with tone/lighting filter
       if (filterStr !== 'none') canvasCtx.filter = filterStr;
       canvasCtx.drawImage(results.image, 0, 0, 1280, 720);
+      canvasCtx.restore();
+      return;
     }
-
     canvasCtx.restore();
+
+    // 4. STEP B: Cut out ONLY the person on offscreen personCanvas
+    personCtx.save();
+    personCtx.clearRect(0, 0, 1280, 720);
+    if (filterStr !== 'none') personCtx.filter = filterStr;
+    personCtx.drawImage(results.image, 0, 0, 1280, 720);
+
+    // Clip strictly to the person's silhouette using destination-in
+    personCtx.globalCompositeOperation = 'destination-in';
+    personCtx.filter = 'none';
+    personCtx.drawImage(maskCanvas, 0, 0, 1280, 720);
+    personCtx.restore();
+
+    // 5. STEP C: Composite the crisp, solid person directly ON TOP of the solid backdrop!
+    canvasCtx.drawImage(personCanvas, 0, 0, 1280, 720);
   }
 
   async function renderProcessedFrame() {
@@ -786,6 +789,8 @@
       const video = document.createElement('video');
       video.autoplay = true;
       video.playsInline = true;
+      video.setAttribute('playsinline', '');
+      video.setAttribute('webkit-playsinline', '');
       video.muted = false; // MUST be unmuted to hear other attendees!
       video.volume = 1.0;
       video.srcObject = stream;
@@ -794,20 +799,23 @@
       label.className = 'participant-label';
       label.innerHTML = `<span class="status-dot"></span><span>${escapeHtml(peerName)}</span>`;
 
-      // Autoplay blocker recovery: if browser blocks unmuted audio, provide an instant tap-to-unmute pill
+      // Autoplay blocker recovery: if browser blocks unmuted audio on mobile or desktop, immediately start muted then show unmute pill
       const playPromise = video.play();
       if (playPromise !== undefined) {
         playPromise.catch(err => {
-          console.warn('[Remote video play blocked by browser policy]', err);
-          const unmuteBtn = document.createElement('button');
-          unmuteBtn.type = 'button';
-          unmuteBtn.className = 'remote-unmute-btn';
-          unmuteBtn.innerHTML = '🔊 Click to listen';
-          unmuteBtn.onclick = () => {
-            video.muted = false;
-            video.play().then(() => unmuteBtn.remove()).catch(e => console.warn(e));
-          };
-          card.appendChild(unmuteBtn);
+          console.warn('[Remote video play blocked by browser policy, starting muted]', err);
+          video.muted = true;
+          video.play().then(() => {
+            const unmuteBtn = document.createElement('button');
+            unmuteBtn.type = 'button';
+            unmuteBtn.className = 'remote-unmute-btn';
+            unmuteBtn.innerHTML = '🔊 Click to listen';
+            unmuteBtn.onclick = () => {
+              video.muted = false;
+              unmuteBtn.remove();
+            };
+            card.appendChild(unmuteBtn);
+          }).catch(e => console.warn(e));
         });
       }
 
