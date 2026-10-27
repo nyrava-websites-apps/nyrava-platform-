@@ -58,6 +58,47 @@
     ]
   };
 
+  // SDP & Bitrate Optimization for Crystal-Clear Studio Quality
+  function optimizeSdp(sdp) {
+    if (!sdp || typeof sdp !== 'string') return sdp;
+    // 1. Opus Studio Voice Quality (128 kbps, FEC enabled, stereo, cbr)
+    if (sdp.includes('opus/48000')) {
+      sdp = sdp.replace(
+        /a=fmtp:(\d+) (minptime=\d+;useinbandfec=\d+)?(.*)/g,
+        'a=fmtp:$1 useinbandfec=1;stereo=1;sprop-stereo=1;maxaveragebitrate=128000;cbr=1$3'
+      );
+    }
+    // 2. Video High-Def Bitrate Target (2500 kbps for Full HD)
+    if (!sdp.includes('b=AS:')) {
+      sdp = sdp.replace(/(m=video \d+ [A-Z\/]+ [0-9 ]+)/g, '$1\r\nb=AS:2500\r\nb=TIAS:2500000');
+    }
+    return sdp;
+  }
+
+  async function optimizeSenderParameters(targetPc) {
+    try {
+      const senders = targetPc.getSenders();
+      for (const sender of senders) {
+        if (!sender.track) continue;
+        const params = sender.getParameters();
+        if (!params.encodings || params.encodings.length === 0) {
+          params.encodings = [{}];
+        }
+        if (sender.track.kind === 'video') {
+          params.encodings[0].maxBitrate = 2500000; // 2.5 Mbps Full HD
+          params.encodings[0].priority = 'high';
+          params.encodings[0].networkPriority = 'high';
+          params.degradationPreference = 'maintain-framerate';
+        } else if (sender.track.kind === 'audio') {
+          params.encodings[0].maxBitrate = 128000; // 128 kbps Studio audio
+          params.encodings[0].priority = 'high';
+          params.encodings[0].networkPriority = 'high';
+        }
+        await sender.setParameters(params);
+      }
+    } catch (_) {}
+  }
+
   // 3. Connect to Signaling Server
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const ws = new WebSocket(`${protocol}//${window.location.host}`);
@@ -97,9 +138,12 @@
       if (data.type === 'offer') {
         const pc = peerConnections.get(data.from);
         if (pc) {
+          if (data.offer && data.offer.sdp) data.offer.sdp = optimizeSdp(data.offer.sdp);
           await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
           const answer = await pc.createAnswer();
+          answer.sdp = optimizeSdp(answer.sdp);
           await pc.setLocalDescription(answer);
+          optimizeSenderParameters(pc);
           ws.send(JSON.stringify({
             type: 'answer',
             target: data.from,
@@ -111,7 +155,9 @@
       if (data.type === 'answer') {
         const pc = peerConnections.get(data.from);
         if (pc) {
+          if (data.answer && data.answer.sdp) data.answer.sdp = optimizeSdp(data.answer.sdp);
           await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+          optimizeSenderParameters(pc);
         }
       }
 
@@ -135,7 +181,7 @@
     }
   };
 
-  // 4. Local Media Initializer with Robust Tiered Fallbacks
+  // 4. Local Media Initializer with High-Fidelity Studio Audio & Full HD Video
   async function startLocalMedia(videoDeviceId, audioDeviceId) {
     if (rawCameraStream) {
       try {
@@ -144,10 +190,14 @@
       rawCameraStream = null;
     }
 
+    // Studio-Grade Audio Constraints: 48kHz sampling, acoustic echo cancellation, noise suppression
     const audioConstraints = {
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true
+      echoCancellation: { ideal: true },
+      noiseSuppression: { ideal: true },
+      autoGainControl: { ideal: true },
+      sampleRate: { ideal: 48000 },
+      sampleSize: { ideal: 16 },
+      channelCount: { ideal: 2 }
     };
     if (audioDeviceId) {
       audioConstraints.deviceId = { exact: audioDeviceId };
@@ -156,36 +206,49 @@
     let stream = null;
     let cameraFailure = null;
 
-    // Tier 1: Optimal 720p with echo-cancelled audio
+    // Tier 1: Optimal Full HD 1080p @ 30fps
     try {
       const constraints = {
         video: videoDeviceId
-          ? { deviceId: { exact: videoDeviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
-          : { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+          ? { deviceId: { exact: videoDeviceId }, width: { ideal: 1920, min: 1280 }, height: { ideal: 1080, min: 720 }, frameRate: { ideal: 30, min: 24 } }
+          : { width: { ideal: 1920, min: 1280 }, height: { ideal: 1080, min: 720 }, frameRate: { ideal: 30, min: 24 }, facingMode: 'user' },
         audio: audioConstraints
       };
       stream = await navigator.mediaDevices.getUserMedia(constraints);
     } catch (err1) {
-      console.warn('[Media Tier 1 Failed] HD video constraints rejected:', err1.message);
+      console.warn('[Media Tier 1 Full HD Failed] Fallback to 720p:', err1.message);
       cameraFailure = err1;
 
-      // Tier 2: Unconstrained video + audio fallback
+      // Tier 2: 720p HD fallback
       try {
-        const fallbackConstraints = {
-          video: videoDeviceId ? { deviceId: { exact: videoDeviceId } } : true,
+        const hdConstraints = {
+          video: videoDeviceId
+            ? { deviceId: { exact: videoDeviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+            : { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
           audio: audioConstraints
         };
-        stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
+        stream = await navigator.mediaDevices.getUserMedia(hdConstraints);
         cameraFailure = null;
       } catch (err2) {
-        console.warn('[Media Tier 2 Failed] Standard video rejected:', err2.message);
+        console.warn('[Media Tier 2 HD Failed] Fallback to standard video:', err2.message);
         cameraFailure = err2;
 
-        // Tier 3: Audio-only fallback if camera is busy or locked by another app
+        // Tier 3: Adaptive standard video
         try {
-          stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints, video: false });
+          const fallbackConstraints = {
+            video: videoDeviceId ? { deviceId: { exact: videoDeviceId } } : true,
+            audio: audioConstraints
+          };
+          stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
+          cameraFailure = null;
         } catch (err3) {
-          console.warn('[Media Tier 3 Failed] Audio-only rejected:', err3.message);
+          console.warn('[Media Tier 3 Standard Failed] Fallback to audio-only:', err3.message);
+          // Tier 4: Audio-only fallback if camera is busy or locked by another app
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints, video: false });
+          } catch (err4) {
+            console.warn('[Media Tier 4 Audio-only Failed]:', err4.message);
+          }
         }
       }
     }
@@ -551,9 +614,58 @@
       renderRemoteVideo(peerId, peerName, stream, event.track);
     };
 
+    // SDP & Bitrate Optimization for Crystal-Clear Studio Quality
+    function optimizeSdp(sdp) {
+      if (!sdp || typeof sdp !== 'string') return sdp;
+      // 1. Opus Studio Voice Quality (128 kbps, FEC enabled, stereo, cbr)
+      if (sdp.includes('opus/48000')) {
+        sdp = sdp.replace(
+          /a=fmtp:(\d+) (minptime=\d+;useinbandfec=\d+)?(.*)/g,
+          'a=fmtp:$1 useinbandfec=1;stereo=1;sprop-stereo=1;maxaveragebitrate=128000;cbr=1$3'
+        );
+      }
+      // 2. Video High-Def Bitrate Target (2500 kbps for Full HD)
+      if (!sdp.includes('b=AS:')) {
+        sdp = sdp.replace(/(m=video \d+ [A-Z\/]+ [0-9 ]+)/g, '$1\r\nb=AS:2500\r\nb=TIAS:2500000');
+      }
+      return sdp;
+    }
+
+    async function optimizeSenderParameters(targetPc) {
+      try {
+        const senders = targetPc.getSenders();
+        for (const sender of senders) {
+          if (!sender.track) continue;
+          const params = sender.getParameters();
+          if (!params.encodings || params.encodings.length === 0) {
+            params.encodings = [{}];
+          }
+          if (sender.track.kind === 'video') {
+            params.encodings[0].maxBitrate = 2500000; // 2.5 Mbps Full HD
+            params.encodings[0].priority = 'high';
+            params.encodings[0].networkPriority = 'high';
+            params.degradationPreference = 'maintain-framerate';
+          } else if (sender.track.kind === 'audio') {
+            params.encodings[0].maxBitrate = 128000; // 128 kbps Studio audio
+            params.encodings[0].priority = 'high';
+            params.encodings[0].networkPriority = 'high';
+          }
+          await sender.setParameters(params);
+        }
+      } catch (_) {}
+    }
+
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === 'connected') {
+        optimizeSenderParameters(pc);
+      }
+    };
+
     if (isInitiator) {
       const offer = await pc.createOffer();
+      offer.sdp = optimizeSdp(offer.sdp);
       await pc.setLocalDescription(offer);
+      optimizeSenderParameters(pc);
       ws.send(JSON.stringify({
         type: 'offer',
         target: peerId,
