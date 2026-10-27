@@ -24,7 +24,13 @@ $('workEmail').value=u.communications?.workEmail??u.email??'';$('signature').val
 $('avatar').replaceChildren();if(u.profilePhotoUrl){const img=document.createElement('img');img.alt='Profile photo';img.src=u.profilePhotoUrl+'?v='+Date.now();img.style.cssText='width:104px;height:104px;object-fit:cover;border-radius:50%';$('avatar').append(img);}else $('avatar').textContent=(u.fullName||u.email||'?').slice(0,1).toUpperCase();
 $('agencyLogo').hidden=employee;$('logoPreview').hidden=!u.brokerageLogoUrl;if(u.brokerageLogoUrl)$('logoPreview').src=u.brokerageLogoUrl+'?v='+Date.now();
 $('subscription').hidden=employee;$('subscriptionSummary').textContent=(u.deliveredToday??0)+' delivered today · '+(u.delivered30Days??0)+' in the past 30 days';$('zips').replaceChildren();for(const zip of u.activeZips||[]){const el=document.createElement('span');el.className='zip';el.textContent=zip;$('zips').append(el);}
-agencyView(employee?(u.agencies||[]):[{name:u.brokerage,realtorName:u.fullName,...u.details}]);}
+agencyView(employee?(u.agencies||[]):[{name:u.brokerage,realtorName:u.fullName,...u.details}]);
+  if(window.parent && window.parent !== window) {
+    setTimeout(() => {
+      window.parent.postMessage({ type: 'nyrava-embedded-size', section: 'profile', height: document.documentElement.scrollHeight }, '*');
+    }, 150);
+  }
+}
 $('profileForm').addEventListener('input',()=>{dirty=true;});window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue='';}});
 $('profileForm').onsubmit=async event=>{event.preventDefault();if(busy||!saved||loadFailed)return;busy=true;$('save').disabled=true;try{const details={};for(const input of document.querySelectorAll('[data-profile-detail]'))details[input.dataset.profileDetail]=input.value.trim();const payload={fullName:$('name').value.trim(),details,communications:{workEmail:$('workEmail').value.trim(),signature:$('signature').value.trim()}};if(!employee)payload.brokerage=$('brokerage').value.trim();draw(await request('/api/subscriber/profile',{method:'PUT',body:JSON.stringify(payload)}));status('Profile saved. Client communications use your own apps.');}catch(e){status(e.message,true);}finally{busy=false;$('save').disabled=false;}};
 $('cancel').onclick=()=>{if(!busy&&saved){draw(saved);$('notice').style.display='none';}};

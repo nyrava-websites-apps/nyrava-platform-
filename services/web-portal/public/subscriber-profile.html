@@ -9,6 +9,7 @@
   html.is-embedded #rail,
   html.is-embedded header,
   html.is-embedded .brand,
+  html.is-embedded .intro,
   html.is-embedded .rail-footer {
     display: none !important;
   }
@@ -18,17 +19,39 @@
     display: block !important;
     background: transparent !important;
     min-height: auto !important;
-    overflow-x: hidden !important;
+    overflow: visible !important;
   }
   html.is-embedded .workspace-main {
     margin: 0 !important;
     padding: 0 !important;
     width: 100% !important;
+    background: transparent !important;
   }
   html.is-embedded main {
     max-width: 100% !important;
     margin: 0 auto !important;
-    padding: 10px 16px !important;
+    padding: 0 4px !important;
+  }
+  /* Standalone clean top header */
+  .workspace-main > header.top {
+    height: 70px;
+    background: #ffffff;
+    border-bottom: 1px solid #DFE6F0;
+    padding: 0 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .workspace-main > header.top h1 {
+    font-size: 22px;
+    margin: 0;
+    color: #081A3A;
+  }
+  .workspace-main > header.top p {
+    font-size: 13px;
+    color: #596579;
+    margin: 2px 0 0;
   }
 </style>
 <style>
@@ -64,8 +87,8 @@
     <div class="rail-footer">Only your authorized clients and territories are visible here.</div>
   </aside>
   <div class="workspace-main">
-<header><div class="brand">NYRAVA HOME<small>YOUR PROFESSIONAL PROFILE</small></div><nav><a id="workspaceLink" href="/crm.html">Back to workspace</a><a href="/subscriber-profile.html" aria-current="page">Profile & communications</a></nav></header>
-<main><div class="intro"><div><h1>Profile & communications</h1><p>Your identity, agency information and client contact preferences.</p></div><span id="badge" class="chip">Loading…</span></div>
+<header class="top"><div><h1>Profile &amp; Communications</h1><p>Your identity, agency information and client contact preferences.</p></div><div class="header-actions" style="display:flex;align-items:center;gap:12px;"><span id="badge" class="chip">Loading…</span><a id="workspaceLink" href="/dashboard/home" style="display:inline-flex;align-items:center;gap:6px;background:#fff;color:#0866FF;border:1px solid #DFE6F0;border-radius:8px;padding:8px 14px;font-weight:700;font-size:13px;text-decoration:none;">← Back to Dashboard</a></div></header>
+<main>
 <p id="notice" class="status" role="status" aria-live="polite"></p><div id="signin" class="card">Please <a href="/nyrava-signin.html">sign in</a> to manage your profile.</div>
 <label class="banner-choice" id="bannerChoice" hidden>Agency banner<select id="bannerAgency"></select></label><section class="profile-cover" id="profileCover" aria-label="Agency cover banner" hidden><img id="bannerImage" alt="Agency cover banner" hidden><div class="cover-caption"><small>AGENCY PROFILE</small><strong id="bannerAgencyName"></strong></div></section><div class="layout" id="content" hidden><aside><section class="card identity"><div class="avatar" id="avatar">—</div><h2 id="displayName"></h2><p class="meta" id="displayEmail"></p><div class="divider"></div><p id="accountRole" class="meta"></p></section><section class="card"><h2>Your agency</h2><div id="agencyDetails"></div></section><section class="card"><h2>Account security</h2><p class="muted">Your login email stays unchanged. Never enter your mailbox password on this page.</p><div class="actions"><button id="logout" class="outline">Sign out</button></div></section></aside>
 <div><form id="profileForm"><section class="card"><h2>Personal information</h2><div class="fieldgrid"><div><label for="name">Full name</label><input id="name" required maxlength="160" autocomplete="name"></div><div><label for="email">Login email</label><input id="email" readonly type="email" autocomplete="email"></div><div><label for="brokerage">Agency / business name</label><input id="brokerage" maxlength="160" autocomplete="organization"></div><div><label for="role">Account role</label><input id="role" readonly></div></div><div class="fieldgrid" id="profileFields" style="margin-top:14px"></div></section>

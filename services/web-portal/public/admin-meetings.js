@@ -104,6 +104,64 @@
     };
   }
 
+  // Live Instant Room Controls
+  const btnJoin = $('btnJoinRoom');
+  const btnCopyRoom = $('btnCopyRoomLink');
+  const roomInput = $('roomNameInput');
+  const roomNotice = $('roomNotice');
+
+  if (btnJoin && roomInput) {
+    btnJoin.onclick = () => {
+      const room = encodeURIComponent(roomInput.value.trim() || 'admin-boardroom');
+      window.open('https://meet.nyrava.com/room/' + room, '_blank');
+    };
+  }
+
+  if (btnCopyRoom && roomInput) {
+    btnCopyRoom.onclick = () => {
+      const room = encodeURIComponent(roomInput.value.trim() || 'admin-boardroom');
+      const url = 'https://meet.nyrava.com/room/' + room;
+      navigator.clipboard.writeText(url).then(() => {
+        if (roomNotice) roomNotice.textContent = '✓ Link copied to clipboard: ' + url;
+        setTimeout(() => { if (roomNotice) roomNotice.textContent = ''; }, 4000);
+      });
+    };
+  }
+
+  // Sales / Team Member Subscription Invites
+  const btnInvite = $('btnGenerateInvite');
+  const planSelect = $('invitePlanSelect');
+  const zipInput = $('inviteZipInput');
+  const nameInput = $('inviteNameInput');
+  const inviteNotice = $('inviteNotice');
+  const previewLink = $('previewInviteLink');
+
+  function getInviteUrl() {
+    const plan = planSelect ? planSelect.value : 'PRO';
+    const zip = zipInput ? zipInput.value.trim() : '';
+    const name = nameInput ? nameInput.value.trim() : '';
+    const params = new URLSearchParams({ plan, ref: 'admin' });
+    if (zip) params.set('zip', zip);
+    if (name) params.set('name', name);
+    return 'https://home.nyrava.com/billing-checkout.html?' + params.toString();
+  }
+
+  if (planSelect && previewLink) {
+    planSelect.onchange = () => {
+      previewLink.href = getInviteUrl();
+    };
+  }
+
+  if (btnInvite) {
+    btnInvite.onclick = () => {
+      const url = getInviteUrl();
+      navigator.clipboard.writeText(url).then(() => {
+        if (inviteNotice) inviteNotice.textContent = '✓ Sales subscription invitation link copied: ' + url;
+        setTimeout(() => { if (inviteNotice) inviteNotice.textContent = ''; }, 5000);
+      });
+    };
+  }
+
   (async () => {
     try {
       const s = await api('session');

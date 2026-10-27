@@ -23,6 +23,8 @@
       <a href="/admin.html#support" class="nav-btn">Support & replacements</a>
       <a href="/admin.html#rules" class="nav-btn">Plans & delivery rules</a>
       <a href="/admin.html#activity" class="nav-btn">Recent activity</a>
+      <a href="https://meet.nyrava.com/room/admin-boardroom" target="_blank" class="nav-btn" style="background:#0866FF;color:#fff!important;font-weight:700;border-radius:8px;padding:9px 12px;margin:5px 0;display:flex;align-items:center;gap:6px;text-decoration:none;"><span style="font-size:16px;">📹</span> Start Video Meet</a>
+      <a href="/team-chat.html" target="_blank" class="nav-btn" style="display:flex;align-items:center;gap:6px;"><span style="font-size:15px;">💬</span> Team Chat ↗</a>
       <a href="/fsbo-admin.html">FSBO collection</a>
       <a href="/admin-prospect-bank.html">Admin prospect bank</a>
       <a href="/fsbo-legacy.html">Legacy scraper controls</a>
@@ -55,6 +57,63 @@
       <p id="status" class="status-banner" role="status" aria-live="polite">Checking administrator access…</p>
 
       <form id="controls" class="meeting-panel" hidden>
+        <!-- Live Instant Meeting Room Launcher -->
+        <section class="meeting-card" style="border: 2px solid #0866FF; background: #f0f7ff;">
+          <div class="card-header">
+            <div>
+              <h2 style="color: #0866FF; display: flex; align-items: center; gap: 8px;">
+                <span>📹</span> Launch Live Video Meeting
+              </h2>
+              <p class="caption">Join instantly as Administrator or copy an invite link to consult with clients or team members.</p>
+            </div>
+            <a href="https://meet.nyrava.com/room/admin-boardroom" target="_blank" class="status-badge good" style="text-decoration:none;font-weight:700;">Open Boardroom ↗</a>
+          </div>
+          <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 14px;">
+            <input id="roomNameInput" type="text" value="admin-boardroom" placeholder="Enter room name" style="padding: 10px 14px; border: 1px solid #DFE6F0; border-radius: 8px; font-weight: 600; min-width: 240px; font-size: 14px; background:#fff;">
+            <button id="btnJoinRoom" type="button" class="btn primary" style="background: #0866FF; padding: 10px 18px; font-weight: 700;">Join Room ↗</button>
+            <button id="btnCopyRoomLink" type="button" class="btn secondary" style="padding: 10px 16px;">Copy Room Invite Link</button>
+            <a href="/team-chat.html" target="_blank" class="btn secondary" style="padding: 10px 16px; text-decoration: none;">Open Team Chat 💬 ↗</a>
+          </div>
+          <p id="roomNotice" class="hint" style="margin-top: 10px; font-weight: 600; color: #059669;"></p>
+        </section>
+
+        <!-- Invite Team Members / Realtors to Platform Subscription -->
+        <section class="meeting-card" style="border: 1px solid #059669; background: #f0fdf4;">
+          <div class="card-header">
+            <div>
+              <h2 style="color: #059669; display: flex; align-items: center; gap: 8px;">
+                <span>🎟️</span> Invite Team Member / Sales Subscription
+              </h2>
+              <p class="caption">Generate and send direct invitation links for new Realtors or team members to subscribe to the platform.</p>
+            </div>
+            <span class="status-badge good">Sales Ready</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-top: 14px;">
+            <div>
+              <label style="display: block; font-size: 12px; font-weight: 700; color: #374151; margin-bottom: 4px;">Target Subscription Plan</label>
+              <select id="invitePlanSelect" style="width: 100%; padding: 10px; border: 1px solid #DFE6F0; border-radius: 8px; font-size: 14px; background: #fff;">
+                <option value="PRO">Pro Plan — $349 Annual Setup / $149 mo (20 ZIPs)</option>
+                <option value="BASIC">Basic Plan — $349 Annual Setup / $89 mo (5 ZIPs)</option>
+              </select>
+            </div>
+            <div>
+              <label style="display: block; font-size: 12px; font-weight: 700; color: #374151; margin-bottom: 4px;">Recipient Name (Optional)</label>
+              <input id="inviteNameInput" type="text" placeholder="e.g. Sarah Connor" style="width: 100%; padding: 10px; border: 1px solid #DFE6F0; border-radius: 8px; font-size: 14px; background:#fff;">
+            </div>
+            <div>
+              <label style="display: block; font-size: 12px; font-weight: 700; color: #374151; margin-bottom: 4px;">Assigned Territory ZIP (Optional)</label>
+              <input id="inviteZipInput" type="text" maxlength="5" placeholder="e.g. 78701" style="width: 100%; padding: 10px; border: 1px solid #DFE6F0; border-radius: 8px; font-size: 14px; background:#fff;">
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 16px;">
+            <button id="btnGenerateInvite" type="button" class="btn primary" style="background: #059669; padding: 10px 18px; font-weight: 700;">Copy Subscription Link</button>
+            <a id="previewInviteLink" href="https://home.nyrava.com/billing-checkout.html?plan=PRO" target="_blank" class="btn secondary" style="padding: 10px 16px; text-decoration: none;">Preview Checkout Page ↗</a>
+          </div>
+          <p id="inviteNotice" class="hint" style="margin-top: 10px; font-weight: 600; color: #059669;"></p>
+        </section>
+
         <!-- Availability Section -->
         <section class="meeting-card">
           <div class="card-header">
@@ -132,7 +191,7 @@
         <div class="meeting-actions">
           <button type="submit" class="btn primary">Save meeting controls</button>
           <button id="refresh" type="button" class="btn quiet">Refresh status</button>
-          <a href="https://meet.home.nyrava.com/room/admin-test-boardroom" target="_blank" rel="noopener noreferrer" class="btn secondary">
+          <a href="https://meet.nyrava.com/room/admin-boardroom" target="_blank" rel="noopener noreferrer" class="btn secondary">
             Launch Test Room ↗
           </a>
         </div>
