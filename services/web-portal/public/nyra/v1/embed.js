@@ -8,62 +8,61 @@
   const scriptSrc = script ? script.src : '/nyra/v1/embed.js';
   const rootUrl = new URL('.', new URL(scriptSrc, window.location.href));
 
-  // Section Tour Definition
+  // Section Tour Definition (Short, punchy, ending on pricing)
   const tourSections = [
     {
       target: '#top',
       selector: '.nw-wordmark',
-      text: "Welcome to Nyrava Home! I am Nyra. We connect licensed real estate professionals with verified local buyer and seller opportunities across 60 US metro territories.",
+      text: "Welcome to Nyrava Home! I am Nyra, your platform guide.",
       name: "Welcome"
     },
     {
       target: '.nw-hero',
       selector: '.nw-hero-copy',
-      text: "Our platform gives you more time with clients and less time finding them, with predictive analytics, verified local leads, and complete team tools.",
+      text: "We connect licensed Realtors with verified buyer and seller opportunities across sixty US metro territories.",
       name: "Overview"
     },
     {
-      target: '.nw-homeowner',
-      selector: '.nw-homeowner-inner',
-      text: "Homeowners use our valuation and moving tools to request help buying or selling, creating direct inbound opportunities for participating local Realtors.",
-      name: "Inbound Leads"
+      target: '#fsbo-section',
+      selector: '#fsbo-section',
+      text: "Homeowners can list their homes for sale by owner with zero fees, generating direct, exclusive seller opportunities for local agents.",
+      name: "FSBO Listings"
     },
     {
       target: '.nw-features',
       selector: '.nw-feature-grid',
-      text: "Explore our core features: verified lead generation, comprehensive home-value reports, and connected team follow-up tools all in one workspace.",
+      text: "Access verified lead generation, automated home-value reports, and AI assistance to keep your business moving forward.",
       name: "Platform Tools"
     },
     {
       target: '#realtor-how-it-works',
       selector: '.realtor-explainer-grid',
-      text: "How it works: We use predictive analytics to identify signals, qualify buyer and seller intent, and deliver organized opportunities ready for your follow-up.",
+      text: "Predictive analytics identify market signals, and our qualification verifies intent before opportunities reach your workspace.",
       name: "How It Works"
     },
     {
       target: '#realtor-tools',
       selector: '.tool-grid',
-      text: "Your team gets one connected workspace for lead summaries, AI follow-up assistance, private valuation reports, and organized task reminders.",
+      text: "Give your team one connected workspace for lead summaries, AI follow-up drafting, and calendar reminders.",
       name: "Team Workspace"
     },
     {
       target: '#zip-availability',
       selector: '#zip-availability-form',
-      text: "Check territory availability in your target ZIP codes. We limit subscriber capacity per ZIP so your opportunities remain exclusive.",
-      name: "Territory Capacity"
+      text: "Check territory capacity in your target ZIP codes before they fill up. We cap subscribers to protect your pipeline.",
+      name: "Territories"
     },
     {
       target: '#pricing',
       selector: '.pricing-grid',
-      text: "Our transparent pricing: Basic at $89 a month or Pro at $149 a month, with a $349 annual license that includes your first month of service.",
-      name: "Plans & Pricing"
+      text: "Pricing is transparent: a 349 dollar annual license includes your first month, then Basic at 89 or Pro at 149 dollars monthly. Join today!",
+      name: "Pricing"
     }
   ];
 
   let currentStep = -1;
   let isTouring = false;
   let isSpeaking = false;
-  let activeUtterance = null;
   let highlightEl = null;
   let originalOutline = '';
 
@@ -101,44 +100,30 @@
         transition: transform 0.2s ease;
       }
       .nyra-avatar-btn:hover {
-        transform: scale(1.1);
+        transform: scale(1.08);
       }
       .nyra-avatar-img {
         width: 100%;
         height: 100%;
         object-fit: contain;
-        filter: drop-shadow(0 2px 5px rgba(8, 102, 255, 0.3));
+        filter: drop-shadow(0 2px 4px rgba(8, 102, 237, 0.25));
       }
       .nyra-avatar-btn.is-talking .nyra-avatar-img {
-        animation: nyraBounce 0.5s infinite alternate ease-in-out;
+        animation: nyraBounce 0.45s infinite alternate ease-in-out;
       }
       @keyframes nyraBounce {
         from { transform: translateY(0); }
         to { transform: translateY(-3px); }
       }
-      .nyra-badge {
-        position: absolute;
-        top: -3px;
-        right: -3px;
-        background: #0866ff;
-        color: #fff;
-        font-size: 8px;
-        font-weight: 800;
-        border-radius: 8px;
-        padding: 1px 4px;
-        border: 1px solid #fff;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-      }
 
-      /* Compact Floating Action Pill */
+      /* Floating Action Pill during Tour */
       .nyra-tour-pill {
         display: none;
         align-items: center;
         gap: 8px;
         background: #081a3a;
         color: #ffffff;
-        padding: 5px 12px;
+        padding: 6px 14px;
         border-radius: 20px;
         box-shadow: 0 4px 16px rgba(8, 26, 58, 0.35);
         font-size: 12px;
@@ -153,7 +138,7 @@
         color: #fff;
         border: none;
         border-radius: 12px;
-        padding: 3px 8px;
+        padding: 4px 10px;
         font-size: 11px;
         font-weight: 700;
         cursor: pointer;
@@ -170,16 +155,16 @@
         background: #dc2626;
       }
 
-      /* Fixed Touring Overlay Placement */
+      /* Floating Placement when scrolling */
       .nyra-companion.floating {
         position: fixed;
-        left: 20px;
+        left: 24px;
         bottom: 24px;
         background: #ffffff;
         border: 1px solid #dce5ef;
-        padding: 6px 12px;
+        padding: 6px 14px;
         border-radius: 30px;
-        box-shadow: 0 8px 28px rgba(8, 26, 58, 0.25);
+        box-shadow: 0 10px 30px rgba(8, 26, 58, 0.22);
         z-index: 999999;
       }
       .nyra-companion.floating .nyra-tour-pill {
@@ -210,7 +195,7 @@
       .nyra-audio-wave span {
         width: 3px;
         height: 100%;
-        background: #00bfc5;
+        background: #0866ed;
         border-radius: 2px;
         animation: waveAnim 0.8s infinite ease-in-out;
       }
@@ -223,18 +208,17 @@
     </style>
 
     <div class="nyra-companion" id="nyraCompanion">
-      <button type="button" class="nyra-avatar-btn" id="nyraAvatarBtn" title="Click to listen to Nyra explain the platform" aria-label="Listen to Nyra Tour">
+      <button type="button" class="nyra-avatar-btn" id="nyraAvatarBtn" title="Click to listen to Nyra explain Nyrava Home" aria-label="Listen to Nyra">
         <img class="nyra-avatar-img" id="nyraImg" src="${new URL('assets/nyra-original.png', rootUrl).href}" alt="Nyra Mascot">
-        <span class="nyra-badge" id="nyraBadge">Tour</span>
       </button>
 
       <div class="nyra-tour-pill" id="nyraPill">
         <div class="nyra-audio-wave" id="nyraWave" style="display:none;">
           <span></span><span></span><span></span>
         </div>
-        <span id="nyraStatusText">Touring</span>
+        <span id="nyraStatusText">Nyra</span>
         <button type="button" class="btn-pill-action" id="btnNextStep" title="Next Section">Next &gt;</button>
-        <button type="button" class="btn-pill-action btn-pill-stop" id="btnStopTour" title="Stop Tour">&#9209; Stop</button>
+        <button type="button" class="btn-pill-action btn-pill-stop" id="btnStopTour" title="Stop">&#9209; Stop</button>
       </div>
     </div>
   `;
@@ -260,13 +244,11 @@
   } else {
     mountCompanion();
   }
-  // Fallback mount after window load
   window.addEventListener('load', mountCompanion);
 
   const companion = shadow.getElementById('nyraCompanion');
   const avatarBtn = shadow.getElementById('nyraAvatarBtn');
   const avatarImg = shadow.getElementById('nyraImg');
-  const badge = shadow.getElementById('nyraBadge');
   const wave = shadow.getElementById('nyraWave');
   const statusText = shadow.getElementById('nyraStatusText');
   const btnNext = shadow.getElementById('btnNextStep');
@@ -292,7 +274,7 @@
     if (target) {
       highlightEl = target;
       originalOutline = target.style.outline || '';
-      target.style.outline = '3px solid #00bfc5';
+      target.style.outline = '3px solid #0866ed';
       target.style.outlineOffset = '6px';
       target.style.borderRadius = '8px';
       target.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -309,13 +291,13 @@
   // Speech Narration via Web Speech API
   function speak(text, onComplete) {
     if (!('speechSynthesis' in window)) {
-      setTimeout(onComplete, 4000);
+      setTimeout(onComplete, 3500);
       return;
     }
     window.speechSynthesis.cancel();
 
     const utter = new SpeechSynthesisUtterance(text);
-    utter.rate = 1.0;
+    utter.rate = 1.05;
     utter.pitch = 1.05;
     utter.lang = 'en-US';
 
@@ -346,7 +328,6 @@
       if (onComplete) onComplete();
     };
 
-    activeUtterance = utter;
     window.speechSynthesis.speak(utter);
   }
 
@@ -360,7 +341,6 @@
     avatarBtn.classList.remove('is-talking');
     wave.style.display = 'none';
     companion.classList.remove('active', 'floating');
-    badge.textContent = 'Tour';
     updateMascotImage('original');
     currentStep = -1;
   }
@@ -373,17 +353,14 @@
     currentStep = index;
     const step = tourSections[index];
 
-    // Position indicator
-    badge.textContent = `${index + 1}/${tourSections.length}`;
     statusText.textContent = step.name;
 
-    // Highlight and scroll to section
-    highlightSection(step.selector || step.target);
-
-    // Make companion float smoothly alongside the tour
+    // Highlight and scroll to section (except step 0 which is the logo at top)
     if (index > 0) {
+      highlightSection(step.selector || step.target);
       companion.classList.add('floating');
     } else {
+      clearHighlight();
       companion.classList.remove('floating');
     }
 
@@ -394,7 +371,7 @@
           if (isTouring && currentStep === index) {
             playStep(index + 1);
           }
-        }, 1200);
+        }, 900);
       }
     });
   }
@@ -427,7 +404,6 @@
     stopTour();
   };
 
-  // Expose global controller
   window.NyravaTour = {
     start: startTour,
     stop: stopTour,

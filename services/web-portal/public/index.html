@@ -121,13 +121,249 @@
     stroke-width: 2 !important;
     display: inline-block !important;
   }
+
+  /* FSBO Section Styles */
+  .fsbo-section {
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 72px 24px;
+    text-align: center;
+  }
+  .fsbo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 28px;
+    max-width: 1100px;
+    margin: 36px auto 44px;
+    text-align: left;
+  }
+  .fsbo-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 30px 24px;
+    box-shadow: 0 4px 14px rgba(8, 26, 58, 0.04);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .fsbo-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 24px rgba(8, 26, 58, 0.08);
+  }
+  .fsbo-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    background: #eff6ff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+  }
+  .fsbo-card h3 {
+    margin: 0 0 10px;
+    font-size: 19px;
+    font-weight: 700;
+    color: #081a3a;
+  }
+  .fsbo-card p {
+    margin: 0;
+    font-size: 14.5px;
+    color: #475569;
+    line-height: 1.55;
+  }
+  .fsbo-cta-wrap {
+    margin-top: 24px;
+  }
+  .fsbo-cta-btn {
+    display: inline-block;
+    padding: 14px 32px;
+    font-size: 16px;
+    font-weight: 700;
+    background: #0866ed;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(8, 102, 237, 0.28);
+    transition: background 0.2s, transform 0.15s;
+  }
+  .fsbo-cta-btn:hover {
+    background: #0652c0;
+    transform: translateY(-2px);
+  }
+
+  /* FSBO Modal Dialog */
+  .fsbo-modal-dialog {
+    border: 1px solid #cbd5e1;
+    border-radius: 16px;
+    padding: 0;
+    max-width: 680px;
+    width: 92%;
+    box-shadow: 0 24px 60px rgba(8, 26, 58, 0.25);
+    background: #ffffff;
+    outline: none;
+  }
+  .fsbo-modal-dialog::backdrop {
+    background: rgba(8, 26, 58, 0.55);
+    backdrop-filter: blur(4px);
+  }
+  .fsbo-dialog-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 24px 28px 16px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .fsbo-dialog-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    color: #0866ed;
+    background: #edf5ff;
+    padding: 3px 10px;
+    border-radius: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+  .fsbo-dialog-header h2 {
+    margin: 0 0 6px;
+    font-size: 22px;
+    color: #081a3a;
+  }
+  .fsbo-dialog-header p {
+    margin: 0;
+    font-size: 14px;
+    color: #64748b;
+  }
+  .fsbo-dialog-close {
+    background: transparent;
+    border: none;
+    font-size: 28px;
+    line-height: 1;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 4px;
+  }
+  .fsbo-dialog-close:hover {
+    color: #0f172a;
+  }
+  .fsbo-form {
+    padding: 24px 28px;
+  }
+  .fsbo-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .fsbo-field.full-width {
+    grid-column: 1 / -1;
+  }
+  .fsbo-field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 6px;
+  }
+  .fsbo-field input,
+  .fsbo-field select,
+  .fsbo-field textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #0f172a;
+    box-sizing: border-box;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .fsbo-field input:focus,
+  .fsbo-field select:focus,
+  .fsbo-field textarea:focus {
+    border-color: #0866ed;
+    box-shadow: 0 0 0 3px rgba(8, 102, 237, 0.12);
+  }
+  .fsbo-status-box {
+    margin-top: 16px;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .fsbo-status-box.success {
+    background: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+  }
+  .fsbo-status-box.error {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+  }
+  .fsbo-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid #f1f5f9;
+  }
+  .fsbo-submit-btn {
+    padding: 10px 20px;
+    background: #0866ed;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .fsbo-submit-btn:hover {
+    background: #0652c0;
+  }
 </style>
 
 </head>
 <body class="home-page"><a class="skip-link" href="#main-content">Skip to content</a>
-<header class="site-header" id="top"><div class="brand-group" style="display:flex;align-items:center;gap:10px;"><div id="nyra-companion-slot" style="display:inline-flex;align-items:center;min-width:38px;min-height:38px;"></div><a class="nw-wordmark" href="/" aria-label="Nyrava Home">nyrava <span>home</span></a></div><button class="menu-toggle" type="button" aria-expanded="false" aria-controls="main-nav" aria-label="Open navigation">Menu ☰</button><nav class="main-nav" id="main-nav" aria-label="Main navigation"><a href="/lead-generation.html">Get Leads</a><a href="/professional-tools.html">Professional Tools</a><a href="/resources.html">Resources</a><a href="#pricing">Plans</a><div class="nyrava-login-dropdown" id="nyLoginDropdown"><button type="button" class="nyrava-login-trigger" id="nyLoginBtn" aria-expanded="false" aria-haspopup="true"><span>Login</span><svg class="ny-caret" width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg></button><div class="nyrava-login-options" id="nyLoginOptions" role="menu" aria-label="Login Options"><a href="/nyrava-signin.html" role="menuitem"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0866ed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Realtor Login</span></a><a href="/nyrava-signin.html?role=employee" role="menuitem"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0866ed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Team Member Login</span></a><a href="/create-account.html" role="menuitem"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0866ed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg><span>Create Account</span></a></div></div><a class="nw-join" href="/create-account.html">Join Nyrava</a></nav></header>
-<main id="main-content"><div class="nw-main"><section class="nw-hero" aria-labelledby="hero-title"><div class="nw-hero-copy"><p class="nw-eyebrow">LEADS &amp; TOOLS FOR REAL ESTATE PROFESSIONALS</p><h1 id="hero-title">More time with clients.<br><span>Less time finding them.</span></h1><p class="nw-description">Buyer and seller opportunities in your market, with home-value reports, AI assistance, and tools to keep your team moving.</p><div class="nw-actions"><a class="nw-primary" href="/lead-generation.html">Explore lead generation →</a><a class="nw-secondary" href="/professional-tools.html">See the platform →</a></div><p class="nw-caption">Built for licensed Realtors and their teams.</p></div><div class="nw-photo nw-hero-photo" role="img" aria-label="Illustrative image of a Realtor reviewing property documents with clients"></div></section><section class="nw-homeowner" aria-label="Homeowner services"><div class="nw-homeowner-inner"><strong>Buying or selling a home?</strong><button type="button" data-open-realtor>Buy or Sell a Home →</button><button type="button" data-open-how-nyrava>How We Do It →</button><button type="button" data-open-realtor>Find a Realtor →</button><button type="button" data-open-valuation>Get a home value →</button></div></section><section class="nw-features" aria-labelledby="nw-feature-title"><h2 id="nw-feature-title">The support behind your next conversation.</h2><div class="nw-feature-grid"><article class="nw-feature" id="lead-generation"><a href="/lead-generation.html"><div class="nw-photo nw-lead-photo" role="img" aria-label="Illustrative residential neighborhood"></div><h3>Lead generation</h3></a><p>Discover potential buyer and seller opportunities, with context to guide your next step.</p><a class="nw-read" href="/lead-generation.html">How we find opportunities →</a></article><article class="nw-feature"><a href="/home-value-reports.html"><div class="nw-photo nw-report-photo" role="img" aria-label="Illustrative property research papers"></div><h3>Home-value reports</h3></a><p>Prepare property insights for better-informed client conversations.</p><a class="nw-read" href="/home-value-reports.html">Explore property insights →</a></article><article class="nw-feature"><a href="/ai-team-tools.html"><div class="nw-photo nw-team-photo" role="img" aria-label="Illustrative team working together"></div><h3>AI &amp; team tools</h3></a><p>Bring AI assistance and organized team follow-up into one workspace.</p><a class="nw-read" href="/ai-team-tools.html">See what your team can do →</a></article></div><p class="nw-fineprint">Lead availability and results vary. Images illustrate the platform's uses and are not customer testimonials.</p></section></div>
+<header class="site-header" id="top"><div class="brand-group" style="display:flex;align-items:center;gap:10px;"><div id="nyra-companion-slot" style="display:inline-flex;align-items:center;min-width:38px;min-height:38px;"></div><a class="nw-wordmark" href="/" aria-label="Nyrava Home">nyrava <span>home</span></a></div><button class="menu-toggle" type="button" aria-expanded="false" aria-controls="main-nav" aria-label="Open navigation">Menu ☰</button><nav class="main-nav" id="main-nav" aria-label="Main navigation"><a href="/lead-generation.html">Get Leads</a><a href="/professional-tools.html">Professional Tools</a><a href="/resources.html">Resources</a><a href="#fsbo-section">List Home (FSBO)</a><a href="#pricing">Plans</a><div class="nyrava-login-dropdown" id="nyLoginDropdown"><button type="button" class="nyrava-login-trigger" id="nyLoginBtn" aria-expanded="false" aria-haspopup="true"><span>Login</span><svg class="ny-caret" width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg></button><div class="nyrava-login-options" id="nyLoginOptions" role="menu" aria-label="Login Options"><a href="/nyrava-signin.html" role="menuitem"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0866ed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Realtor Login</span></a><a href="/nyrava-signin.html?role=employee" role="menuitem"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0866ed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Team Member Login</span></a><a href="/create-account.html" role="menuitem"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0866ed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg><span>Create Account</span></a></div></div><a class="nw-join" href="/create-account.html">Join Nyrava</a></nav></header>
+<main id="main-content"><div class="nw-main"><section class="nw-hero" aria-labelledby="hero-title"><div class="nw-hero-copy"><p class="nw-eyebrow">LEADS &amp; TOOLS FOR REAL ESTATE PROFESSIONALS</p><h1 id="hero-title">More time with clients.<br><span>Less time finding them.</span></h1><p class="nw-description">Buyer and seller opportunities in your market, with home-value reports, AI assistance, and tools to keep your team moving.</p><div class="nw-actions"><a class="nw-primary" href="/lead-generation.html">Explore lead generation →</a><a class="nw-secondary" href="/professional-tools.html">See the platform →</a></div><p class="nw-caption">Built for licensed Realtors and their teams.</p></div><div class="nw-photo nw-hero-photo" role="img" aria-label="Illustrative image of a Realtor reviewing property documents with clients"></div></section><section class="nw-homeowner" aria-label="Homeowner services"><div class="nw-homeowner-inner"><strong>Buying or selling a home?</strong><button type="button" data-open-fsbo id="btnOpenFsbo">List Your Home (FSBO) →</button><button type="button" data-open-realtor>Buy or Sell a Home →</button><button type="button" data-open-how-nyrava>How We Do It →</button><button type="button" data-open-realtor>Find a Realtor →</button><button type="button" data-open-valuation>Get a home value →</button></div></section><section class="nw-features" aria-labelledby="nw-feature-title"><h2 id="nw-feature-title">The support behind your next conversation.</h2><div class="nw-feature-grid"><article class="nw-feature" id="lead-generation"><a href="/lead-generation.html"><div class="nw-photo nw-lead-photo" role="img" aria-label="Illustrative residential neighborhood"></div><h3>Lead generation</h3></a><p>Discover potential buyer and seller opportunities, with context to guide your next step.</p><a class="nw-read" href="/lead-generation.html">How we find opportunities →</a></article><article class="nw-feature"><a href="/home-value-reports.html"><div class="nw-photo nw-report-photo" role="img" aria-label="Illustrative property research papers"></div><h3>Home-value reports</h3></a><p>Prepare property insights for better-informed client conversations.</p><a class="nw-read" href="/home-value-reports.html">Explore property insights →</a></article><article class="nw-feature"><a href="/ai-team-tools.html"><div class="nw-photo nw-team-photo" role="img" aria-label="Illustrative team working together"></div><h3>AI &amp; team tools</h3></a><p>Bring AI assistance and organized team follow-up into one workspace.</p><a class="nw-read" href="/ai-team-tools.html">See what your team can do →</a></article></div><p class="nw-fineprint">Lead availability and results vary. Images illustrate the platform's uses and are not customer testimonials.</p></section></div>
 
+
+<section class="home-section fsbo-section" id="fsbo-section" aria-labelledby="fsbo-heading">
+  <div class="section-intro">
+    <p class="eyebrow">FOR SALE BY OWNER (FSBO) DIRECT LISTING</p>
+    <h2 id="fsbo-heading">List your home for sale by owner. Zero listing fees.</h2>
+    <p>Sell directly to qualified buyers and get exclusive exposure to local verified Realtors ready to assist on your terms.</p>
+  </div>
+  <div class="fsbo-grid">
+    <article class="fsbo-card">
+      <div class="fsbo-icon" aria-hidden="true">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#0866ed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      </div>
+      <h3>Zero Listing Fees</h3>
+      <p>Keep 100% of your equity. Publish your home's asking price, photos, and key details on Nyrava Home without upfront costs or listing fees.</p>
+    </article>
+    <article class="fsbo-card">
+      <div class="fsbo-icon" aria-hidden="true">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#0866ed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+      </div>
+      <h3>Direct Buyer Inquiries</h3>
+      <p>Direct leads and buyer messages come straight to your contact info. You control property showings, open houses, and price negotiations.</p>
+    </article>
+    <article class="fsbo-card">
+      <div class="fsbo-icon" aria-hidden="true">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#0866ed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </div>
+      <h3>Optional Local Pro Help</h3>
+      <p>Want a second opinion on contracts, valuations, or closing? Territory-matched verified real estate professionals are available whenever you need guidance.</p>
+    </article>
+  </div>
+  <div class="fsbo-cta-wrap">
+    <button type="button" class="button fsbo-cta-btn" id="openFsboModalBtn">List Your Home For Sale (FSBO) Now →</button>
+  </div>
+</section>
 
 <section class="home-section realtor-explainer" id="realtor-how-it-works" aria-labelledby="realtor-how-title"><div class="section-intro"><p class="eyebrow">HOW NYRAVA HOME WORKS</p><h2 id="realtor-how-title">A clear path from signal to follow-up.</h2><p>Predictive insights start the research. Qualification determines whether an opportunity is ready for a Realtor conversation.</p></div><div class="realtor-explainer-grid"><article id="predictive-insights"><span class="eyebrow">01 · PREDICTIVE INSIGHTS</span><h3>Understand potential interest.</h3><p>Predictive analytics help identify possible buying or selling interest in the areas you serve. Homeowner valuation, buying and selling tools also collect direct inquiries. A prediction, public listing or valuation request alone does not establish a qualified lead.</p></article><article id="qualified-opportunities"><span class="eyebrow">02 · LEAD QUALIFICATION</span><h3>Separate signals from qualified leads.</h3><p>Eligible delivery requires current buying or selling intent, confirmed contact details, and recorded permission to connect with the designated Realtor. Incomplete or uncertain prospects remain separate for screening or review. Matching also respects ZIP availability and subscription allowances.</p></article><article id="connected-follow-up"><span class="eyebrow">03 · CONNECTED FOLLOW-UP</span><h3>Keep the next step organized.</h3><p>Work delivered opportunities in your Realtor workspace, assign follow-up to team members, and organize notes, tasks and appointments. AI can assist with summaries and message drafts. Your team chooses what to send. Availability, response and outcomes vary.</p></article></div><p class="realtor-explainer-link"><a class="text-link" href="/create-account.html">Create your Realtor account →</a><a class="text-link" href="#pricing">Compare Basic and Pro →</a></p></section>
 <section class="home-section homeowner-section" id="how-it-works" aria-labelledby="how-title"><div class="section-intro"><h2 id="how-title">A smarter start for your next move.</h2><p>Choose the help you need. Keep your next step simple.</p></div><div class="three-steps"><article><span class="step-number">1</span><svg viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 11 9-8 9 8v10H3z"/><path d="M15 10c-1-2-6-2-6 1s6 1 6 4-5 3-6 1m3-8v11"/></svg><div><h3>Home Value</h3><p>Request an email report with an estimated range when sufficient comparable sales are available. Review its sources and accuracy limits.</p><button class="text-action" type="button" data-open-valuation>Explore your home’s value →</button></div></article><article><span class="step-number">2</span><svg viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 11 9-8 9 8v10h-7v-7h-4v7H3z"/></svg><div><h3>Selling</h3><p>Tell us about your property and selling plans. Verify your email so your inquiry can be evaluated and matched to an eligible local subscriber.</p><button class="text-action" type="button" data-open-realtor data-intake-type="seller">Start a seller inquiry →</button></div></article><article><span class="step-number">3</span><svg viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 11 9-8 9 8v5M3 11v10h8"/><circle cx="14" cy="15" r="4"/><path d="m17 18 4 4"/></svg><div><h3>Buying</h3><p>Share your location, budget and buying timeframe. Your inquiry follows the existing verification and matching process.</p><button class="text-action" type="button" data-open-realtor data-intake-type="buyer">Start a buyer inquiry →</button></div></article></div></section>
@@ -136,6 +372,85 @@
 <section class="home-section territory-section" id="zip-availability" aria-labelledby="zip-title"><div><p class="eyebrow">BUILD YOUR LOCAL WORKSPACE</p><h2 id="zip-title">Your area. Your team.<br>Your next opportunity.</h2><p>Check current subscriber capacity, then sign in to manage your ZIP territories. New assignments are limited to two subscriber businesses per ZIP. Existing over-limit territories stay closed to new assignments pending resolution. Each delivered lead is assigned to one business at a time.</p><a class="text-link" href="/dashboard/home#zips">Manage my territories →</a></div><form id="zip-availability-form" class="zip-check-card"><label for="public-zip">Realtor ZIP Availability</label><p>Enter a five-digit ZIP to check current capacity.</p><div class="zip-input-row"><input id="public-zip" name="zip" inputmode="numeric" autocomplete="postal-code" pattern="[0-9]{5}" maxlength="5" placeholder="e.g. 17025" required aria-describedby="zip-check-help"><button class="button" type="submit">Check ZIP <span aria-hidden="true">→</span></button></div><p id="zip-check-result" role="status" aria-live="polite"></p><small id="zip-check-help">Capacity is not a reservation or confirmation of ZIP eligibility. Final territory selection and catalog checks take place in your signed-in workspace.</small></form></section>
 <section class="home-section pricing-section" id="pricing" aria-labelledby="pricing-title"><div class="section-intro"><p class="eyebrow">REALTOR SUBSCRIPTIONS</p><h2 id="pricing-title">Lead generation and the tools to work your pipeline.</h2><p><strong>$349 USD annual license includes your first month.</strong> Monthly service begins in month two. Annual license renews yearly.</p></div><div class="pricing-grid"><article class="plan-card"><p class="eyebrow">BASIC</p><h3><span data-plan-price="basic">$89</span><small>USD / month from month two</small></h3><ul><li>Up to 5 selected ZIP codes</li><li>Up to 2 leads per day and 10 per rolling 30 days</li><li>Realtor workspace, AI work assistance and personal reminders</li><li>Up to 5 active team members</li></ul><a class="button" href="/billing-checkout.html?plan=BASIC">Choose Basic →</a></article><article class="plan-card"><p class="eyebrow">PRO</p><h3><span data-plan-price="pro">$149</span><small>USD / month from month two</small></h3><ul><li>Up to 20 selected ZIP codes</li><li>Up to 3 leads per day and 20 per rolling 30 days</li><li>Realtor workspace, AI work assistance and personal reminders</li><li>Unlimited active team members</li></ul><a class="button" href="/billing-checkout.html?plan=PRO">Choose Pro →</a></article></div><p class="pricing-disclaimer">Allow approximately 3–5 days after adding ZIP codes for leads to begin arriving. Timing and volume are not guaranteed: leads arrive as qualified opportunities become available, not daily. Limits are maximum allowances. Predictive analytics help identify potential interest; website tools collect consumer inquiries. Contact verification, current intent and recorded inquiry permission are required for eligible delivery. A valuation report request alone is not a qualified lead. Checkout charges only the annual license at signup. Monthly service starts in month two.</p></section>
 </main><footer class="home-footer"><a class="home-brand" href="/"><svg viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 11 9-8 9 8v10h-7v-7h-4v7H3z"/></svg><span>NYRAVA HOME</span></a><p>Homeowner services. A connected workspace for Realtors and their teams.</p><nav aria-label="Footer"><a href="#how-it-works">How It Works</a><a href="#realtor-tools">For Realtors &amp; Teams</a><a href="#pricing">Pricing</a><a href="/contact.html">Contact</a><a href="/privacy.html">Privacy</a><a href="/terms.html">Website Terms</a></nav><p>Questions? <a href="mailto:support@home.nyrava.com">support@home.nyrava.com</a></p></footer>
+    <!-- FSBO Listing Modal Dialog -->
+  <dialog class="fsbo-modal-dialog" id="fsbo-listing-dialog" aria-labelledby="fsbo-dialog-title">
+    <div class="fsbo-dialog-header">
+      <div>
+        <span class="fsbo-dialog-badge">Direct Homeowner Listing</span>
+        <h2 id="fsbo-dialog-title">List Your Home For Sale (FSBO)</h2>
+        <p>Publish your property to local buyers and network agents with zero listing fees.</p>
+      </div>
+      <button type="button" class="fsbo-dialog-close" id="closeFsboDialog" aria-label="Close dialog">×</button>
+    </div>
+    <form id="fsboListingForm" class="fsbo-form">
+      <div class="fsbo-form-grid">
+        <div class="fsbo-field full-width">
+          <label for="fsboAddress">Street Address *</label>
+          <input type="text" id="fsboAddress" name="address" required placeholder="e.g. 1244 Maplewood Drive">
+        </div>
+        <div class="fsbo-field">
+          <label for="fsboCity">City *</label>
+          <input type="text" id="fsboCity" name="city" required placeholder="e.g. Austin">
+        </div>
+        <div class="fsbo-field">
+          <label for="fsboState">State *</label>
+          <input type="text" id="fsboState" name="state" required placeholder="e.g. TX" maxlength="2">
+        </div>
+        <div class="fsbo-field">
+          <label for="fsboZip">ZIP Code *</label>
+          <input type="text" id="fsboZip" name="zipCode" required pattern="[0-9]{5}" maxlength="5" placeholder="e.g. 78701">
+        </div>
+        <div class="fsbo-field">
+          <label for="fsboPrice">Asking Price (USD) *</label>
+          <input type="number" id="fsboPrice" name="price" required min="10000" step="1000" placeholder="e.g. 450000">
+        </div>
+        <div class="fsbo-field">
+          <label for="fsboType">Property Type</label>
+          <select id="fsboType" name="propertyType">
+            <option value="Single Family">Single Family Home</option>
+            <option value="Condo">Condo / Apartment</option>
+            <option value="Townhouse">Townhouse</option>
+            <option value="Multi-Family">Multi-Family</option>
+            <option value="Land">Vacant Land</option>
+          </select>
+        </div>
+        <div class="fsbo-field">
+          <label for="fsboBeds">Bedrooms</label>
+          <input type="number" id="fsboBeds" name="beds" min="0" max="20" placeholder="e.g. 3">
+        </div>
+        <div class="fsbo-field">
+          <label for="fsboBaths">Bathrooms</label>
+          <input type="number" id="fsboBaths" name="baths" min="0" max="20" step="0.5" placeholder="e.g. 2.5">
+        </div>
+        <div class="fsbo-field">
+          <label for="fsboSqft">Square Feet</label>
+          <input type="number" id="fsboSqft" name="sqft" min="100" placeholder="e.g. 2100">
+        </div>
+        <div class="fsbo-field">
+          <label for="fsboOwnerName">Homeowner Full Name *</label>
+          <input type="text" id="fsboOwnerName" name="fullName" required placeholder="e.g. Sarah Jenkins">
+        </div>
+        <div class="fsbo-field">
+          <label for="fsboPhone">Phone Number *</label>
+          <input type="tel" id="fsboPhone" name="phone" required placeholder="e.g. (512) 555-0199">
+        </div>
+        <div class="fsbo-field full-width">
+          <label for="fsboEmail">Email Address *</label>
+          <input type="email" id="fsboEmail" name="email" required placeholder="e.g. sarah.jenkins@example.com">
+        </div>
+        <div class="fsbo-field full-width">
+          <label for="fsboNotes">Property Highlights & Notes</label>
+          <textarea id="fsboNotes" name="notes" rows="3" placeholder="Key upgrades, neighborhood highlights, showing instructions..."></textarea>
+        </div>
+      </div>
+      <div id="fsboFormStatus" class="fsbo-status-box" style="display:none;"></div>
+      <div class="fsbo-form-actions">
+        <button type="button" class="button button-secondary" id="cancelFsboDialog">Cancel</button>
+        <button type="submit" class="button fsbo-submit-btn" id="submitFsboBtn">Publish FSBO Listing →</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog class="notice-dialog" id="notice-dialog" aria-labelledby="dialog-title">
     <form method="dialog"><button class="dialog-close" aria-label="Close notice">×</button></form>
     <p class="eyebrow">Nyrava Home</p>
@@ -196,6 +511,91 @@
       if (e.key === 'Escape' && dropdown.classList.contains('is-open')) {
         close();
         trigger.focus();
+      }
+    });
+  })();
+</script>
+<script>
+  (function initFsboModal() {
+    const dialog = document.getElementById('fsbo-listing-dialog');
+    const openBtns = [
+      document.getElementById('openFsboModalBtn'),
+      document.getElementById('btnOpenFsbo'),
+      ...document.querySelectorAll('[data-open-fsbo]')
+    ];
+    const closeBtn = document.getElementById('closeFsboDialog');
+    const cancelBtn = document.getElementById('cancelFsboDialog');
+    const form = document.getElementById('fsboListingForm');
+    const statusBox = document.getElementById('fsboFormStatus');
+    const submitBtn = document.getElementById('submitFsboBtn');
+
+    if (!dialog || !form) return;
+
+    function openDialog() {
+      if (typeof dialog.showModal === 'function') {
+        dialog.showModal();
+      } else {
+        dialog.setAttribute('open', '');
+      }
+      statusBox.style.display = 'none';
+    }
+
+    function closeDialog() {
+      if (typeof dialog.close === 'function') {
+        dialog.close();
+      } else {
+        dialog.removeAttribute('open');
+      }
+    }
+
+    openBtns.forEach(b => {
+      if (b) b.addEventListener('click', (e) => {
+        e.preventDefault();
+        openDialog();
+      });
+    });
+
+    if (closeBtn) closeBtn.addEventListener('click', closeDialog);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeDialog);
+
+    dialog.addEventListener('click', (e) => {
+      if (e.target === dialog) closeDialog();
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Publishing...';
+      statusBox.style.display = 'none';
+
+      const formData = new FormData(form);
+      const payload = Object.fromEntries(formData.entries());
+
+      try {
+        const res = await fetch('/api/fsbo/listing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          statusBox.className = 'fsbo-status-box success';
+          statusBox.textContent = 'Listing published successfully! Territory-matched buyers and agents have been notified.';
+          statusBox.style.display = 'block';
+          form.reset();
+          setTimeout(() => {
+            closeDialog();
+          }, 2500);
+        } else {
+          throw new Error(data.message || 'Submission failed.');
+        }
+      } catch (err) {
+        statusBox.className = 'fsbo-status-box error';
+        statusBox.textContent = err.message || 'Network error. Please try again.';
+        statusBox.style.display = 'block';
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Publish FSBO Listing →';
       }
     });
   })();
