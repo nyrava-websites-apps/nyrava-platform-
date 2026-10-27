@@ -1,54 +1,437 @@
-(()=>{'use strict';if(document.getElementById('nyra-sales-bot'))return;try{if(window.top!==window&&window.top.NyravaNyra)return;}catch{}const script=document.currentScript,rootUrl=new URL('.',script.src),api=new URL(script.dataset.api||'/api/nyra/v1/',rootUrl);if(!['http:','https:'].includes(api.protocol))return;if(!api.pathname.endsWith('/'))api.pathname+='/';
-let welcomed=false,navigationFrame=null,navigationShell=null,primedSound=null,soundEnabled=false;const homeTour=!script.dataset.mode&&['/','/index.html'].includes(location.pathname);if(homeTour&&!location.hash)window.history.scrollRestoration='manual';const history=[];const support=script.dataset.mode==='support',supportApi=new URL('/api/nyra-support/v1/',location.origin);
-let actionLoading;function actions(){if(window.NyravaNyraActions)return Promise.resolve(window.NyravaNyraActions);if(!actionLoading)actionLoading=new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=new URL('action-bridge.js?v=1',rootUrl);s.onload=()=>resolve(window.NyravaNyraActions);s.onerror=()=>reject(Error('Action tools could not load. Nothing was submitted.'));document.head.append(s);});return actionLoading;}
-const siteUrl=new URL(script.dataset.site||location.origin);if(!['http:','https:'].includes(siteUrl.protocol))return;
-const host=document.createElement('div');host.id='nyra-sales-bot';const shadow=host.attachShadow({mode:'open'});shadow.innerHTML=`<link rel="stylesheet" href="${new URL('widget.css',rootUrl).href}"><button class="launch" aria-label="Talk to Nyra, Nyrava Home sales bot"><img alt="Nyra" src="${new URL('assets/nyra-original.png',rootUrl).href}"><span>Ask Nyra</span></button><section class="panel" hidden aria-label="Nyra sales conversation"><header><div><strong>Nyra</strong><small>Your Nyrava Home sales bot</small></div><select aria-label="Language"><option value="en">English</option><option value="es">Español</option></select><button class="close" aria-label="Close Nyra" type="button">×</button></header><div class="character original-art" id="character"><img id="originalNyra" alt="Nyra, your blue-roofed Nyrava Home sales bot" src="${new URL('assets/nyra-original.png',rootUrl).href}"><div class="speech-mouth" aria-hidden="true"><div class="mouth-opening"><i class="teeth"></i><i class="little-tongue"></i></div></div></div><p class="caption" role="status" aria-live="polite">Hi, I'm Nyra. What would help your real estate business?</p><div class="topics" aria-label="Explore the platform"></div><div class="controls"><button class="tour" type="button">Show me around</button><button class="next" type="button">Next</button><button class="pause" type="button">Pause tour</button><button class="listen-audio" type="button">Hear answer</button><button class="stop" type="button">Stop</button></div><form><label class="sr" for="nyra-question">Ask about Nyrava Home</label><input id="nyra-question" maxlength="600" placeholder="Ask about leads, tools or plans…" autocomplete="off"><button type="submit">Ask</button></form><div class="voice"><label><input type="checkbox" class="voice-consent"> Enable voice questions. Your browser's provider may process microphone audio online.</label><button class="microphone" type="button" aria-pressed="false">Listen</button><label><input type="checkbox" class="name-consent"> Use my first name for a greeting</label><div class="name-fields" hidden><input class="first-name" aria-label="Your first name" maxlength="30" placeholder="First name"><button class="greet" type="button">Say hello</button></div><p class="privacy">No microphone recording is stored by this sales API.</p></div><p class="feedback" aria-live="polite"></p><div class="actions"><a class="learn" href="${new URL('/professional-tools.html',siteUrl).href}">Explore this feature</a><a class="join" href="${new URL('/create-account.html',siteUrl).href}">Create account</a></div></section>`;
-document.body.append(host);if(support){const style=document.createElement('style');style.textContent='.launch{bottom:86px!important}.launch img{height:64px!important;width:64px!important}.launch span{font-size:13px}';shadow.append(style);}const $=s=>shadow.querySelector(s),panel=$('.panel'),launch=$('.launch'),character=$('.character');
-const inline=false;const freeStyle=document.createElement('link');freeStyle.rel='stylesheet';freeStyle.href=new URL('voice-mode.css?v=guided1',rootUrl);shadow.append(freeStyle);
+/* Nyra Mascot Voice Guide - Compact, Logo-Anchored, Section-by-Section Narrator */
+(() => {
+  'use strict';
+  if (document.getElementById('nyra-sales-bot')) return;
 
+  const script = document.currentScript;
+  const rootUrl = new URL('.', script.src);
+  const homeTour = ['/', '/index.html'].includes(location.pathname);
 
-const dock=document.createElement('nav');dock.className='tour-dock';dock.hidden=!homeTour;dock.setAttribute('aria-label','Nyra guided tour');dock.innerHTML='<p class="tour-caption" aria-live="polite"></p><div><button type="button" class="sound-enable">Start sound</button><button type="button" class="tour-pause">Pause</button><button type="button" class="tour-next">Skip</button><button type="button" class="tour-stop">Stop tour</button><button type="button" class="tour-join">See plans</button></div>';shadow.append(dock);
-function tourOrder(){return homeTour?['intro',...(config?.tour||[]).filter(t=>t!=='intro')]:config.tour;}
-function dockState(){if(!homeTour)return;$('.sound-enable').textContent=soundEnabled?'Mute':'Start sound';$('.tour-pause').textContent=auto?'Pause':'Resume';$('.tour-caption').textContent=lastAnswer?.text||'Welcome to Nyrava Home. Your guided tour starts here.';}
-function visualAdvance(){if(homeTour&&auto){clearTimeout(timer);timer=setTimeout(next,Math.max(8000,Math.min(22000,(lastAnswer?.text.split(/\s+/).length||25)*350)));}}
-function soundFor(url){const sound=primedSound||new Audio();sound.onended=null;sound.onerror=null;sound.src=url;return sound;}
-function soundBlocked(token){if(token!==generation)return;soundEnabled=false;character.classList.remove('talking');feedback('Your browser needs a click to play sound. Choose Start sound.');dockState();if(homeTour)visualAdvance();}
-const puppet=document.createElement('div');puppet.className='walk-puppet';puppet.setAttribute('aria-hidden','true');for(const part of ['back-arm','left-leg','right-leg','body','front-arm']){const image=document.createElement('img');image.src=new URL('assets/nyra-original.png',rootUrl);image.className=part;image.alt='';puppet.append(image);}character.append(puppet);
-let micPending=false;let loadingConfig,highlight;let config,language='en',generation=0,requestController,audio,recognition,context,analyser,animation,timer,movementTimer,auto=false,index=-1,lastAnswer,previousFocus,listening=false,voiceSession=false;
-const reduced=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
-function feedback(s){$('.feedback').textContent=s;$('.microphone').title=s||'Start voice conversation. Your browser provider may process microphone audio.';}
-function pose(value){character.dataset.action=value;$('#originalNyra').src=new URL('assets/nyra-'+(value==='point'?'point':value==='listen'?'listen':'original')+'.png',rootUrl);}
-function stopMic(endSession=true){if(endSession)voiceSession=false;listening=false;if(recognition){recognition.onend=null;recognition.abort();recognition=null;}$('.microphone').setAttribute('aria-pressed',voiceSession?'true':'false');$('.microphone').textContent=language==='es'?'Escuchar':'Listen';}
-function stopSound(){if(audio){audio.pause();audio.src='';audio=null;}if('speechSynthesis'in window)speechSynthesis.cancel();cancelAnimationFrame(animation);character.classList.remove('talking');character.style.setProperty('--jaw','.1');}
-function stop(all=true){micPending=false;generation++;requestController?.abort();clearTimeout(timer);clearTimeout(movementTimer);if(highlight){highlight.el.style.outline=highlight.outline;highlight=null;}character.classList.remove('touring');character.style.removeProperty('left');character.style.removeProperty('top');character.style.removeProperty('width');stopSound();stopMic();if(all){auto=false;$('.pause').textContent=language==='es'?'Continuar recorrido':'Resume tour';}pose('idle');}
-async function request(path,body){requestController?.abort();const controller=new AbortController();requestController=controller;let timedOut=false;const timeout=setTimeout(()=>{timedOut=true;controller.abort();},path==='support'||path==='conversation'?45000:12000);try{const r=await fetch(path==='support'?new URL('respond',supportApi):new URL(path,api),{credentials:support&&path==='support'?'same-origin':'omit',cache:'no-store',signal:controller.signal,...(body?{method:'POST',headers:{'Content-Type':'application/json',...(support?{'X-Nyrava-Support':'1'}:{})},body:JSON.stringify(body)}:{})});if(!r.ok)throw Error(r.status===429?'Nyra is busy. Please try again shortly.':'Nyra is unavailable. You can still explore the site or create an account.');return await r.json();}catch(error){if(timedOut)throw Error('Nyra took too long to respond. Please try again or use Contact.');throw error;}finally{clearTimeout(timeout);}}
-function next(){if(!config||!auto)return;const order=tourOrder();if(index>=order.length-1){auto=false;feedback(language==='es'?'Recorrido completo. ¿Quieres crear tu cuenta?':'Tour complete. Ready to create your account?');return;}index++;ask({topic:order[index]},true);}
-function finished(token){cancelAnimationFrame(animation);if(token!==generation)return;character.classList.remove('talking');pose('idle');if(voiceSession&&$('.voice-consent').checked&&!panel.hidden)setTimeout(()=>{if(token===generation&&voiceSession)startListening(true);},450);if(auto)timer=setTimeout(next,voiceSession?9000:1700);dockState();}
-function warmAudio(){try{context??=new (window.AudioContext||window.webkitAudioContext)();context.resume().catch(()=>{});}catch{}if(!primedSound&&navigator.userActivation?.hasBeenActive){primedSound=new Audio('data:audio/wav;base64,UklGRnQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVAAAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==');primedSound.play().catch(()=>{});}}
+  // Section Tour Definition
+  const tourSections = [
+    {
+      target: '#top',
+      selector: '.nw-wordmark',
+      text: "Welcome to Nyrava Home! I am Nyra. We connect licensed real estate professionals with verified local buyer and seller opportunities across 60 US metro territories.",
+      name: "Welcome"
+    },
+    {
+      target: '.nw-hero',
+      selector: '.nw-hero-copy',
+      text: "Our platform gives you more time with clients and less time finding them, with predictive analytics, verified local leads, and complete team tools.",
+      name: "Overview"
+    },
+    {
+      target: '.nw-homeowner',
+      selector: '.nw-homeowner-inner',
+      text: "Homeowners use our valuation and moving tools to request help buying or selling, creating direct inbound opportunities for participating local Realtors.",
+      name: "Inbound Leads"
+    },
+    {
+      target: '.nw-features',
+      selector: '.nw-feature-grid',
+      text: "Explore our core features: verified lead generation, comprehensive home-value reports, and connected team follow-up tools all in one workspace.",
+      name: "Platform Tools"
+    },
+    {
+      target: '#realtor-how-it-works',
+      selector: '.realtor-explainer-grid',
+      text: "How it works: We use predictive analytics to identify signals, qualify buyer and seller intent, and deliver organized opportunities ready for your follow-up.",
+      name: "How It Works"
+    },
+    {
+      target: '#realtor-tools',
+      selector: '.tool-grid',
+      text: "Your team gets one connected workspace for lead summaries, AI follow-up assistance, private valuation reports, and organized task reminders.",
+      name: "Team Workspace"
+    },
+    {
+      target: '#zip-availability',
+      selector: '#zip-availability-form',
+      text: "Check territory availability in your target ZIP codes. We limit subscriber capacity per ZIP so your opportunities remain exclusive.",
+      name: "Territory Capacity"
+    },
+    {
+      target: '#pricing',
+      selector: '.pricing-grid',
+      text: "Our transparent pricing: Basic at $89 a month or Pro at $149 a month, with a $349 annual license that includes your first month of service.",
+      name: "Plans & Pricing"
+    }
+  ];
 
-function narrate(answer,token){stopMic(false);stopSound();if(token!==generation)return;dockState();if(homeTour&&!soundEnabled&&!voiceSession){pose('point');visualAdvance();return;}character.classList.add('talking');if(character.dataset.action!=='walk')pose('point');if(answer.audio&&/^\/api\/nyra\/v1\/audio\/en\/(intro|crm|leads)$/.test(answer.audio)){const sound=soundFor(new URL(answer.audio,api));sound.crossOrigin='anonymous';audio=sound;if(context){try{analyser=context.createAnalyser();analyser.fftSize=256;const source=context.createMediaElementSource(sound);source.connect(analyser);analyser.connect(context.destination);const samples=new Uint8Array(analyser.fftSize);const animate=()=>{if(audio!==sound||sound.paused)return;analyser.getByteTimeDomainData(samples);let sum=0;for(const n of samples)sum+=((n-128)/128)**2;character.style.setProperty('--jaw',Math.max(.1,Math.min(1,Math.sqrt(sum/samples.length)*6)));animation=requestAnimationFrame(animate);};sound.onplaying=animate;}catch{}}sound.onended=()=>finished(token);sound.onerror=()=>{if(token===generation)browserSpeak(answer.text,token);};sound.play().catch(error=>{if(error.name==='NotAllowedError')soundBlocked(token);else voiceFailure(token);});return;}browserSpeak(answer.text,token);}
-async function browserSpeak(text,token){try{const controller=new AbortController();requestController=controller;const timeout=setTimeout(()=>controller.abort(),45000);let response;try{response=await fetch(new URL('speech',api),{method:'POST',credentials:'omit',headers:{'Content-Type':'application/json'},body:JSON.stringify({text}),signal:controller.signal});if(!response.ok)throw Error('Locked voice unavailable');const blob=await response.blob();if(token!==generation)return;const url=URL.createObjectURL(blob),sound=soundFor(url);audio=sound;sound.onended=()=>{URL.revokeObjectURL(url);if(token===generation)finished(token);};sound.onerror=()=>{URL.revokeObjectURL(url);voiceFailure(token);};character.classList.add('talking');let pulse=0;const animate=()=>{if(token!==generation||audio!==sound)return;character.style.setProperty('--jaw',String(.2+Math.abs(Math.sin(pulse+=.24))*.55));animation=requestAnimationFrame(animate);};animate();await sound.play();}finally{clearTimeout(timeout);}}catch(error){if(token===generation){if(error.name==='NotAllowedError')soundBlocked(token);else voiceFailure(token);}}}
-function voiceFailure(token){if(token!==generation)return;const touring=homeTour&&auto;if(touring){stopSound();stopMic();soundEnabled=false;dockState();visualAdvance();}else stop();panel.dataset.error='1';feedback(touring?'Sound is unavailable. The tour continues with captions. Choose Start sound to retry.':'Nyra’s locked voice is unavailable. Click the mic to retry. No substitute voice was used.');}
+  let currentStep = -1;
+  let isTouring = false;
+  let isSpeaking = false;
+  let activeUtterance = null;
+  let highlightEl = null;
+  let originalOutline = '';
 
-function activeDocument(){try{return navigationFrame?.contentDocument||document;}catch{return document;}}
-function point(selector){let target;try{target=siteUrl.origin===location.origin&&selector?activeDocument().querySelector(selector):null;}catch{}if(!target&&navigationFrame)target=activeDocument().querySelector('main h1,h1');if(!target)return;target.scrollIntoView({behavior:'instant',block:'center'});const previous=target.style.outline;highlight={el:target,outline:previous};target.style.outline='3px solid #2783ff';character.classList.add('touring');pose('walk');requestAnimationFrame(()=>{const r=target.getBoundingClientRect();panel.style.right='auto';panel.style.bottom='auto';const width=innerWidth<600?140:180;const x=r.right+12+width<innerWidth?r.right+12:r.left-width-12;panel.style.left=Math.max(8,Math.min(innerWidth-width-8,x))+'px';panel.style.top=Math.max(20,Math.min(innerHeight-(homeTour?360:240),r.top+20))+'px';});clearTimeout(movementTimer);movementTimer=setTimeout(()=>{pose('point');target.style.outline=previous;},reduced()?0:1000);}
-function navigate(url){if(url.origin!==location.origin)return;if(window.NyravaCallWorkspace?.isActive()&&window.NyravaCallWorkspace.open(url.href))return;if(!navigationShell){navigationShell=document.createElement('section');navigationShell.style.cssText='position:fixed;inset:0;background:white;z-index:8500';const back=document.createElement('button');back.textContent='← Return';back.style.cssText='position:absolute;top:6px;right:8px;z-index:2;padding:8px 14px;background:#102b4e;color:white;border:0;border-radius:8px';back.onclick=()=>{navigationShell.remove();navigationShell=null;navigationFrame=null;};navigationFrame=document.createElement('iframe');navigationFrame.title='Nyrava Home workspace';navigationFrame.style.cssText='width:100%;height:100%;border:0';navigationFrame.setAttribute('sandbox','allow-scripts allow-same-origin allow-forms allow-downloads allow-popups allow-modals');navigationFrame.allow='camera; microphone; display-capture; fullscreen';navigationFrame.addEventListener('load',()=>{try{navigationFrame.contentDocument.addEventListener('click',e=>{const a=e.target.closest?.('a[href]');if(!a||a.download||a.target==='_blank')return;const u=new URL(a.href,navigationFrame.src);if(u.origin===location.origin&&!/billing-checkout|logout|stripe/i.test(u.pathname)){e.preventDefault();navigate(u);}},true);}catch{}});navigationShell.append(navigationFrame,back);document.body.append(navigationShell);}navigationFrame.src=url.href;}
+  // Companion Host & Shadow DOM
+  const host = document.createElement('div');
+  host.id = 'nyra-sales-bot';
+  const shadow = host.attachShadow({ mode: 'open' });
 
-async function ask(body,touring=false){const command=(body.question||'').trim().toLowerCase().replace(/[.!?]+$/,'');if(!support&&/^(?:open|show me|click) (?:the )?(?:buy|sell|buy or sell|find a realtor)/.test(command))activeDocument().querySelector('[data-open-realtor]')?.click();if(!support&&/^(?:open|create|help me create|set up) (?:an? |my )?account$/.test(command))navigate(new URL('/create-account.html',siteUrl));if(!support&&/^(?:open|show me|get) (?:a |my )?(?:home value|valuation)$/.test(command))activeDocument().querySelector('[data-open-valuation]')?.click();if(/^(open|go to|take me to)\b/.test(command)){const routes=[[/calendar|appointment/,'/business-calendar.html'],[/crm|contact/ ,support?'/crm.html':'/ai-team-tools.html'],[/team|employee/,'/team.html'],[/profile|account/,'/dashboard/home#account'],[/lead/ ,support?'/crm.html':'/lead-generation.html']];const match=routes.find(([pattern])=>pattern.test(command));if(match){navigate(new URL(match[1],siteUrl));}}if(!touring&&/^(next|skip|next feature|skip this|siguiente)$/.test(command)){if(config){const current=config.tour.indexOf(lastAnswer?.topic);ask({topic:config.tour[(current+1)%config.tour.length]});}return;}if(!touring&&/^(stop|stop talking|stop listening|i(?: am|'m) done|done|goodbye|bye|pause|pausa|terminar|adios)$/.test(command)){$('.stop').click();return;}if(!touring&&/^(open this feature|open the page|take me there|go there|abre la pagina)$/.test(command)&&lastAnswer){stop();const url=new URL(lastAnswer.href,siteUrl);if(url.origin===siteUrl.origin)navigate(url);return;}warmAudio();if(!touring){auto=false;clearTimeout(timer);}generation++;requestController?.abort();clearTimeout(movementTimer);if(highlight){highlight.el.style.outline=highlight.outline;highlight=null;}stopMic(false);stopSound();const token=generation;feedback(language==='es'?'Preparando respuesta…':'Preparing your answer…');try{const bridge=support&&body.question?await actions():null;if(token!==generation||panel.hidden||document.hidden)return;const answer=bridge?.handles(body.question)?await bridge.run(body.question,{active:()=>token===generation&&!panel.hidden&&!document.hidden}):await request(body.question?(support?'support':'conversation'):'respond',{language,...body,...(body.question?{history:history.slice(-12),topic:lastAnswer?.topic||'intro'}:{})});if(token!==generation||panel.hidden)return;if(body.question){history.push({role:'user',text:body.question.slice(0,400)},{role:'assistant',text:answer.text.slice(0,400)});if(history.length>12)history.splice(0,history.length-12);}lastAnswer=answer;dockState();$('.caption').textContent=answer.text;const destination=new URL(answer.href||'/professional-tools.html',siteUrl);if(destination.origin===siteUrl.origin)$('.learn').href=destination.href;feedback(answer.notice||'');point(answer.selector);if(answer.mode==='Authorized action'&&answer.actionState==='COMPLETE'&&answer.href)navigate(new URL(answer.href,siteUrl));narrate(answer,token);}catch(e){if(token===generation&&e.name!=='AbortError'){panel.dataset.error='1';feedback(e.message);narrate({text:/access|permission|action|command|engine|session/i.test(e.message)?e.message.slice(0,1000):'I could not reach the AI service. Please ask me again in a moment.',audio:null},token);}}}
-function load(){if(config)return Promise.resolve();if(loadingConfig)return loadingConfig;loadingConfig=(async()=>{config=await request('config');if(!config.enabled){config=null;throw Error('Nyra is currently paused.');}$('.panel header small').textContent=config.product+(support?' workspace support':' sales bot');if(support){const r=await fetch(new URL('session',supportApi),{credentials:'same-origin',cache:'no-store'});if(!r.ok){config=null;throw Error('Sign in with an active Realtor or employee account to use support.');}$('.caption').textContent=(await r.json()).notice;$('.join').hidden=true;$('.tour').hidden=true;$('.next').hidden=true;$('.pause').hidden=true;}const registration=new URL(config.registration||'/create-account.html',siteUrl);if(registration.origin===siteUrl.origin)$('.join').href=registration.href;$('.topics').replaceChildren();for(const item of config.topics){const button=document.createElement('button');button.type='button';button.textContent=item.label[language]||item.id;button.dataset.topic=item.id;button.onclick=()=>ask({topic:item.id});$('.topics').append(button);}})().finally(()=>loadingConfig=null);return loadingConfig;}
-function updateLanguage(){for(const b of shadow.querySelectorAll('[data-topic]')){const t=config?.topics.find(t=>t.id===b.dataset.topic);if(t)b.textContent=t.label[language]||t.id;}$('.tour').textContent=language==='es'?'Muéstrame el sitio':'Show me around';$('.next').textContent=language==='es'?'Siguiente':'Next';$('.listen-audio').textContent=language==='es'?'Escuchar respuesta':'Hear answer';$('.join').textContent=language==='es'?'Crear cuenta':'Create account';$('.learn').textContent=language==='es'?'Explorar esta función':'Explore this feature';$('.microphone').textContent=language==='es'?'Escuchar':'Listen';}
-launch.onclick=async(event)=>{previousFocus=document.activeElement;launch.hidden=true;panel.hidden=false;if(event?.isTrusted)$('.close').focus({preventScroll:true});try{await load();updateLanguage();}catch(e){feedback(e.message);}};
-$('.close').onclick=()=>{stop();panel.hidden=true;launch.hidden=false;history.length=0;$('.first-name').value='';$('.name-consent').checked=false;$('.name-fields').hidden=true;previousFocus?.isConnected?previousFocus.focus():launch.focus();};
-$('.stop').onclick=()=>{stop();feedback(language==='es'?'Audio y micrófono apagados.':'Audio and microphone off.');};$('.tour').onclick=()=>{stop();auto=true;index=-1;$('.pause').textContent='Pause tour';next();};$('.next').onclick=()=>{if(!config)return;stop();auto=true;next();};$('.pause').onclick=()=>{auto=!auto;clearTimeout(timer);$('.pause').textContent=auto?'Pause tour':'Resume tour';if(auto)next();};$('.listen-audio').onclick=()=>{if(lastAnswer){warmAudio();stopSound();narrate(lastAnswer,generation);}};
-$('form').onsubmit=e=>{e.preventDefault();const input=$('#nyra-question');const question=input.value.trim();if(!question)return;ask({question});input.value='';input.focus();};$('select').onchange=()=>{stop();language=$('select').value;updateLanguage();if(lastAnswer)ask({topic:lastAnswer.topic});};
-$('.voice-consent').onchange=()=>{if(!$('.voice-consent').checked)stopMic();};function startListening(resume=false){if(!resume&&listening){stopMic();return;}if(!$('.voice-consent').checked){feedback('Enable voice questions first. You can also type your question.');return;}const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;if(!Recognition){feedback('Voice input is unavailable here. Type your question instead.');return;}if(!resume)stop();voiceSession=true;const rec=new Recognition();recognition=rec;rec.lang=language==='es'?'es-MX':'en-US';rec.continuous=false;rec.interimResults=false;rec.onstart=()=>{listening=true;pose('listen');$('.microphone').setAttribute('aria-pressed','true');$('.microphone').textContent=language==='es'?'Detener micrófono':'Stop microphone';feedback(language==='es'?'Escuchando…':'Listening…');};rec.onresult=e=>{const text=e.results[0][0].transcript;stopMic(false);if($('.name-consent').checked&&!$('.first-name').value){const named=text.match(/(?:my name is|call me|me llamo|mi nombre es)\s+([\p{L}][\p{L}'-]{0,29})/iu)||text.trim().match(/^([\p{L}][\p{L}'-]{0,29})[.!]?$/u);if(named){$('.first-name').value=named[1];$('.greet').click();return;}}ask({question:text});};rec.onerror=e=>{if(e.error==='no-speech')return;stopMic();feedback('Microphone permission or recognition unavailable. Click the mic to retry.');};rec.onend=()=>{if(recognition===rec){recognition=null;listening=false;$('.microphone').setAttribute('aria-pressed',voiceSession?'true':'false');$('.microphone').textContent=language==='es'?'Escuchar':'Listen';const token=generation;if(voiceSession&&!panel.hidden)setTimeout(()=>{if(token===generation&&voiceSession&&!recognition)startListening(true);},500);}};try{rec.start();}catch{stopMic();feedback('Microphone could not start. Type your question instead.');}}$('.microphone').setAttribute('aria-label','Talk to Nyra');$('.microphone').onclick=()=>{warmAudio();soundEnabled=true;if(voiceSession||micPending){stop();feedback('Microphone off.');return;}if(homeTour){stop();dockState();}$('.voice-consent').checked=true;micPending=true;const activation=generation;load().then(()=>{if(!micPending||activation!==generation||document.hidden||panel.hidden||!$('.voice-consent').checked)return;micPending=false;panel.removeAttribute('data-error');warmAudio();if(!welcomed){welcomed=true;voiceSession=true;const welcome={text:'Nyrava Home helps licensed Realtors and their teams find qualified local opportunities and manage follow-up, appointments and clients in one workspace. Ask me about leads, tools, teams or plans, and I will explain how they can help your business.',audio:null};lastAnswer={...welcome,topic:'intro',href:'/professional-tools.html'};narrate(welcome,generation);}else startListening();}).catch(e=>{if(activation===generation){micPending=false;feedback(e.message);}});};
-$('.name-consent').onchange=()=>{$('.name-fields').hidden=!$('.name-consent').checked;if(!$('.name-consent').checked){history.length=0;$('.first-name').value='';stopSound();}};$('.greet').onclick=async()=>{const resumeVoice=voiceSession;stop();voiceSession=resumeVoice;const token=generation;if(!$('.name-consent').checked)return;try{const answer=await request('greeting',{name:$('.first-name').value,language,consent:true});if(token!==generation||!$('.name-consent').checked||panel.hidden)return;$('.caption').textContent=answer.text;warmAudio();browserSpeak(answer.text,token);}catch(e){feedback(e.name==='AbortError'?'':e.message);}};
-shadow.addEventListener('keydown',e=>{if(e.key==='Escape'&&!panel.hidden)$('.close').click();});document.addEventListener('visibilitychange',()=>{if(document.hidden)stop();});window.addEventListener('pagehide',()=>stop());
-$('.sound-enable').onclick=()=>{warmAudio();if(soundEnabled){soundEnabled=false;stopSound();visualAdvance();}else{soundEnabled=true;panel.removeAttribute('data-error');clearTimeout(timer);if(lastAnswer)narrate(lastAnswer,generation);}dockState();};
-$('.tour-pause').onclick=()=>{if(auto){stop();}else{auto=true;panel.removeAttribute('data-error');if(lastAnswer)narrate(lastAnswer,generation);else{index=-1;next();}}dockState();};
-$('.tour-next').onclick=()=>{const position=index;stop();index=position;auto=true;next();dockState();};
-$('.tour-stop').onclick=()=>{stop();dockState();$('.tour-caption').textContent='Tour stopped. Explore freely, or choose Resume to continue.';};
-$('.tour-join').onclick=()=>{stop();index=tourOrder().indexOf('plans');ask({topic:'plans'});};
-setTimeout(async()=>{const boot=generation;launch.click();if(homeTour&&!location.hash){auto=true;dockState();try{await load();if(boot!==generation||!auto||document.hidden)return;window.scrollTo({top:0,left:0,behavior:'instant'});index=-1;dockState();next();}catch(e){if(boot===generation)feedback(e.message);}}},0);
-window.NyravaNyra={open:()=>launch.click(),close:()=>$('.close').click(),stop:()=>stop(),ask:question=>{if(panel.hidden)launch.click();return load().then(()=>ask({question}));},version:'1'};
+  shadow.innerHTML = `
+    <style>
+      :host {
+        all: initial;
+        display: inline-block;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+      }
+      .nyra-companion {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        position: relative;
+        z-index: 9999;
+        transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      .nyra-avatar-btn {
+        background: transparent;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        position: relative;
+        transition: transform 0.2s ease;
+      }
+      .nyra-avatar-btn:hover {
+        transform: scale(1.08);
+      }
+      .nyra-avatar-img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        filter: drop-shadow(0 2px 6px rgba(8, 102, 255, 0.25));
+      }
+      .nyra-avatar-btn.is-talking .nyra-avatar-img {
+        animation: nyraBounce 0.6s infinite alternate ease-in-out;
+      }
+      @keyframes nyraBounce {
+        from { transform: translateY(0); }
+        to { transform: translateY(-3px); }
+      }
+      .nyra-badge {
+        position: absolute;
+        top: -2px;
+        right: -2px;
+        background: #0866ff;
+        color: #fff;
+        font-size: 9px;
+        font-weight: 800;
+        border-radius: 10px;
+        padding: 1px 4px;
+        border: 1px solid #fff;
+      }
+
+      /* Compact Floating Action Pill */
+      .nyra-tour-pill {
+        display: none;
+        align-items: center;
+        gap: 8px;
+        background: #081a3a;
+        color: #ffffff;
+        padding: 6px 12px;
+        border-radius: 20px;
+        box-shadow: 0 4px 16px rgba(8, 26, 58, 0.3);
+        font-size: 12px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .nyra-companion.active .nyra-tour-pill {
+        display: inline-flex;
+      }
+      .btn-pill-action {
+        background: rgba(255, 255, 255, 0.15);
+        color: #fff;
+        border: none;
+        border-radius: 12px;
+        padding: 3px 8px;
+        font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 0.15s ease;
+      }
+      .btn-pill-action:hover {
+        background: rgba(255, 255, 255, 0.3);
+      }
+      .btn-pill-stop {
+        background: #ef4444;
+        color: #fff;
+      }
+      .btn-pill-stop:hover {
+        background: #dc2626;
+      }
+
+      /* Fixed Touring Overlay Placement */
+      .nyra-companion.floating {
+        position: fixed;
+        left: 20px;
+        bottom: 24px;
+        background: #ffffff;
+        border: 1px solid #dce5ef;
+        padding: 6px 12px;
+        border-radius: 30px;
+        box-shadow: 0 8px 28px rgba(8, 26, 58, 0.2);
+        animation: nyraFlyIn 0.35s ease-out;
+      }
+      .nyra-companion.floating .nyra-tour-pill {
+        display: inline-flex;
+        background: transparent;
+        color: #081a3a;
+        box-shadow: none;
+        padding: 0;
+      }
+      .nyra-companion.floating .btn-pill-action {
+        background: #f1f5f9;
+        color: #081a3a;
+        border: 1px solid #cbd5e1;
+      }
+      .nyra-companion.floating .btn-pill-action:hover {
+        background: #e2e8f0;
+      }
+      .nyra-companion.floating .btn-pill-stop {
+        background: #fee2e2;
+        color: #991b1b;
+        border-color: #fecaca;
+      }
+      .nyra-companion.floating .btn-pill-stop:hover {
+        background: #fecaca;
+      }
+
+      /* Audio Wave Animation */
+      .nyra-audio-wave {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        height: 12px;
+      }
+      .nyra-audio-wave span {
+        width: 3px;
+        height: 100%;
+        background: #00bfc5;
+        border-radius: 2px;
+        animation: waveAnim 0.8s infinite ease-in-out;
+      }
+      .nyra-audio-wave span:nth-child(2) { animation-delay: 0.15s; }
+      .nyra-audio-wave span:nth-child(3) { animation-delay: 0.3s; }
+      @keyframes waveAnim {
+        0%, 100% { height: 4px; }
+        50% { height: 12px; }
+      }
+    </style>
+
+    <div class="nyra-companion" id="nyraCompanion">
+      <button type="button" class="nyra-avatar-btn" id="nyraAvatarBtn" title="Nyra: Listen to Platform Tour" aria-label="Nyra Tour">
+        <img class="nyra-avatar-img" id="nyraImg" src="${new URL('assets/nyra-original.png', rootUrl).href}" alt="Nyra Bot">
+        <span class="nyra-badge" id="nyraBadge">Tour</span>
+      </button>
+
+      <div class="nyra-tour-pill" id="nyraPill">
+        <div class="nyra-audio-wave" id="nyraWave" style="display:none;">
+          <span></span><span></span><span></span>
+        </div>
+        <span id="nyraStatusText">Touring</span>
+        <button type="button" class="btn-pill-action" id="btnNextStep" title="Next Section">Next ❯</button>
+        <button type="button" class="btn-pill-action btn-pill-stop" id="btnStopTour" title="Stop Tour">⏹ Stop</button>
+      </div>
+    </div>
+  `;
+
+  // Attach into the companion slot next to the logo in the header
+  function mountCompanion() {
+    const slot = document.getElementById('nyra-companion-slot');
+    if (slot) {
+      slot.appendChild(host);
+    } else {
+      const wordmark = document.querySelector('.nw-wordmark, .brand-wordmark, .nh-brand');
+      if (wordmark && wordmark.parentNode) {
+        wordmark.parentNode.insertBefore(host, wordmark);
+      } else {
+        document.body.appendChild(host);
+      }
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', mountCompanion);
+  } else {
+    mountCompanion();
+  }
+
+  const companion = shadow.getElementById('nyraCompanion');
+  const avatarBtn = shadow.getElementById('nyraAvatarBtn');
+  const avatarImg = shadow.getElementById('nyraImg');
+  const badge = shadow.getElementById('nyraBadge');
+  const wave = shadow.getElementById('nyraWave');
+  const statusText = shadow.getElementById('nyraStatusText');
+  const btnNext = shadow.getElementById('btnNextStep');
+  const btnStop = shadow.getElementById('btnStopTour');
+
+  function updateMascotImage(pose) {
+    if (pose === 'point') {
+      avatarImg.src = new URL('assets/nyra-point.png', rootUrl).href;
+    } else if (pose === 'wave') {
+      avatarImg.src = new URL('assets/nyra-wave.png', rootUrl).href;
+    } else {
+      avatarImg.src = new URL('assets/nyra-original.png', rootUrl).href;
+    }
+  }
+
+  function highlightSection(selector) {
+    if (highlightEl) {
+      highlightEl.style.outline = originalOutline;
+      highlightEl = null;
+    }
+    if (!selector) return;
+    const target = document.querySelector(selector);
+    if (target) {
+      highlightEl = target;
+      originalOutline = target.style.outline || '';
+      target.style.outline = '3px solid #00bfc5';
+      target.style.outlineOffset = '6px';
+      target.style.borderRadius = '8px';
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+
+  function clearHighlight() {
+    if (highlightEl) {
+      highlightEl.style.outline = originalOutline;
+      highlightEl = null;
+    }
+  }
+
+  // Speech Narration via Web Speech API
+  function speak(text, onComplete) {
+    if (!('speechSynthesis' in window)) {
+      setTimeout(onComplete, 4000);
+      return;
+    }
+    window.speechSynthesis.cancel();
+
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.rate = 1.0;
+    utter.pitch = 1.05;
+    utter.lang = 'en-US';
+
+    const voices = window.speechSynthesis.getVoices();
+    const naturalVoice = voices.find(v => (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Ava')) && v.lang.startsWith('en'));
+    if (naturalVoice) utter.voice = naturalVoice;
+
+    utter.onstart = () => {
+      isSpeaking = true;
+      avatarBtn.classList.add('is-talking');
+      wave.style.display = 'inline-flex';
+      updateMascotImage('point');
+    };
+
+    utter.onend = () => {
+      isSpeaking = false;
+      avatarBtn.classList.remove('is-talking');
+      wave.style.display = 'none';
+      updateMascotImage('original');
+      if (onComplete) onComplete();
+    };
+
+    utter.onerror = () => {
+      isSpeaking = false;
+      avatarBtn.classList.remove('is-talking');
+      wave.style.display = 'none';
+      updateMascotImage('original');
+      if (onComplete) onComplete();
+    };
+
+    activeUtterance = utter;
+    window.speechSynthesis.speak(utter);
+  }
+
+  function stopTour() {
+    isTouring = false;
+    isSpeaking = false;
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    clearHighlight();
+    avatarBtn.classList.remove('is-talking');
+    wave.style.display = 'none';
+    companion.classList.remove('active', 'floating');
+    badge.textContent = 'Tour';
+    updateMascotImage('original');
+    currentStep = -1;
+  }
+
+  function playStep(index) {
+    if (!isTouring || index >= tourSections.length) {
+      stopTour();
+      return;
+    }
+    currentStep = index;
+    const step = tourSections[index];
+
+    // Position indicator
+    badge.textContent = `${index + 1}/${tourSections.length}`;
+    statusText.textContent = step.name;
+
+    // Highlight and scroll to section
+    highlightSection(step.selector || step.target);
+
+    // Make companion float smoothly alongside the tour
+    if (index > 0) {
+      companion.classList.add('floating');
+    } else {
+      companion.classList.remove('floating');
+    }
+
+    // Speak explanation
+    speak(step.text, () => {
+      if (isTouring) {
+        setTimeout(() => {
+          if (isTouring && currentStep === index) {
+            playStep(index + 1);
+          }
+        }, 1200);
+      }
+    });
+  }
+
+  function startTour() {
+    isTouring = true;
+    companion.classList.add('active');
+    playStep(0);
+  }
+
+  avatarBtn.onclick = (e) => {
+    e.stopPropagation();
+    if (!isTouring) {
+      startTour();
+    } else {
+      stopTour();
+    }
+  };
+
+  btnNext.onclick = (e) => {
+    e.stopPropagation();
+    if (isTouring) {
+      window.speechSynthesis.cancel();
+      playStep(currentStep + 1);
+    }
+  };
+
+  btnStop.onclick = (e) => {
+    e.stopPropagation();
+    stopTour();
+  };
+
+  // Expose global controller
+  window.NyravaTour = {
+    start: startTour,
+    stop: stopTour,
+    next: () => playStep(currentStep + 1)
+  };
+
 })();

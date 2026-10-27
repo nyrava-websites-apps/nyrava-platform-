@@ -112,6 +112,14 @@ wss.on('connection', (ws) => {
           rooms.set(currentRoom, new Map());
         }
         const roomPeers = rooms.get(currentRoom);
+        const MAX_ROOM_CAPACITY = 25;
+        if (roomPeers.size >= MAX_ROOM_CAPACITY) {
+          ws.send(JSON.stringify({
+            type: 'error',
+            message: 'Room capacity limit reached (maximum 25 participants).'
+          }));
+          return;
+        }
         roomPeers.set(clientId, { ws, name: data.name || 'Participant' });
 
         // Update Redis Presence

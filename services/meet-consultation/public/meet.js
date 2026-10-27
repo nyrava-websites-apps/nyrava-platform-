@@ -22,11 +22,56 @@
   if (localLabel) localLabel.textContent = `${userName} (You)`;
 
   // 2. WebRTC Peer & Media Setup
-  let localStream = null;
+  let rawCameraStream = null;
+  let activeVideoStream = null; // Either camera, canvas filtered, or screen
   let screenStream = null;
   let isMicActive = true;
   let isCamActive = true;
   let isScreenSharing = false;
+
+  // Background and Filter Settings
+  let currentBg = 'none';
+  let currentFilter = 'none';
+  let canvasElem = null;
+  let canvasCtx = null;
+  let canvasStream = null;
+  let animFrameId = null;
+
+  // Virtual background procedural backdrops
+  const bgBackdrops = {
+    office: createBackdrop('linear-gradient(135deg, #1e293b 0%, #0f172a 100%)', '🏢 Executive Office Suite'),
+    penthouse: createBackdrop('linear-gradient(135deg, #091c3e 0%, #172554 100%)', '🌆 Skyline Penthouse'),
+    studio: createBackdrop('linear-gradient(135deg, #27272a 0%, #18181b 100%)', '🛋️ Modern Clean Studio')
+  };
+
+  function createBackdrop(gradient, text) {
+    const c = document.createElement('canvas');
+    c.width = 1280;
+    c.height = 720;
+    const ctx = c.getContext('2d');
+    const grad = ctx.createLinearGradient(0, 0, 1280, 720);
+    grad.addColorStop(0, '#0c1a32');
+    grad.addColorStop(1, '#050b18');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 1280, 720);
+
+    // Architectural grid pattern
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < 1280; x += 80) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, 720);
+      ctx.stroke();
+    }
+    for (let y = 0; y < 720; y += 80) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(1280, y);
+      ctx.stroke();
+    }
+    return c;
+  }
 
   const peerConnections = new Map(); // peerId -> RTCPeerConnection
   const rtcConfig = {
@@ -57,16 +102,22 @@
     try {
       const data = JSON.parse(event.data);
 
+      if (data.type === 'error') {
+        alert(data.message || 'Room error');
+        return;
+      }
+
       if (data.type === 'room-joined') {
-        // Connect to existing peers
         for (const peer of data.peers) {
           await createPeerConnection(peer.id, peer.name, true);
         }
+        updateVideoGridLayout();
       }
 
       if (data.type === 'peer-joined') {
         addSysMessage(`${data.name} joined the meeting.`);
         await createPeerConnection(data.peerId, data.name, false);
+        updateVideoGridLayout();
       }
 
       if (data.type === 'offer') {
@@ -99,6 +150,7 @@
 
       if (data.type === 'peer-left') {
         removePeer(data.peerId);
+        updateVideoGridLayout();
       }
 
       if (data.type === 'chat') {
@@ -110,29 +162,190 @@
   };
 
   // 4. Local Media Initializer
-  async function startLocalMedia() {
+  async function startLocalMedia(videoDeviceId, audioDeviceId) {
     try {
-      localStream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: true
-      });
+      const constraints = {
+        video: videoDeviceId ? { deviceId: { exact: videoDeviceId } } : { width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: audioDeviceId ? { deviceId: { exact: audioDeviceId } } : true
+      };
+      rawCameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+      activeVideoStream = rawCameraStream;
+
       const localVid = document.getElementById('localVideo');
-      if (localVid) localVid.srcObject = localStream;
+      if (localVid) localVid.srcObject = activeVideoStream;
+
+      // Populate hardware devices list in settings
+      populateDeviceList();
+      updateVideoGridLayout();
     } catch (err) {
       console.warn('[Media Error] Could not access camera/mic:', err.message);
       addSysMessage('Camera or microphone access denied. You are joined in listen-only mode.');
     }
   }
 
-  // 5. Create Peer Connection (Mesh WebRTC)
+  // Populate Device Dropdowns in Settings Modal
+  async function populateDeviceList() {
+    try {
+      if (!navigator.mediaDevices?.enumerateDevices) return;
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const selCam = document.getElementById('selectCamera');
+      const selMic = document.getElementById('selectMic');
+      if (!selCam || !selMic) return;
+
+      selCam.innerHTML = '';
+      selMic.innerHTML = '';
+
+      let camCount = 0;
+      let micCount = 0;
+
+      devices.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.deviceId;
+        if (d.kind === 'videoinput') {
+          camCount++;
+          opt.textContent = d.label || `Camera ${camCount}`;
+          selCam.appendChild(opt);
+        } else if (d.kind === 'audioinput') {
+          micCount++;
+          opt.textContent = d.label || `Microphone ${micCount}`;
+          selMic.appendChild(opt);
+        }
+      });
+    } catch (e) {
+      console.warn('enumerateDevices error', e);
+    }
+  }
+
+  // 5. Video Processing Pipeline (Virtual Backgrounds & Tone Filters)
+  function setupCanvasPipeline() {
+    if (!canvasElem) {
+      canvasElem = document.createElement('canvas');
+      canvasElem.width = 1280;
+      canvasElem.height = 720;
+      canvasCtx = canvasElem.getContext('2d');
+      canvasStream = canvasElem.captureStream(30);
+    }
+  }
+
+  function renderProcessedFrame() {
+    if (!rawCameraStream || isScreenSharing) return;
+    const localVid = document.getElementById('localVideo');
+    if (!localVid) return;
+
+    setupCanvasPipeline();
+
+    // 1. Determine Tone Filter String
+    let filterStr = 'none';
+    if (currentFilter === 'warm') filterStr = 'sepia(0.25) saturate(1.25) contrast(1.05)';
+    else if (currentFilter === 'cool') filterStr = 'hue-rotate(15deg) contrast(1.1) brightness(1.05)';
+    else if (currentFilter === 'cinema') filterStr = 'grayscale(1) contrast(1.2)';
+    else if (currentFilter === 'vivid') filterStr = 'contrast(1.25) saturate(1.35)';
+
+    canvasCtx.save();
+    canvasCtx.filter = filterStr;
+
+    // 2. Draw Virtual Background or Camera Frame
+    if (currentBg === 'office' && bgBackdrops.office) {
+      canvasCtx.drawImage(bgBackdrops.office, 0, 0, 1280, 720);
+      canvasCtx.drawImage(localVid, 200, 40, 880, 640);
+    } else if (currentBg === 'penthouse' && bgBackdrops.penthouse) {
+      canvasCtx.drawImage(bgBackdrops.penthouse, 0, 0, 1280, 720);
+      canvasCtx.drawImage(localVid, 200, 40, 880, 640);
+    } else if (currentBg === 'studio' && bgBackdrops.studio) {
+      canvasCtx.drawImage(bgBackdrops.studio, 0, 0, 1280, 720);
+      canvasCtx.drawImage(localVid, 200, 40, 880, 640);
+    } else if (currentBg === 'blur-soft') {
+      canvasCtx.filter = (filterStr === 'none' ? '' : filterStr + ' ') + 'blur(10px)';
+      canvasCtx.drawImage(localVid, 0, 0, 1280, 720);
+    } else if (currentBg === 'blur-deep') {
+      canvasCtx.filter = (filterStr === 'none' ? '' : filterStr + ' ') + 'blur(22px)';
+      canvasCtx.drawImage(localVid, 0, 0, 1280, 720);
+    } else {
+      canvasCtx.drawImage(localVid, 0, 0, 1280, 720);
+    }
+
+    canvasCtx.restore();
+
+    if (currentBg !== 'none' || currentFilter !== 'none') {
+      animFrameId = requestAnimationFrame(renderProcessedFrame);
+    }
+  }
+
+  function applyEffects() {
+    if (isScreenSharing) return;
+
+    if (animFrameId) {
+      cancelAnimationFrame(animFrameId);
+      animFrameId = null;
+    }
+
+    const localVid = document.getElementById('localVideo');
+
+    if (currentBg === 'none' && currentFilter === 'none') {
+      // Revert to raw camera stream directly
+      activeVideoStream = rawCameraStream;
+      if (localVid) {
+        localVid.style.filter = 'none';
+        localVid.srcObject = rawCameraStream;
+      }
+      broadcastVideoTrack(rawCameraStream.getVideoTracks()[0]);
+    } else {
+      setupCanvasPipeline();
+      renderProcessedFrame();
+      const processedTrack = canvasStream.getVideoTracks()[0];
+      broadcastVideoTrack(processedTrack);
+
+      // Local CSS filter preview for immediate tone
+      if (localVid) {
+        let cssFilter = 'none';
+        if (currentFilter === 'warm') cssFilter = 'sepia(0.25) saturate(1.25)';
+        else if (currentFilter === 'cool') cssFilter = 'hue-rotate(15deg) contrast(1.1)';
+        else if (currentFilter === 'cinema') cssFilter = 'grayscale(1) contrast(1.2)';
+        else if (currentFilter === 'vivid') cssFilter = 'contrast(1.25) saturate(1.35)';
+
+        if (currentBg === 'blur-soft') cssFilter = (cssFilter === 'none' ? '' : cssFilter + ' ') + 'blur(6px)';
+        if (currentBg === 'blur-deep') cssFilter = (cssFilter === 'none' ? '' : cssFilter + ' ') + 'blur(14px)';
+
+        localVid.style.filter = cssFilter;
+      }
+    }
+  }
+
+  function broadcastVideoTrack(newTrack) {
+    if (!newTrack) return;
+    peerConnections.forEach(pc => {
+      const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+      if (sender) {
+        sender.replaceTrack(newTrack).catch(e => console.warn('replaceTrack error', e));
+      }
+    });
+  }
+
+  // 6. Dynamic Grid Layout Manager (Groups of up to 25 members)
+  function updateVideoGridLayout() {
+    const grid = document.getElementById('videoGrid');
+    if (!grid) return;
+    const cards = grid.querySelectorAll('.video-card');
+    const count = Math.min(Math.max(cards.length, 1), 25);
+    grid.setAttribute('data-count', String(count));
+
+    // Update capacity pill
+    const capacityIndicator = document.getElementById('capacityIndicator');
+    if (capacityIndicator) {
+      capacityIndicator.textContent = `${count} / 25 Members`;
+    }
+  }
+
+  // 7. Create Peer Connection (Mesh WebRTC)
   async function createPeerConnection(peerId, peerName, isInitiator) {
     if (peerConnections.has(peerId)) return;
 
     const pc = new RTCPeerConnection(rtcConfig);
     peerConnections.set(peerId, pc);
 
-    if (localStream) {
-      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+    const outStream = isScreenSharing ? screenStream : (currentBg !== 'none' || currentFilter !== 'none' ? canvasStream : rawCameraStream);
+    if (outStream) {
+      outStream.getTracks().forEach(track => pc.addTrack(track, outStream));
     }
 
     pc.onicecandidate = (event) => {
@@ -174,11 +387,12 @@
 
       const label = document.createElement('div');
       label.className = 'participant-label';
-      label.innerHTML = `<span class="status-dot"></span><span>${peerName}</span>`;
+      label.innerHTML = `<span class="status-dot"></span><span>${escapeHtml(peerName)}</span>`;
 
       card.appendChild(video);
       card.appendChild(label);
       document.getElementById('videoGrid').appendChild(card);
+      updateVideoGridLayout();
     } else {
       const video = card.querySelector('video');
       if (video) video.srcObject = stream;
@@ -194,12 +408,187 @@
     const card = document.getElementById(`card-${peerId}`);
     if (card) card.remove();
     addSysMessage('A participant left the meeting.');
+    updateVideoGridLayout();
   }
 
-  // 6. UI Controls & Event Listeners
+  // 8. Screen Sharing Controller (Works from Toolbar AND Settings Modal)
+  async function toggleScreenSharing() {
+    const btnToolbar = document.getElementById('btnScreenShare');
+    const badgeSettings = document.getElementById('settingShareBadge');
+    const btnSettingsLabel = document.getElementById('btnSettingScreenShareLabel');
+    const btnSettings = document.getElementById('btnSettingScreenShare');
+
+    if (!isScreenSharing) {
+      try {
+        screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: { cursor: 'always' },
+          audio: true
+        });
+        const screenTrack = screenStream.getVideoTracks()[0];
+
+        // Replace track on all peer senders
+        broadcastVideoTrack(screenTrack);
+
+        const localVid = document.getElementById('localVideo');
+        if (localVid) {
+          localVid.style.filter = 'none';
+          localVid.srcObject = screenStream;
+        }
+
+        isScreenSharing = true;
+        btnToolbar?.classList.add('active');
+        btnSettings?.classList.add('is-sharing');
+        if (badgeSettings) {
+          badgeSettings.textContent = 'Sharing Active';
+          badgeSettings.classList.add('active');
+        }
+        if (btnSettingsLabel) btnSettingsLabel.textContent = 'Stop Screen Sharing';
+
+        screenTrack.onended = () => stopScreenShare();
+        addSysMessage('Screen sharing started.');
+      } catch (e) {
+        console.warn('[Screen share canceled/denied]', e);
+      }
+    } else {
+      stopScreenShare();
+    }
+  }
+
+  function stopScreenShare() {
+    if (screenStream) {
+      screenStream.getTracks().forEach(t => t.stop());
+      screenStream = null;
+    }
+    isScreenSharing = false;
+
+    const btnToolbar = document.getElementById('btnScreenShare');
+    const badgeSettings = document.getElementById('settingShareBadge');
+    const btnSettingsLabel = document.getElementById('btnSettingScreenShareLabel');
+    const btnSettings = document.getElementById('btnSettingScreenShare');
+
+    btnToolbar?.classList.remove('active');
+    btnSettings?.classList.remove('is-sharing');
+    if (badgeSettings) {
+      badgeSettings.textContent = 'Not Sharing';
+      badgeSettings.classList.remove('active');
+    }
+    if (btnSettingsLabel) btnSettingsLabel.textContent = 'Start Screen Share';
+
+    // Restore active video stream
+    applyEffects();
+    addSysMessage('Screen sharing ended.');
+  }
+
+  // 9. Fullscreen Controller (Enter and Exit seamlessly)
+  function toggleFullscreen() {
+    const icon = document.getElementById('fullscreenIcon');
+    const btnFs = document.getElementById('btnToggleFullscreen');
+
+    if (!document.fullscreenElement) {
+      const el = document.documentElement;
+      if (el.requestFullscreen) {
+        el.requestFullscreen().catch((err) => console.warn('Fullscreen error:', err));
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch((err) => console.warn('Exit fullscreen error:', err));
+      }
+    }
+  }
+
+  // Handle Fullscreen state change events
+  function handleFullscreenChange() {
+    const isFs = !!document.fullscreenElement;
+    const icon = document.getElementById('fullscreenIcon');
+    const btnFs = document.getElementById('btnToggleFullscreen');
+
+    if (btnFs) {
+      btnFs.classList.toggle('active', isFs);
+      btnFs.title = isFs ? 'Exit Fullscreen (Esc)' : 'Enter Fullscreen';
+    }
+    if (icon) {
+      icon.innerHTML = isFs ? '&#x2715;' : '&#x26F6;'; // ✕ when full, ⛶ when normal
+    }
+  }
+  document.addEventListener('fullscreenchange', handleFullscreenChange);
+  document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+
+  // 10. Settings Modal Handlers
+  const modalBackdrop = document.getElementById('modalSettingsBackdrop');
+  const btnOpenSettings = document.getElementById('btnToggleSettings');
+  const btnCloseSettings = document.getElementById('btnCloseSettings');
+  const btnDoneSettings = document.getElementById('btnDoneSettings');
+  const btnSettingShare = document.getElementById('btnSettingScreenShare');
+
+  function openSettings() {
+    if (modalBackdrop) {
+      modalBackdrop.hidden = false;
+      populateDeviceList();
+    }
+  }
+
+  function closeSettings() {
+    if (modalBackdrop) modalBackdrop.hidden = true;
+  }
+
+  if (btnOpenSettings) btnOpenSettings.onclick = openSettings;
+  if (btnCloseSettings) btnCloseSettings.onclick = closeSettings;
+  if (btnDoneSettings) btnDoneSettings.onclick = closeSettings;
+  if (btnSettingShare) btnSettingShare.onclick = toggleScreenSharing;
+
+  modalBackdrop?.addEventListener('click', (e) => {
+    if (e.target === modalBackdrop) closeSettings();
+  });
+
+  // Background Options Selection
+  const bgGrid = document.getElementById('bgOptionsGrid');
+  if (bgGrid) {
+    bgGrid.addEventListener('click', (e) => {
+      const btn = e.target.closest('.bg-option');
+      if (!btn) return;
+      bgGrid.querySelectorAll('.bg-option').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentBg = btn.dataset.bg || 'none';
+      applyEffects();
+    });
+  }
+
+  // Filter Pills Selection
+  const filterGrid = document.getElementById('filterOptionsGrid');
+  if (filterGrid) {
+    filterGrid.addEventListener('click', (e) => {
+      const btn = e.target.closest('.filter-pill');
+      if (!btn) return;
+      filterGrid.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentFilter = btn.dataset.filter || 'none';
+      applyEffects();
+    });
+  }
+
+  // Device selectors change
+  document.getElementById('selectCamera')?.addEventListener('change', async (e) => {
+    const deviceId = e.target.value;
+    if (rawCameraStream) {
+      rawCameraStream.getVideoTracks().forEach(t => t.stop());
+    }
+    await startLocalMedia(deviceId, document.getElementById('selectMic')?.value);
+    applyEffects();
+  });
+
+  document.getElementById('selectMic')?.addEventListener('change', async (e) => {
+    const deviceId = e.target.value;
+    if (rawCameraStream) {
+      rawCameraStream.getAudioTracks().forEach(t => t.stop());
+    }
+    await startLocalMedia(document.getElementById('selectCamera')?.value, deviceId);
+  });
+
+  // 11. Meeting Toolbar Listeners
   const btnMic = document.getElementById('btnToggleMic');
   const btnCam = document.getElementById('btnToggleCam');
   const btnScreen = document.getElementById('btnScreenShare');
+  const btnFs = document.getElementById('btnToggleFullscreen');
   const btnChat = document.getElementById('btnToggleChat');
   const btnAi = document.getElementById('btnToggleAi');
   const btnEnd = document.getElementById('btnEndCall');
@@ -214,71 +603,28 @@
 
   if (btnMic) {
     btnMic.onclick = () => {
-      if (localStream) {
+      if (rawCameraStream) {
         isMicActive = !isMicActive;
-        localStream.getAudioTracks().forEach(t => t.enabled = isMicActive);
+        rawCameraStream.getAudioTracks().forEach(t => t.enabled = isMicActive);
         btnMic.classList.toggle('active', isMicActive);
-        btnMic.innerHTML = isMicActive ? '&#127908;' : '&#127908;&#xFE0E; ✕';
+        btnMic.querySelector('.tool-icon').innerHTML = isMicActive ? '&#127908;' : '&#127908;&#xFE0E; ✕';
       }
     };
   }
 
   if (btnCam) {
     btnCam.onclick = () => {
-      if (localStream) {
+      if (rawCameraStream) {
         isCamActive = !isCamActive;
-        localStream.getVideoTracks().forEach(t => t.enabled = isCamActive);
+        rawCameraStream.getVideoTracks().forEach(t => t.enabled = isCamActive);
         btnCam.classList.toggle('active', isCamActive);
-        btnCam.innerHTML = isCamActive ? '&#128249;' : '&#128249;&#xFE0E; ✕';
+        btnCam.querySelector('.tool-icon').innerHTML = isCamActive ? '&#128249;' : '&#128249;&#xFE0E; ✕';
       }
     };
   }
 
-  if (btnScreen) {
-    btnScreen.onclick = async () => {
-      if (!isScreenSharing) {
-        try {
-          screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-          const screenTrack = screenStream.getVideoTracks()[0];
-          
-          peerConnections.forEach(pc => {
-            const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-            if (sender) sender.replaceTrack(screenTrack);
-          });
-
-          const localVid = document.getElementById('localVideo');
-          if (localVid) localVid.srcObject = screenStream;
-
-          isScreenSharing = true;
-          btnScreen.classList.add('active');
-
-          screenTrack.onended = () => stopScreenShare();
-        } catch (e) {
-          console.warn('[Screen share canceled]', e);
-        }
-      } else {
-        stopScreenShare();
-      }
-    };
-  }
-
-  function stopScreenShare() {
-    if (screenStream) {
-      screenStream.getTracks().forEach(t => t.stop());
-      screenStream = null;
-    }
-    if (localStream) {
-      const camTrack = localStream.getVideoTracks()[0];
-      peerConnections.forEach(pc => {
-        const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-        if (sender && camTrack) sender.replaceTrack(camTrack);
-      });
-      const localVid = document.getElementById('localVideo');
-      if (localVid) localVid.srcObject = localStream;
-    }
-    isScreenSharing = false;
-    btnScreen.classList.remove('active');
-  }
+  if (btnScreen) btnScreen.onclick = toggleScreenSharing;
+  if (btnFs) btnFs.onclick = toggleFullscreen;
 
   if (btnChat) {
     btnChat.onclick = () => {
@@ -294,28 +640,19 @@
     };
   }
 
-  // Complete Hardware and Connection Teardown
+  // Teardown & Exit
   function terminateAllMediaAndConnections() {
     console.log('[Nyrava Team Meet] Terminating camera, microphone, screen tracks and connections...');
-    if (localStream) {
-      localStream.getTracks().forEach(track => {
-        try {
-          track.stop();
-          track.enabled = false;
-        } catch (e) {
-          console.warn('Track stop error', e);
-        }
+    if (animFrameId) cancelAnimationFrame(animFrameId);
+    if (rawCameraStream) {
+      rawCameraStream.getTracks().forEach(track => {
+        try { track.stop(); track.enabled = false; } catch (e) {}
       });
-      localStream = null;
+      rawCameraStream = null;
     }
     if (screenStream) {
       screenStream.getTracks().forEach(track => {
-        try {
-          track.stop();
-          track.enabled = false;
-        } catch (e) {
-          console.warn('Screen track stop error', e);
-        }
+        try { track.stop(); track.enabled = false; } catch (e) {}
       });
       screenStream = null;
     }
@@ -334,13 +671,10 @@
     peerConnections.clear();
 
     if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
-      try {
-        ws.close();
-      } catch (e) {}
+      try { ws.close(); } catch (e) {}
     }
   }
 
-  // Handle unload and navigation cleanly to ensure camera light turns off
   window.addEventListener('beforeunload', terminateAllMediaAndConnections);
   window.addEventListener('pagehide', terminateAllMediaAndConnections);
   window.addEventListener('unload', terminateAllMediaAndConnections);
@@ -375,7 +709,6 @@
   if (tabChat) tabChat.onclick = () => switchTab('chat');
   if (tabNyra) tabNyra.onclick = () => switchTab('nyra');
 
-  // In-Room Chat Form
   if (chatForm) {
     chatForm.onsubmit = (e) => {
       e.preventDefault();
@@ -394,7 +727,7 @@
     const bubble = document.createElement('div');
     bubble.className = `chat-bubble ${isMine ? 'mine' : 'other'}`;
     bubble.innerHTML = `
-      <div class="chat-author">${senderName} <span class="chat-time">${time}</span></div>
+      <div class="chat-author">${escapeHtml(senderName)} <span class="chat-time">${time}</span></div>
       <div>${escapeHtml(text)}</div>
     `;
     chatMessages.appendChild(bubble);
@@ -413,7 +746,6 @@
     return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
-  // Copy Meeting Link Button
   const btnCopy = document.getElementById('btnCopyInvite');
   if (btnCopy) {
     btnCopy.onclick = () => {
@@ -432,7 +764,7 @@
     };
   }
 
-  // 7. Nyra AI Assistant Prompts
+  // Nyra Assistant Prompts
   window.askNyra = function (question) {
     const responses = document.getElementById('nyraResponses');
     const msg = document.createElement('div');
@@ -451,7 +783,7 @@
     responses.prepend(msg);
   };
 
-  // 8. Listen for Plugin postMessage commands from NyravaTeamMeet embed API or parent modal
+  // Embed PostMessage Commands
   window.addEventListener('message', (event) => {
     if (event.data && (event.data.source === 'nyrava-team-meet-api' || event.data.type === 'NYRAVA_MEET_SHUTDOWN')) {
       const { command, type } = event.data;
@@ -464,6 +796,8 @@
       if (command === 'toggleAudio' && btnMic) btnMic.click();
       if (command === 'toggleVideo' && btnCam) btnCam.click();
       if (command === 'shareScreen' && btnScreen) btnScreen.click();
+      if (command === 'toggleFullscreen' && btnFs) btnFs.click();
+      if (command === 'openSettings') openSettings();
     }
   });
 

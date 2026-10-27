@@ -18,6 +18,7 @@
         </svg>
         <strong>NYRAVA <span>TEAM MEET</span></strong>
         <span class="room-pill" id="roomIndicator">Room: Loading...</span>
+        <span class="capacity-pill" id="capacityIndicator">Max: 25</span>
       </div>
       <div class="header-actions">
         <button id="btnCopyInvite" class="btn btn-sm btn-outline">&#128279; Copy Invite Link</button>
@@ -27,8 +28,8 @@
     <!-- Main Workspace -->
     <div class="meet-workspace">
       <!-- Video Grid -->
-      <div class="video-container">
-        <div class="video-grid" id="videoGrid">
+      <div class="video-container" id="videoContainer">
+        <div class="video-grid" id="videoGrid" data-count="1">
           <div class="video-card local-card" id="localCard">
             <video id="localVideo" autoplay playsinline muted></video>
             <div class="participant-label">
@@ -39,13 +40,31 @@
         </div>
 
         <!-- Meeting Control Toolbar -->
-        <div class="controls-toolbar">
-          <button id="btnToggleMic" class="tool-btn active" title="Mute / Unmute Mic">&#127908;</button>
-          <button id="btnToggleCam" class="tool-btn active" title="Start / Stop Video">&#128249;</button>
-          <button id="btnScreenShare" class="tool-btn" title="Share Screen">&#128187;</button>
-          <button id="btnToggleChat" class="tool-btn" title="Toggle Team Chat">&#128172;</button>
-          <button id="btnToggleAi" class="tool-btn" title="Nyra AI Assistant">&#10024;</button>
-          <button id="btnEndCall" class="tool-btn btn-danger" title="Leave Consultation">&#128222;</button>
+        <div class="controls-toolbar" id="controlsToolbar">
+          <button id="btnToggleMic" class="tool-btn active" title="Mute / Unmute Mic" aria-label="Microphone">
+            <span class="tool-icon">&#127908;</span>
+          </button>
+          <button id="btnToggleCam" class="tool-btn active" title="Start / Stop Video" aria-label="Camera">
+            <span class="tool-icon">&#128249;</span>
+          </button>
+          <button id="btnScreenShare" class="tool-btn" title="Share Screen" aria-label="Share Screen">
+            <span class="tool-icon">&#128187;</span>
+          </button>
+          <button id="btnToggleSettings" class="tool-btn" title="Video & Audio Settings" aria-label="Settings">
+            <span class="tool-icon">&#9881;&#xFE0F;</span>
+          </button>
+          <button id="btnToggleFullscreen" class="tool-btn" title="Toggle Fullscreen" aria-label="Fullscreen">
+            <span class="tool-icon" id="fullscreenIcon">&#x26F6;</span>
+          </button>
+          <button id="btnToggleChat" class="tool-btn" title="Toggle Team Chat" aria-label="Chat">
+            <span class="tool-icon">&#128172;</span>
+          </button>
+          <button id="btnToggleAi" class="tool-btn" title="Nyra AI Assistant" aria-label="AI Assistant">
+            <span class="tool-icon">&#10024;</span>
+          </button>
+          <button id="btnEndCall" class="tool-btn btn-danger" title="Leave Consultation" aria-label="Leave">
+            <span class="tool-icon">&#128222;</span>
+          </button>
         </div>
       </div>
 
@@ -59,7 +78,7 @@
         <!-- Chat View -->
         <div class="tab-content" id="chatView">
           <div class="messages-list" id="chatMessages">
-            <div class="sys-msg">Welcome to Nyrava Team Meet. End-to-end encrypted video consultation is active.</div>
+            <div class="sys-msg">Welcome to Nyrava Team Meet. End-to-end encrypted video consultation is active (Capacity up to 25 participants).</div>
           </div>
           <form id="chatForm" class="chat-input-row">
             <input type="text" id="chatInput" placeholder="Write a message to meeting..." required>
@@ -82,6 +101,101 @@
           <div id="nyraResponses" class="nyra-responses"></div>
         </div>
       </aside>
+    </div>
+
+    <!-- Video & Device Settings Modal -->
+    <div class="meet-modal-backdrop" id="modalSettingsBackdrop" hidden>
+      <div class="meet-modal" id="modalSettings" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle">
+        <div class="meet-modal-header">
+          <div class="modal-title-row">
+            <span class="modal-title-icon">&#9881;&#xFE0F;</span>
+            <h3 id="settingsModalTitle">Meeting Video &amp; Device Settings</h3>
+          </div>
+          <button type="button" class="btn-modal-close" id="btnCloseSettings" aria-label="Close Settings">&times;</button>
+        </div>
+
+        <div class="meet-modal-body">
+          <!-- Screen Sharing Section in Settings -->
+          <div class="setting-card highlight-card">
+            <div class="setting-card-header">
+              <div>
+                <strong>Screen Sharing &amp; Presentations</strong>
+                <p>Present your desktop, full monitor, application window, or browser tab to up to 25 attendees.</p>
+              </div>
+              <span class="share-badge" id="settingShareBadge">Not Sharing</span>
+            </div>
+            <div class="setting-card-actions">
+              <button type="button" class="btn-share-toggle" id="btnSettingScreenShare">
+                <span class="btn-share-icon">&#128187;</span>
+                <span id="btnSettingScreenShareLabel">Start Screen Share</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Hardware Device Selectors -->
+          <div class="settings-row">
+            <div class="setting-card half-card">
+              <label for="selectCamera">Camera Input</label>
+              <select id="selectCamera" class="setting-select"></select>
+            </div>
+            <div class="setting-card half-card">
+              <label for="selectMic">Microphone Input</label>
+              <select id="selectMic" class="setting-select"></select>
+            </div>
+          </div>
+
+          <!-- Virtual Backgrounds -->
+          <div class="setting-card">
+            <label>Virtual Backgrounds &amp; Blur</label>
+            <div class="bg-options-grid" id="bgOptionsGrid">
+              <button type="button" class="bg-option active" data-bg="none">
+                <div class="bg-preview-box thumb-none">&#10005;</div>
+                <span>None (Raw)</span>
+              </button>
+              <button type="button" class="bg-option" data-bg="blur-soft">
+                <div class="bg-preview-box thumb-blur-soft">
+                  <div class="blur-indicator">Blur</div>
+                </div>
+                <span>Soft Blur</span>
+              </button>
+              <button type="button" class="bg-option" data-bg="blur-deep">
+                <div class="bg-preview-box thumb-blur-deep">
+                  <div class="blur-indicator">Blur+</div>
+                </div>
+                <span>Deep Blur</span>
+              </button>
+              <button type="button" class="bg-option" data-bg="office">
+                <div class="bg-preview-box thumb-office">&#127970;</div>
+                <span>Executive Office</span>
+              </button>
+              <button type="button" class="bg-option" data-bg="penthouse">
+                <div class="bg-preview-box thumb-penthouse">&#127750;</div>
+                <span>Skyline Penthouse</span>
+              </button>
+              <button type="button" class="bg-option" data-bg="studio">
+                <div class="bg-preview-box thumb-studio">&#128715;&#xFE0F;</div>
+                <span>Modern Studio</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Color & Tone Filters -->
+          <div class="setting-card">
+            <label>Camera Lighting &amp; Tone Filters</label>
+            <div class="filter-options-grid" id="filterOptionsGrid">
+              <button type="button" class="filter-pill active" data-filter="none">Natural</button>
+              <button type="button" class="filter-pill" data-filter="warm">&#9728;&#xFE0F; Warm Studio</button>
+              <button type="button" class="filter-pill" data-filter="cool">&#10052;&#xFE0F; Cool Clean</button>
+              <button type="button" class="filter-pill" data-filter="cinema">&#127916; Cinema B&amp;W</button>
+              <button type="button" class="filter-pill" data-filter="vivid">&#127912; Vivid Boost</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="meet-modal-footer">
+          <button type="button" class="btn btn-sm btn-primary" id="btnDoneSettings">Apply &amp; Done</button>
+        </div>
+      </div>
     </div>
   </div>
 
