@@ -102,6 +102,45 @@ app.use((req, res, next) => {
   next();
 });
 
+async function handleCrmWorkspace(req, res) {
+  let leads = [];
+  let activities = [];
+
+  try {
+    const authHeaders = {
+      'Cookie': req.headers.cookie || '',
+      'Authorization': req.headers.authorization || ''
+    };
+    const [cRes, aRes] = await Promise.all([
+      fetch(CRM_SERVICE_URL + '/api/contacts', { headers: authHeaders }),
+      fetch(CRM_SERVICE_URL + '/api/activities', { headers: authHeaders })
+    ]);
+    if (cRes.ok) {
+      leads = await cRes.json();
+    }
+    if (aRes.ok) {
+      activities = await aRes.json();
+    }
+  } catch (err) {
+    console.warn('[CRM Workspace Read]', err.message);
+  }
+
+  const appointments = (activities || []).filter(a => (a.kind || '').toLowerCase() === 'appointment');
+  const tasks = (activities || []).filter(a => (a.kind || '').toLowerCase() !== 'appointment');
+
+  res.json({
+    leads,
+    appointments,
+    tasks,
+    summary: {
+      upcomingAppointments: appointments.filter(a => a.status === 'SCHEDULED' || !a.status).length,
+      openTasks: tasks.filter(t => !t.completed).length
+    }
+  });
+}
+
+app.get('/api/crm/workspace', handleCrmWorkspace);
+
 // Proxy routes to CRM service
 app.use('/api/crm', createProxyMiddleware({
   target: CRM_SERVICE_URL,
