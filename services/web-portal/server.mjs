@@ -207,8 +207,9 @@ app.use('/api/crm', createProxyMiddleware({
   pathRewrite: { '^/api/crm': '/api/v1' }
 }));
 
-// Parse JSON bodies for inquiries
-app.use(express.json());
+// Parse JSON and URL-encoded bodies with 50MB limit to support property photo & video uploads
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // ===================================================================
 // NYRA AI SALES BOT & TOUR API (/api/nyra/v1/*)
@@ -457,7 +458,7 @@ app.post('/api/inquiries', async (req, res) => {
   });
 });
 
-// FSBO direct listing endpoint -> Ingests into CRM as Seller Lead with Territory Routing
+// FSBO direct listing endpoint -> Ingests into CRM as Seller Lead with Territory Routing & Property Media
 app.post('/api/fsbo/listing', async (req, res) => {
   const p = req.body || {};
   const zip = (p.zipCode || '78701').trim();
@@ -473,7 +474,57 @@ app.post('/api/fsbo/listing', async (req, res) => {
   const sqft = (p.sqft || '').trim();
   const propertyType = (p.propertyType || 'Single Family').trim();
   const notes = (p.notes || '').trim();
+  const videoUrl = (p.videoUrl || '').trim();
   const externalId = 'fsbo-' + zip + '-' + (phone.replace(/\D/g, '') || Date.now());
+
+  // Handle uploaded home photos and video
+  const uploadedUrls = [];
+  const FSBO_UPLOAD_DIR = path.join(__dirname, 'public', 'uploads', 'fsbo');
+  if (!fs.existsSync(FSBO_UPLOAD_DIR)) {
+    fs.mkdirSync(FSBO_UPLOAD_DIR, { recursive: true });
+  }
+
+  if (Array.isArray(p.mediaFiles)) {
+    for (let i = 0; i < p.mediaFiles.length; i++) {
+      const item = p.mediaFiles[i];
+      if (item && item.data && typeof item.data === 'string') {
+        try {
+          const matches = item.data.match(/^data:([A-Za-z0-9\-+\/]+);base64,(.+)$/);
+          if (matches && matches.length === 3) {
+            const mime = matches[1].toLowerCase();
+            const b64 = matches[2];
+            let ext = '.jpg';
+            if (mime.includes('png')) ext = '.png';
+            else if (mime.includes('webp')) ext = '.webp';
+            else if (mime.includes('mp4')) ext = '.mp4';
+            else if (mime.includes('webm')) ext = '.webm';
+            else if (mime.includes('quicktime') || mime.includes('mov')) ext = '.mov';
+
+            const cleanBase = (item.name || 'home-media').replace(/[^a-zA-Z0-9_\-\.]/g, '_').slice(0, 30);
+            const filename = `fsbo-${Date.now()}-${i}-${cleanBase}${ext}`;
+            const targetPath = path.join(FSBO_UPLOAD_DIR, filename);
+            fs.writeFileSync(targetPath, Buffer.from(b64, 'base64'));
+
+            uploadedUrls.push({
+              name: item.name || filename,
+              url: `/uploads/fsbo/${filename}`,
+              type: mime.startsWith('video/') ? 'video' : 'image'
+            });
+          }
+        } catch (err) {
+          console.warn('[FSBO Media File Save Error]', err.message);
+        }
+      }
+    }
+  }
+
+  let mediaSummary = '';
+  if (uploadedUrls.length > 0) {
+    mediaSummary += ' | Photos & Videos (' + uploadedUrls.length + '): ' + uploadedUrls.map(u => u.url).join(', ');
+  }
+  if (videoUrl) {
+    mediaSummary += ' | Walkthrough Video: ' + videoUrl;
+  }
 
   const crmPayload = {
     ExternalLeadId: externalId,
@@ -489,9 +540,9 @@ app.post('/api/fsbo/listing', async (req, res) => {
     IntentVerifiedAt: new Date().toISOString(),
     ConsentCapturedAt: new Date().toISOString(),
     ConsentRecipient: 'Nyrava Home',
-    ConsentText: 'FSBO seller listing submitted for ' + address + ', ' + city + ', ' + state + ' ' + zip + '. Asking: $' + price,
+    ConsentText: 'FSBO seller listing submitted for ' + address + ', ' + city + ', ' + state + ' ' + zip + '. Asking: $' + price + (uploadedUrls.length ? ' with ' + uploadedUrls.length + ' uploaded photos/videos' : ''),
     ExternalFsbo: true,
-    Notes: 'FSBO DIRECT LISTING | Address: ' + address + ', ' + city + ', ' + state + ' ' + zip + ' | Asking Price: $' + price + ' | Type: ' + propertyType + ' | Beds: ' + beds + ' | Baths: ' + baths + ' | SqFt: ' + sqft + ' | Description: ' + notes
+    Notes: 'FSBO DIRECT LISTING | Address: ' + address + ', ' + city + ', ' + state + ' ' + zip + ' | Asking Price: $' + price + ' | Type: ' + propertyType + ' | Beds: ' + beds + ' | Baths: ' + baths + ' | SqFt: ' + sqft + ' | Description: ' + notes + mediaSummary
   };
 
   try {
@@ -503,7 +554,7 @@ app.post('/api/fsbo/listing', async (req, res) => {
       },
       body: JSON.stringify(crmPayload)
     });
-    console.log('[FSBO Lead Ingested to CRM] ZIP: ' + zip + ' | Status: ' + crmRes.status);
+    console.log('[FSBO Lead Ingested to CRM] ZIP: ' + zip + ' | Media: ' + uploadedUrls.length + ' | Status: ' + crmRes.status);
   } catch (err) {
     console.warn('[CRM Network FSBO]', err.message);
   }
@@ -511,7 +562,9 @@ app.post('/api/fsbo/listing', async (req, res) => {
   return res.json({
     fsboId: externalId,
     success: true,
-    message: 'Your FSBO listing has been successfully published and routed to qualified buyers and territory agents!'
+    media: uploadedUrls,
+    videoUrl: videoUrl,
+    message: 'Your FSBO listing with property photos and video has been successfully published and routed to qualified buyers and territory agents!'
   });
 });
 

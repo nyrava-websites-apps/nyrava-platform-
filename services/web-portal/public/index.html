@@ -320,6 +320,103 @@
     font-weight: 600;
     cursor: pointer;
   }
+  
+  .fsbo-upload-dropzone {
+    border: 2px dashed #cbd5e1;
+    border-radius: 12px;
+    background: #f8fafc;
+    padding: 20px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .fsbo-upload-dropzone:hover,
+  .fsbo-upload-dropzone.dragover {
+    border-color: #0866FF;
+    background: #edf5ff;
+  }
+  .fsbo-dropzone-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .fsbo-dropzone-content button {
+    pointer-events: auto;
+  }
+  .fsbo-upload-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 6px;
+  }
+  .fsbo-upload-title {
+    margin: 4px 0 2px;
+    font-size: 14px;
+    color: #081A3A;
+  }
+  .fsbo-upload-sub {
+    margin: 0;
+    font-size: 12px;
+    color: #596579;
+  }
+  .fsbo-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(95px, 1fr));
+    gap: 10px;
+  }
+  .fsbo-preview-item {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #dfe6f0;
+    height: 85px;
+    background: #081A3A;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .fsbo-preview-item img,
+  .fsbo-preview-item video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .fsbo-preview-badge {
+    position: absolute;
+    bottom: 3px;
+    left: 3px;
+    background: rgba(8, 26, 58, 0.8);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 4px;
+    border-radius: 4px;
+    text-transform: uppercase;
+  }
+  .fsbo-preview-remove {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    background: rgba(15, 23, 42, 0.75);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 12px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .fsbo-preview-remove:hover {
+    background: #dc2626;
+  }
+
   .fsbo-submit-btn:hover {
     background: #0652c0;
   }
@@ -442,6 +539,34 @@
           <label for="fsboNotes">Property Highlights & Notes</label>
           <textarea id="fsboNotes" name="notes" rows="3" placeholder="Key upgrades, neighborhood highlights, showing instructions..."></textarea>
         </div>
+        <div class="fsbo-field full-width">
+          <label>Property Photos &amp; Walkthrough Video</label>
+          <div class="fsbo-upload-dropzone" id="fsboDropzone">
+            <input type="file" id="fsboMediaInput" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" multiple style="display:none;">
+            <div class="fsbo-dropzone-content">
+              <div class="fsbo-upload-icon">
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#0866FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                  <circle cx="8.5" cy="8.5" r="1.5"/>
+                  <polyline points="21 15 16 10 5 21"/>
+                </svg>
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0866FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left:8px;">
+                  <polygon points="23 7 16 12 23 17 23 7"/>
+                  <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                </svg>
+              </div>
+              <p class="fsbo-upload-title"><strong>Click or drag photos &amp; home video here</strong></p>
+              <p class="fsbo-upload-sub">Upload interior/exterior images (JPG, PNG, WebP) or video walkthrough (MP4, MOV)</p>
+              <button type="button" class="button button-secondary" id="browseMediaBtn" style="margin-top:10px;padding:7px 14px;font-size:13px;">Browse Device Files</button>
+            </div>
+          </div>
+          <div id="fsboMediaPreview" class="fsbo-preview-grid" style="display:none;margin-top:12px;"></div>
+        </div>
+        <div class="fsbo-field full-width">
+          <label for="fsboVideoUrl">Walkthrough Video Link (Optional)</label>
+          <input type="url" id="fsboVideoUrl" name="videoUrl" placeholder="e.g. YouTube, Vimeo, or Matterport 3D Tour URL">
+          <small style="color:#596579;font-size:11px;margin-top:4px;display:block;">Have a virtual tour or video hosted online? Paste the link here for instant buyer access.</small>
+        </div>
       </div>
       <div id="fsboFormStatus" class="fsbo-status-box" style="display:none;"></div>
       <div class="fsbo-form-actions">
@@ -562,6 +687,132 @@
       if (e.target === dialog) closeDialog();
     });
 
+    const dropzone = document.getElementById('fsboDropzone');
+    const mediaInput = document.getElementById('fsboMediaInput');
+    const browseBtn = document.getElementById('browseMediaBtn');
+    const previewGrid = document.getElementById('fsboMediaPreview');
+    let selectedMediaFiles = [];
+
+    if (browseBtn && mediaInput) {
+      browseBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        mediaInput.click();
+      });
+    }
+
+    if (dropzone && mediaInput) {
+      dropzone.addEventListener('click', (e) => {
+        if (e.target !== browseBtn) {
+          mediaInput.click();
+        }
+      });
+
+      ['dragenter', 'dragover'].forEach(name => {
+        dropzone.addEventListener(name, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropzone.classList.add('dragover');
+        });
+      });
+
+      ['dragleave', 'drop'].forEach(name => {
+        dropzone.addEventListener(name, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropzone.classList.remove('dragover');
+        });
+      });
+
+      dropzone.addEventListener('drop', (e) => {
+        if (e.dataTransfer && e.dataTransfer.files) {
+          handleMediaFiles(e.dataTransfer.files);
+        }
+      });
+
+      mediaInput.addEventListener('change', () => {
+        if (mediaInput.files) {
+          handleMediaFiles(mediaInput.files);
+        }
+      });
+    }
+
+    function handleMediaFiles(files) {
+      const fileList = Array.from(files);
+      for (const f of fileList) {
+        if (selectedMediaFiles.length >= 12) {
+          alert('Maximum 12 media files allowed per listing.');
+          break;
+        }
+        if (f.size > 25 * 1024 * 1024) {
+          alert(`File ${f.name} exceeds 25MB limit.`);
+          continue;
+        }
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const item = {
+            name: f.name,
+            type: f.type,
+            data: ev.target.result,
+            size: f.size
+          };
+          selectedMediaFiles.push(item);
+          renderMediaPreviews();
+        };
+        reader.readAsDataURL(f);
+      }
+    }
+
+    function renderMediaPreviews() {
+      if (!previewGrid) return;
+      previewGrid.innerHTML = '';
+      if (selectedMediaFiles.length === 0) {
+        previewGrid.style.display = 'none';
+        return;
+      }
+      previewGrid.style.display = 'grid';
+      selectedMediaFiles.forEach((file, index) => {
+        const card = document.createElement('div');
+        card.className = 'fsbo-preview-item';
+        
+        const isVideo = file.type.startsWith('video/');
+        if (isVideo) {
+          const vid = document.createElement('video');
+          vid.src = file.data;
+          vid.muted = true;
+          card.appendChild(vid);
+          
+          const badge = document.createElement('span');
+          badge.className = 'fsbo-preview-badge';
+          badge.textContent = 'VIDEO';
+          card.appendChild(badge);
+        } else {
+          const img = document.createElement('img');
+          img.src = file.data;
+          img.alt = file.name;
+          card.appendChild(img);
+
+          const badge = document.createElement('span');
+          badge.className = 'fsbo-preview-badge';
+          badge.textContent = 'PHOTO';
+          card.appendChild(badge);
+        }
+
+        const rmBtn = document.createElement('button');
+        rmBtn.type = 'button';
+        rmBtn.className = 'fsbo-preview-remove';
+        rmBtn.title = 'Remove ' + file.name;
+        rmBtn.innerHTML = '×';
+        rmBtn.onclick = (e) => {
+          e.stopPropagation();
+          selectedMediaFiles.splice(index, 1);
+          renderMediaPreviews();
+        };
+        card.appendChild(rmBtn);
+        previewGrid.appendChild(card);
+      });
+    }
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       submitBtn.disabled = true;
@@ -570,6 +821,7 @@
 
       const formData = new FormData(form);
       const payload = Object.fromEntries(formData.entries());
+      payload.mediaFiles = selectedMediaFiles;
 
       try {
         const res = await fetch('/api/fsbo/listing', {
