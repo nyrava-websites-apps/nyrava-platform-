@@ -31,8 +31,8 @@
       <div class="video-container" id="videoContainer">
         <div class="video-grid" id="videoGrid" data-count="1">
           <div class="video-card local-card" id="localCard">
-            <video id="localVideoBg" class="local-video-bg" autoplay playsinline muted></video>
             <video id="localVideo" class="local-video-fg" autoplay playsinline muted></video>
+            <canvas id="localCanvas" class="local-canvas-preview" width="1280" height="720" style="display:none;"></canvas>
             <div class="cam-off-placeholder">
               <span class="placeholder-icon">&#128249;&#xFE0E; ✕</span>
               <span>Camera Off</span>
@@ -189,10 +189,11 @@
             <label>Camera Lighting &amp; Tone Filters</label>
             <div class="filter-options-grid" id="filterOptionsGrid">
               <button type="button" class="filter-pill active" data-filter="none">Natural</button>
-              <button type="button" class="filter-pill" data-filter="warm">&#9728;&#xFE0F; Warm Studio</button>
+              <button type="button" class="filter-pill" data-filter="bright">&#128161; Studio Brightness</button>
+              <button type="button" class="filter-pill" data-filter="warm">&#9728;&#xFE0F; Warm Glow</button>
               <button type="button" class="filter-pill" data-filter="cool">&#10052;&#xFE0F; Cool Clean</button>
-              <button type="button" class="filter-pill" data-filter="cinema">&#127916; Cinema B&amp;W</button>
               <button type="button" class="filter-pill" data-filter="vivid">&#127912; Vivid Boost</button>
+              <button type="button" class="filter-pill" data-filter="cinema">&#127916; Cinema B&amp;W</button>
             </div>
           </div>
         </div>

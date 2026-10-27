@@ -380,69 +380,137 @@
     }
   }
 
-  // 5. Video Processing Pipeline (Virtual Backgrounds & Tone Filters)
+  // 5. Video Processing Pipeline (Real-Time Virtual Backgrounds & Studio Lighting)
+  let maskCanvas = null;
+  let maskCtx = null;
+
   function setupCanvasPipeline() {
     if (!canvasElem) {
-      canvasElem = document.createElement('canvas');
-      canvasElem.width = 1280;
-      canvasElem.height = 720;
+      canvasElem = document.getElementById('localCanvas');
+      if (!canvasElem) {
+        canvasElem = document.createElement('canvas');
+        canvasElem.width = 1280;
+        canvasElem.height = 720;
+      }
       canvasCtx = canvasElem.getContext('2d');
-      canvasStream = canvasElem.captureStream(30);
+      try {
+        canvasStream = canvasElem.captureStream(30);
+      } catch (e) {
+        console.warn('captureStream error', e);
+      }
+    }
+    if (!maskCanvas) {
+      maskCanvas = document.createElement('canvas');
+      maskCanvas.width = 1280;
+      maskCanvas.height = 720;
+      maskCtx = maskCanvas.getContext('2d');
     }
   }
 
+  function getToneFilterString() {
+    if (currentFilter === 'bright') return 'brightness(1.28) contrast(1.10) saturate(1.15)';
+    if (currentFilter === 'warm') return 'brightness(1.08) sepia(0.24) saturate(1.35) contrast(1.08)';
+    if (currentFilter === 'cool') return 'brightness(1.08) hue-rotate(16deg) saturate(1.15) contrast(1.12)';
+    if (currentFilter === 'vivid') return 'brightness(1.10) contrast(1.25) saturate(1.45)';
+    if (currentFilter === 'cinema') return 'brightness(1.08) grayscale(1) contrast(1.30)';
+    return 'none';
+  }
+
   function renderProcessedFrame() {
-    if (!rawCameraStream || isScreenSharing) return;
+    if (!rawCameraStream || isScreenSharing || !isCamActive) return;
     const localVid = document.getElementById('localVideo');
-    if (!localVid) return;
+    if (!localVid || localVid.readyState < 2) {
+      animFrameId = requestAnimationFrame(renderProcessedFrame);
+      return;
+    }
 
     setupCanvasPipeline();
-
-    // 1. Determine Tone Filter String
-    let filterStr = 'none';
-    if (currentFilter === 'warm') filterStr = 'sepia(0.28) saturate(1.3) contrast(1.08)';
-    else if (currentFilter === 'cool') filterStr = 'hue-rotate(18deg) saturate(1.15) contrast(1.1) brightness(1.04)';
-    else if (currentFilter === 'cinema') filterStr = 'grayscale(1) contrast(1.25) brightness(1.02)';
-    else if (currentFilter === 'vivid') filterStr = 'contrast(1.25) saturate(1.4) brightness(1.05)';
+    const filterStr = getToneFilterString();
 
     canvasCtx.save();
     canvasCtx.clearRect(0, 0, 1280, 720);
 
-    // 2. Composite Background & Person
-    if ((currentBg === 'office' && bgImages.office.complete) ||
-        (currentBg === 'penthouse' && bgImages.penthouse.complete) ||
-        (currentBg === 'studio' && bgImages.studio.complete)) {
+    // 1. Virtual Architectural Backdrops (Penthouse, Office, Studio)
+    if (currentBg === 'office' || currentBg === 'penthouse' || currentBg === 'studio') {
       const bgImg = bgImages[currentBg];
-      canvasCtx.drawImage(bgImg, 0, 0, 1280, 720);
+      if (bgImg && bgImg.complete && bgImg.naturalWidth > 0) {
+        canvasCtx.drawImage(bgImg, 0, 0, 1280, 720);
+      } else {
+        // High-end fallback architectural gradient
+        const grad = canvasCtx.createLinearGradient(0, 0, 1280, 720);
+        if (currentBg === 'penthouse') {
+          grad.addColorStop(0, '#020617');
+          grad.addColorStop(0.5, '#0f172a');
+          grad.addColorStop(1, '#1e1b4b');
+        } else if (currentBg === 'office') {
+          grad.addColorStop(0, '#0b162c');
+          grad.addColorStop(0.5, '#1e293b');
+          grad.addColorStop(1, '#0f172a');
+        } else {
+          grad.addColorStop(0, '#18181b');
+          grad.addColorStop(0.5, '#27272a');
+          grad.addColorStop(1, '#09090b');
+        }
+        canvasCtx.fillStyle = grad;
+        canvasCtx.fillRect(0, 0, 1280, 720);
+      }
 
-      // Masked foreground portrait
-      canvasCtx.save();
-      if (filterStr !== 'none') canvasCtx.filter = filterStr;
-      canvasCtx.beginPath();
-      canvasCtx.ellipse(640, 430, 420, 350, 0, 0, Math.PI * 2);
-      canvasCtx.clip();
-      canvasCtx.drawImage(localVid, 0, 0, 1280, 720);
-      canvasCtx.restore();
+      // 2. Alpha-Masked Portrait Blend
+      maskCtx.clearRect(0, 0, 1280, 720);
+      maskCtx.save();
+      if (filterStr !== 'none') maskCtx.filter = filterStr;
+      maskCtx.drawImage(localVid, 0, 0, 1280, 720);
+      maskCtx.restore();
+
+      maskCtx.save();
+      maskCtx.globalCompositeOperation = 'destination-in';
+      const grad = maskCtx.createRadialGradient(640, 420, 100, 640, 420, 480);
+      grad.addColorStop(0, 'rgba(0,0,0,1)');
+      grad.addColorStop(0.68, 'rgba(0,0,0,1)');
+      grad.addColorStop(0.92, 'rgba(0,0,0,0.15)');
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      maskCtx.fillStyle = grad;
+      maskCtx.fillRect(0, 0, 1280, 720);
+      maskCtx.restore();
+
+      canvasCtx.drawImage(maskCanvas, 0, 0, 1280, 720);
+
+    // 2. Room Background Blur (Soft & Deep Blur)
     } else if (currentBg === 'blur-soft' || currentBg === 'blur-deep') {
-      const blurPx = currentBg === 'blur-soft' ? '12px' : '26px';
-      // Blurred background layer
+      const blurPx = currentBg === 'blur-soft' ? '16px' : '32px';
+
+      // Blurred background layer from local room
       canvasCtx.save();
-      canvasCtx.filter = (filterStr === 'none' ? '' : filterStr + ' ') + `blur(${blurPx})`;
-      canvasCtx.drawImage(localVid, -20, -20, 1320, 760);
+      canvasCtx.filter = (filterStr !== 'none' ? filterStr + ' ' : '') + `blur(${blurPx}) brightness(0.94)`;
+      canvasCtx.drawImage(localVid, -30, -30, 1340, 780);
       canvasCtx.restore();
 
-      // Sharp portrait foreground layer
+      // Sharp portrait foreground
+      maskCtx.clearRect(0, 0, 1280, 720);
+      maskCtx.save();
+      if (filterStr !== 'none') maskCtx.filter = filterStr;
+      maskCtx.drawImage(localVid, 0, 0, 1280, 720);
+      maskCtx.restore();
+
+      maskCtx.save();
+      maskCtx.globalCompositeOperation = 'destination-in';
+      const grad = maskCtx.createRadialGradient(640, 420, 100, 640, 420, 480);
+      grad.addColorStop(0, 'rgba(0,0,0,1)');
+      grad.addColorStop(0.68, 'rgba(0,0,0,1)');
+      grad.addColorStop(0.92, 'rgba(0,0,0,0.15)');
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      maskCtx.fillStyle = grad;
+      maskCtx.fillRect(0, 0, 1280, 720);
+      maskCtx.restore();
+
+      canvasCtx.drawImage(maskCanvas, 0, 0, 1280, 720);
+
+    // 3. Raw Background with Lighting/Tone Filter
+    } else {
       canvasCtx.save();
       if (filterStr !== 'none') canvasCtx.filter = filterStr;
-      canvasCtx.beginPath();
-      canvasCtx.ellipse(640, 430, 420, 350, 0, 0, Math.PI * 2);
-      canvasCtx.clip();
       canvasCtx.drawImage(localVid, 0, 0, 1280, 720);
       canvasCtx.restore();
-    } else {
-      // Raw or tone filter only
-      if (filterStr !== 'none') canvasCtx.filter = filterStr;
-      canvasCtx.drawImage(localVid, 0, 0, 1280, 720);
     }
 
     canvasCtx.restore();
@@ -461,78 +529,30 @@
     }
 
     const localVid = document.getElementById('localVideo');
-    const localVidBg = document.getElementById('localVideoBg');
-    const localCard = document.getElementById('localCard');
+    const localCanvas = document.getElementById('localCanvas');
 
-    let toneFilterCss = 'none';
-    if (currentFilter === 'warm') toneFilterCss = 'sepia(0.28) saturate(1.3) contrast(1.08)';
-    else if (currentFilter === 'cool') toneFilterCss = 'hue-rotate(18deg) saturate(1.15) contrast(1.1) brightness(1.04)';
-    else if (currentFilter === 'cinema') toneFilterCss = 'grayscale(1) contrast(1.25) brightness(1.02)';
-    else if (currentFilter === 'vivid') toneFilterCss = 'contrast(1.25) saturate(1.4) brightness(1.05)';
-
-    const portraitMask = 'radial-gradient(ellipse 65% 82% at 50% 55%, #000 56%, transparent 88%)';
-
-    // 1. Immediately apply visual appearance to local preview elements
-    if (localCard && localVid) {
-      if (currentBg === 'office') {
-        localCard.style.backgroundImage = "url('/backgrounds/office.svg')";
-        localCard.style.backgroundColor = '#0b162c';
-        if (localVidBg) localVidBg.style.display = 'none';
-        localVid.style.webkitMaskImage = portraitMask;
-        localVid.style.maskImage = portraitMask;
-        localVid.style.filter = toneFilterCss;
-      } else if (currentBg === 'penthouse') {
-        localCard.style.backgroundImage = "url('/backgrounds/penthouse.svg')";
-        localCard.style.backgroundColor = '#060f24';
-        if (localVidBg) localVidBg.style.display = 'none';
-        localVid.style.webkitMaskImage = portraitMask;
-        localVid.style.maskImage = portraitMask;
-        localVid.style.filter = toneFilterCss;
-      } else if (currentBg === 'studio') {
-        localCard.style.backgroundImage = "url('/backgrounds/studio.svg')";
-        localCard.style.backgroundColor = '#18181b';
-        if (localVidBg) localVidBg.style.display = 'none';
-        localVid.style.webkitMaskImage = portraitMask;
-        localVid.style.maskImage = portraitMask;
-        localVid.style.filter = toneFilterCss;
-      } else if (currentBg === 'blur-soft') {
-        localCard.style.backgroundImage = 'none';
-        if (localVidBg) {
-          localVidBg.style.display = 'block';
-          localVidBg.style.filter = (toneFilterCss === 'none' ? '' : toneFilterCss + ' ') + 'blur(12px) brightness(0.92)';
-        }
-        localVid.style.webkitMaskImage = portraitMask;
-        localVid.style.maskImage = portraitMask;
-        localVid.style.filter = toneFilterCss;
-      } else if (currentBg === 'blur-deep') {
-        localCard.style.backgroundImage = 'none';
-        if (localVidBg) {
-          localVidBg.style.display = 'block';
-          localVidBg.style.filter = (toneFilterCss === 'none' ? '' : toneFilterCss + ' ') + 'blur(28px) brightness(0.85)';
-        }
-        localVid.style.webkitMaskImage = portraitMask;
-        localVid.style.maskImage = portraitMask;
-        localVid.style.filter = toneFilterCss;
-      } else {
-        // 'none'
-        localCard.style.backgroundImage = 'none';
-        if (localVidBg) localVidBg.style.display = 'none';
-        localVid.style.webkitMaskImage = 'none';
-        localVid.style.maskImage = 'none';
-        localVid.style.filter = toneFilterCss;
-      }
-    }
-
-    // 2. Peer Broadcast Stream Update
     if (currentBg === 'none' && currentFilter === 'none') {
+      // Standard raw camera feed (zero overhead)
+      if (localCanvas) localCanvas.style.display = 'none';
+      if (localVid) {
+        localVid.style.display = 'block';
+        localVid.style.filter = 'none';
+      }
       activeVideoStream = rawCameraStream;
       if (rawCameraStream && rawCameraStream.getVideoTracks()[0]) {
         broadcastVideoTrack(rawCameraStream.getVideoTracks()[0]);
       }
     } else {
+      // Real-time canvas processing for Virtual Backgrounds, Blur, and Lighting
       setupCanvasPipeline();
+      if (localCanvas) localCanvas.style.display = 'block';
+      if (localVid) {
+        localVid.style.display = 'block'; // Keep playing so canvas can read frames
+        localVid.style.filter = 'none';
+      }
       renderProcessedFrame();
       if (canvasStream && canvasStream.getVideoTracks()[0]) {
+        activeVideoStream = canvasStream;
         broadcastVideoTrack(canvasStream.getVideoTracks()[0]);
       }
     }
@@ -967,6 +987,7 @@
         const nextState = !isCamActive;
         rawCameraStream.getVideoTracks().forEach(t => t.enabled = nextState);
         updateCameraStateUI(nextState);
+        if (nextState) applyEffects();
         addSysMessage(nextState ? 'Camera turned on.' : 'Camera turned off.');
       } else {
         await startLocalMedia(document.getElementById('selectCamera')?.value, document.getElementById('selectMic')?.value);
