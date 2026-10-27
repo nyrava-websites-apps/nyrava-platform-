@@ -118,3 +118,62 @@ html[data-ny-page="intake.html"] .hero .pills button.active{color:var(--ny-navy)
 body:not(.home-page) .workspace-sidebar a{color:var(--ny-white)!important}
 body:not(.home-page) .workspace-sidebar a.active,
 body:not(.home-page) .workspace-sidebar a[aria-current="page"]{background:var(--ny-blue)!important;color:var(--ny-white)!important}
+
+
+/* --- Nyrava Platform Unified Layout & Popup Branding Enhancement --- */
+dialog {
+  border-radius: 16px !important;
+  border: 1px solid var(--ny-border) !important;
+  background: var(--ny-white) !important;
+  box-shadow: 0 25px 60px -12px rgba(8, 26, 58, 0.35) !important;
+  color: var(--ny-text) !important;
+}
+
+dialog::backdrop {
+  background: rgba(8, 26, 58, 0.72) !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+}
+
+body:not(.home-page) aside nav a.active,
+body:not(.home-page) aside nav button.active,
+body:not(.home-page) .rail nav a.active,
+body:not(.home-page) .rail nav button.active,
+body:not(.home-page) .workspace-sidebar nav a.active {
+  background: var(--ny-blue) !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+body:not(.home-page) aside nav a:hover,
+body:not(.home-page) aside nav button:hover,
+body:not(.home-page) .rail nav a:hover,
+body:not(.home-page) .rail nav button:hover,
+body:not(.home-page) .workspace-sidebar nav a:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+}
+
+body:not(.home-page) aside nav a.active:hover,
+body:not(.home-page) aside nav button.active:hover,
+body:not(.home-page) .rail nav a.active:hover,
+body:not(.home-page) .rail nav button.active:hover {
+  background: var(--ny-blue-hover) !important;
+}
+
+/* Ensure main workspace content stretches cleanly and has proper viewport boundaries */
+.workspace, .workspace-main, .workspace-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Modal and dialog close button standard */
+dialog button.close, dialog .close, dialog [data-close], dialog #close {
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+dialog button.close:hover, dialog .close:hover, dialog [data-close]:hover, dialog #close:hover {
+  opacity: 0.8;
+}
