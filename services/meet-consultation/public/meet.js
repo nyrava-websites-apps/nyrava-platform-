@@ -190,14 +190,11 @@
       rawCameraStream = null;
     }
 
-    // Studio-Grade Audio Constraints: 48kHz sampling, acoustic echo cancellation, noise suppression
+    // Robust Audio Constraints without brittle sampleSize / channelCount that break on mobile
     const audioConstraints = {
-      echoCancellation: { ideal: true },
-      noiseSuppression: { ideal: true },
-      autoGainControl: { ideal: true },
-      sampleRate: { ideal: 48000 },
-      sampleSize: { ideal: 16 },
-      channelCount: { ideal: 2 }
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true
     };
     if (audioDeviceId) {
       audioConstraints.deviceId = { exact: audioDeviceId };
@@ -206,60 +203,68 @@
     let stream = null;
     let cameraFailure = null;
 
-    // Tier 1: Optimal Full HD 1080p @ 30fps
+    // Flexible video constraints that work seamlessly in portrait (mobile) and landscape (desktop)
+    const videoConstraints = videoDeviceId
+      ? { deviceId: { exact: videoDeviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+      : { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } };
+
+    // Tier 1: Optimal HD with standard echo/noise cancelled audio
     try {
-      const constraints = {
-        video: videoDeviceId
-          ? { deviceId: { exact: videoDeviceId }, width: { ideal: 1920, min: 1280 }, height: { ideal: 1080, min: 720 }, frameRate: { ideal: 30, min: 24 } }
-          : { width: { ideal: 1920, min: 1280 }, height: { ideal: 1080, min: 720 }, frameRate: { ideal: 30, min: 24 }, facingMode: 'user' },
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: videoConstraints,
         audio: audioConstraints
-      };
-      stream = await navigator.mediaDevices.getUserMedia(constraints);
+      });
     } catch (err1) {
-      console.warn('[Media Tier 1 Full HD Failed] Fallback to 720p:', err1.message);
+      console.warn('[Media Tier 1 Failed] Fallback to basic user camera:', err1.message);
       cameraFailure = err1;
 
-      // Tier 2: 720p HD fallback
+      // Tier 2: Basic user facing camera + standard audio
       try {
-        const hdConstraints = {
-          video: videoDeviceId
-            ? { deviceId: { exact: videoDeviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
-            : { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-          audio: audioConstraints
-        };
-        stream = await navigator.mediaDevices.getUserMedia(hdConstraints);
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user' },
+          audio: true
+        });
         cameraFailure = null;
       } catch (err2) {
-        console.warn('[Media Tier 2 HD Failed] Fallback to standard video:', err2.message);
+        console.warn('[Media Tier 2 Failed] Fallback to generic video & audio:', err2.message);
         cameraFailure = err2;
 
-        // Tier 3: Adaptive standard video
+        // Tier 3: Any video and any audio
         try {
-          const fallbackConstraints = {
-            video: videoDeviceId ? { deviceId: { exact: videoDeviceId } } : true,
-            audio: audioConstraints
-          };
-          stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: true
+          });
           cameraFailure = null;
         } catch (err3) {
-          console.warn('[Media Tier 3 Standard Failed] Fallback to audio-only:', err3.message);
-          // Tier 4: Audio-only fallback if camera is busy or locked by another app
+          console.warn('[Media Tier 3 Failed] Fallback to audio-only:', err3.message);
+          // Tier 4: Audio-only fallback
           try {
-            stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints, video: false });
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
           } catch (err4) {
-            console.warn('[Media Tier 4 Audio-only Failed]:', err4.message);
+            console.warn('[Media Tier 4 Failed] Fallback to video-only:', err4.message);
+            // Tier 5: Video-only fallback
+            try {
+              stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+              cameraFailure = null;
+            } catch (err5) {
+              console.warn('[Media All Tiers Failed]:', err5.message);
+            }
           }
         }
       }
     }
 
+    const permBanner = document.getElementById('mediaPermissionBanner');
     if (!stream) {
       console.warn('[Media Error] Could not access camera or microphone:', cameraFailure?.message);
-      addSysMessage('⚠️ Camera and microphone access could not be acquired. You are joined in listen-only mode.');
+      addSysMessage('⚠️ Camera & microphone access needed. Tap "Enable Camera & Mic" to start video.');
+      if (permBanner) permBanner.style.display = 'flex';
       updateCameraStateUI(false);
       updateMicStateUI(false);
       return;
     }
+    if (permBanner) permBanner.style.display = 'none';
 
     rawCameraStream = stream;
     activeVideoStream = stream;
@@ -1118,16 +1123,54 @@
   if (btnScreen) btnScreen.onclick = toggleScreenSharing;
   if (btnFs) btnFs.onclick = toggleFullscreen;
 
+  const btnCloseSidepanel = document.getElementById('btnCloseSidepanel');
+  if (btnCloseSidepanel) {
+    btnCloseSidepanel.onclick = () => {
+      sidePanel.classList.add('collapsed');
+      sidePanel.classList.remove('open');
+      if (btnChat) btnChat.classList.remove('active');
+    };
+  }
+
+  const btnGrantMedia = document.getElementById('btnGrantMedia');
+  if (btnGrantMedia) {
+    btnGrantMedia.onclick = async () => {
+      await startLocalMedia();
+      applyEffects();
+    };
+  }
+
   if (btnChat) {
     btnChat.onclick = () => {
-      sidePanel.classList.toggle('collapsed');
-      switchTab('chat');
+      const isMobile = window.innerWidth <= 768;
+      if (isMobile) {
+        const isOpen = sidePanel.classList.contains('open');
+        if (isOpen) {
+          sidePanel.classList.remove('open');
+          sidePanel.classList.add('collapsed');
+          btnChat.classList.remove('active');
+        } else {
+          sidePanel.classList.remove('collapsed');
+          sidePanel.classList.add('open');
+          btnChat.classList.add('active');
+          switchTab('chat');
+        }
+      } else {
+        sidePanel.classList.toggle('collapsed');
+        switchTab('chat');
+      }
     };
   }
 
   if (btnAi) {
     btnAi.onclick = () => {
-      sidePanel.classList.remove('collapsed');
+      const isMobile = window.innerWidth <= 768;
+      if (isMobile) {
+        sidePanel.classList.remove('collapsed');
+        sidePanel.classList.add('open');
+      } else {
+        sidePanel.classList.remove('collapsed');
+      }
       switchTab('nyra');
     };
   }
@@ -1373,6 +1416,12 @@
 
   // Pre-initialize MediaPipe AI background engine in background
   initMediaPipe();
+
+  // Default to collapsed chat on mobile viewports so user lands directly on the video grid
+  if (window.innerWidth <= 768 && sidePanel) {
+    sidePanel.classList.add('collapsed');
+    sidePanel.classList.remove('open');
+  }
 
   // Announce initial ready state
   notifyParentState();

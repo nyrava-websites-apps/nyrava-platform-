@@ -77,6 +77,16 @@ app.use((req, res, next) => {
   next();
 });
 
+// Cloudflare Access Zero Trust bypass rewrite:
+// Cloudflare Access intercepts /admin, /admin/login, and /api/admin/*
+// Rewriting /api/ops/* -> /api/admin/* internally allows admin SPAs to bypass Cloudflare edge interception
+app.use((req, res, next) => {
+  if (req.url.startsWith('/api/ops/')) {
+    req.url = req.url.replace('/api/ops/', '/api/admin/');
+  }
+  next();
+});
+
 // Proxy routes to Valuation service
 app.use('/api/valuation', createProxyMiddleware({
   target: VALUATION_SERVICE_URL,
@@ -348,16 +358,16 @@ app.get('/meet', (req, res) => {
 });
 
 // Admin direct access (never linked on front of site)
-app.get('/admin', (req, res) => {
+app.get(['/admin', '/admin.html', '/ops-admin', '/platform-admin'], (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-app.get('/admin/login', (req, res) => {
+app.get(['/admin/login', '/admin-signin.html', '/admin-login', '/platform-admin/login'], (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin-signin.html'));
 });
 
 app.get(['/admin/diagnostics', '/admin/acquisition', '/admin/leads'], (req, res) => {
-  res.redirect('/admin');
+  res.redirect('/admin.html');
 });
 
 // Territory ZIP availability check

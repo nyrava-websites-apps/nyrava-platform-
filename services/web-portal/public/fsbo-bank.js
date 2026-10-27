@@ -36,7 +36,7 @@ function render(){
   const evidence=el('details');evidence.append(el('summary','Published evidence'));try{const data=JSON.parse(p.contactEvidenceJson||'{}');for(const item of data.evidence||[])evidence.append(el('p',[item.kind,item.value,item.excerpt].filter(Boolean).join(' · ')))}catch{}detailCell.append(evidence);
   const form=el('form'),label=el('label','Admin review note'),input=el('textarea');input.maxLength=1000;input.required=true;input.value=p.reviewNote||'';label.append(input);
   const select=el('select');select.setAttribute('aria-label','Review status');for(const [value,text] of [['REVIEW_CONTACT_AND_PERMISSION','Keep in review'],['DISMISSED','Dismiss']]){const o=el('option',text);o.value=value;select.append(o)}select.value=p.status==='DISMISSED'?p.status:'REVIEW_CONTACT_AND_PERMISSION';
-  const save=el('button','Save review');save.type='submit';form.append(label,select,save);form.onsubmit=async event=>{event.preventDefault();save.disabled=true;try{const r=await fetch('/api/admin/fsbo/prospects/'+p.id,{method:'PUT',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Nyrava-Fsbo':'1'},body:JSON.stringify({status:select.value,note:input.value})});if(!r.ok)throw Error('Review could not be saved.');p.status=select.value;p.reviewNote=input.value;$('notice').textContent='Review saved; no delivery initiated.'}catch(e){$('notice').textContent=e.message}finally{save.disabled=false}};
+  const save=el('button','Save review');save.type='submit';form.append(label,select,save);form.onsubmit=async event=>{event.preventDefault();save.disabled=true;try{const r=await fetch('/api/ops/fsbo/prospects/'+p.id,{method:'PUT',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Nyrava-Fsbo':'1'},body:JSON.stringify({status:select.value,note:input.value})});if(!r.ok)throw Error('Review could not be saved.');p.status=select.value;p.reviewNote=input.value;$('notice').textContent='Review saved; no delivery initiated.'}catch(e){$('notice').textContent=e.message}finally{save.disabled=false}};
   detailCell.append(form);detailRow.append(detailCell);button.onclick=()=>{detailRow.hidden=!detailRow.hidden;button.setAttribute('aria-expanded',String(!detailRow.hidden));button.textContent=detailRow.hidden?'Details':'Close'};
   $('rows').append(row,detailRow);
  }
@@ -46,7 +46,7 @@ async function load(){
  if(loading)return;loading=true;$('refresh').disabled=true;$('notice').textContent='Loading admin inventory…';const collected=[],ids=new Set();let target=1,requested=1;
  try{
   while(collected.length<target){
-   const r=await fetch('/api/admin/fsbo/?page='+requested,{credentials:'same-origin',headers:{'Accept':'application/json'}});
+   const r=await fetch('/api/ops/fsbo/?page='+requested,{credentials:'same-origin',headers:{'Accept':'application/json'}});
    if(!r.ok)throw Error(r.status===403?'Administrator sign-in required.':'Inventory could not be loaded.');
    const d=await r.json();target=d.total;
    if(!Number.isSafeInteger(target)||target<0)throw Error('Unexpected inventory response.');

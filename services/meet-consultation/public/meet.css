@@ -377,6 +377,65 @@ body, html {
   border-bottom: 1px solid var(--border-glass);
 }
 
+.tab-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  font-weight: 700;
+  padding: 10px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.tab-close-btn:hover {
+  color: #fff;
+}
+
+.media-permission-banner {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(8, 102, 255, 0.5);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  border-radius: 12px;
+  padding: 12px 18px;
+  max-width: 90%;
+  width: 380px;
+}
+
+.permission-prompt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.permission-prompt .prompt-icon {
+  font-size: 24px;
+}
+
+.permission-prompt .prompt-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.permission-prompt .prompt-text strong {
+  font-size: 14px;
+  color: #fff;
+}
+
+.permission-prompt .prompt-text span {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
 .tab-btn {
   flex: 1;
   background: transparent;
@@ -850,13 +909,64 @@ body.embed-mode .meet-header {
 }
 
 @media (max-width: 768px) {
+  .meet-header {
+    padding: 8px 10px;
+    height: auto;
+    min-height: 48px;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .meet-header .brand {
+    font-size: 13px;
+    gap: 6px;
+  }
+  .meet-header .brand-icon {
+    width: 18px;
+    height: 18px;
+  }
+  .meet-header .room-pill,
+  .meet-header .capacity-pill {
+    font-size: 11px;
+    padding: 2px 6px;
+  }
+  .meet-workspace {
+    position: relative;
+    overflow: hidden;
+  }
+  .video-container {
+    padding: 8px 6px 12px 6px;
+  }
+  .controls-toolbar {
+    height: 54px;
+    gap: 6px;
+    padding: 0 4px;
+    overflow-x: auto;
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+  .controls-toolbar::-webkit-scrollbar {
+    display: none;
+  }
+  .tool-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
   .meet-sidepanel {
     position: absolute;
-    right: 0;
-    top: 0;
-    bottom: 0;
+    inset: 0;
     width: 100%;
-    z-index: 20;
+    height: 100%;
+    z-index: 50;
+    display: none;
+    background: var(--bg-surface);
+  }
+  .meet-sidepanel.open {
+    display: flex !important;
+  }
+  .meet-sidepanel.collapsed {
+    display: none !important;
   }
   .bg-options-grid {
     grid-template-columns: repeat(3, 1fr);

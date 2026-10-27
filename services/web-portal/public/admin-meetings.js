@@ -11,7 +11,7 @@
   }
 
   async function api(path, body) {
-    const r = await fetch('/api/admin/meetings/' + path, {
+    const r = await fetch('/api/ops/meetings/' + path, {
       method: body === undefined ? 'GET' : 'POST',
       credentials: 'same-origin',
       cache: 'no-store',
@@ -99,7 +99,7 @@
       try {
         await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
       } finally {
-        location.assign('/admin/login');
+        location.assign('/admin-signin.html');
       }
     };
   }

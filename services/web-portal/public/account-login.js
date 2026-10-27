@@ -54,7 +54,7 @@ $('login').onsubmit = async e => {
     }
 
     if (userRole === 'SuperAdmin' || userRole === 'Admin') {
-      location.assign('/admin');
+      location.assign('/admin.html');
       return;
     }
     if (userRole === 'BusinessEmployee' || userRole === 'Employee') {

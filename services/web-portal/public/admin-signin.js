@@ -52,7 +52,7 @@
       status.style.color = '#059669';
       status.textContent = 'Administrator verified. Loading platform operations…';
       setTimeout(() => {
-        location.assign('/admin');
+        location.assign('/admin.html');
       }, 300);
     } catch {
       status.textContent = 'Unable to complete sign-in. Please try again.';

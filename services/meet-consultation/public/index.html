@@ -71,6 +71,18 @@
             <span class="tool-icon">&#128222;</span>
           </button>
         </div>
+
+        <!-- Permission / Tap to Enable Prompt for Mobile -->
+        <div id="mediaPermissionBanner" class="media-permission-banner" style="display:none;">
+          <div class="permission-prompt">
+            <span class="prompt-icon">&#128249;</span>
+            <div class="prompt-text">
+              <strong>Camera &amp; Microphone</strong>
+              <span>Tap below to start your video and audio</span>
+            </div>
+            <button id="btnGrantMedia" class="btn btn-sm btn-primary">Enable Camera &amp; Mic</button>
+          </div>
+        </div>
       </div>
 
       <!-- Side Panel: Nyra Assistant & Chat -->
@@ -78,6 +90,7 @@
         <div class="tabs">
           <button class="tab-btn active" id="tabChat">Team Chat</button>
           <button class="tab-btn" id="tabNyra">Nyra AI Assistant</button>
+          <button class="tab-close-btn" id="btnCloseSidepanel" title="Back to Video" aria-label="Back to Video">&#x2715;</button>
         </div>
 
         <!-- Chat View -->
