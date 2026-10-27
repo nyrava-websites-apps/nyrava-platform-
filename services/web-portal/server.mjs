@@ -4,6 +4,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { NYRA_CONFIG, NYRA_RESPONSES, resolveTopic } from './nyra-sales-engine.mjs';
+import { registerGatewayFeatures } from './gateway-features.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -125,11 +126,33 @@ async function handleCrmWorkspace(req, res) {
     console.warn('[CRM Workspace Read]', err.message);
   }
 
+  const mappedLeads = (leads || []).map(c => ({
+    id: String(c.id),
+    name: c.name || c.fullName || 'Lead',
+    fullName: c.name || c.fullName || 'Lead',
+    email: c.email || '',
+    phone: c.phone || '',
+    company: c.company || '',
+    leadType: c.leadType || 'Buyer',
+    zipCode: c.propertyZipCode || c.zipCode || '78701',
+    propertyZipCode: c.propertyZipCode || c.zipCode || '78701',
+    stage: c.stage || 'New',
+    crmStatus: c.stage || 'New',
+    notes: c.notes || '',
+    statement: c.notes || '',
+    propertyAddress: c.notes ? (c.notes.match(/Address:\s*([^|]+)/i)?.[1]?.trim() || '') : '',
+    timeframe: c.notes ? (c.notes.match(/Timeframe:\s*([^|]+)/i)?.[1]?.trim() || 'Exploring') : 'Exploring',
+    budgetMax: c.notes ? (c.notes.match(/Budget\/Val:\s*([^|]+)/i)?.[1]?.trim() || '') : '',
+    source: c.source || 'Direct',
+    assignedAgentId: c.assignedToUserId ? String(c.assignedToUserId) : null,
+    externalFsbo: Boolean(c.externalFsbo)
+  }));
+
   const appointments = (activities || []).filter(a => (a.kind || '').toLowerCase() === 'appointment');
   const tasks = (activities || []).filter(a => (a.kind || '').toLowerCase() !== 'appointment');
 
   res.json({
-    leads,
+    leads: mappedLeads,
     appointments,
     tasks,
     summary: {
@@ -140,6 +163,9 @@ async function handleCrmWorkspace(req, res) {
 }
 
 app.get('/api/crm/workspace', handleCrmWorkspace);
+
+// Register comprehensive gateway microservices features BEFORE wildcard CRM proxy
+registerGatewayFeatures(app, { CRM_SERVICE_URL, VALUATION_SERVICE_URL, MEET_SERVICE_URL });
 
 // Proxy routes to CRM service
 app.use('/api/crm', createProxyMiddleware({
@@ -678,42 +704,7 @@ app.get('/api/dashboard/summary', async (req, res) => {
   });
 });
 
-app.get('/api/crm/workspace', async (req, res) => {
-  let leads = [];
-  let activities = [];
-
-  try {
-    const authHeaders = {
-      'Cookie': req.headers.cookie || '',
-      'Authorization': req.headers.authorization || ''
-    };
-    const [cRes, aRes] = await Promise.all([
-      fetch(CRM_SERVICE_URL + '/api/contacts', { headers: authHeaders }),
-      fetch(CRM_SERVICE_URL + '/api/activities', { headers: authHeaders })
-    ]);
-    if (cRes.ok) {
-      leads = await cRes.json();
-    }
-    if (aRes.ok) {
-      activities = await aRes.json();
-    }
-  } catch (err) {
-    console.warn('[CRM Workspace Read]', err.message);
-  }
-
-  const appointments = (activities || []).filter(a => (a.kind || '').toLowerCase() === 'appointment');
-  const tasks = (activities || []).filter(a => (a.kind || '').toLowerCase() !== 'appointment');
-
-  res.json({
-    leads,
-    appointments,
-    tasks,
-    summary: {
-      upcomingAppointments: appointments.filter(a => a.status === 'SCHEDULED' || !a.status).length,
-      openTasks: tasks.filter(t => !t.completed).length
-    }
-  });
-});
+// CRM Workspace handled above
 
 app.get('/api/team/workspace', async (req, res) => {
   let members = [];
@@ -733,6 +724,7 @@ app.get('/api/team/workspace', async (req, res) => {
   }
   res.json({
     members,
+    staff: members,
     maxMembers: 5,
     activeCount: members.length
   });
@@ -991,6 +983,11 @@ app.get(['/health', '/healthz', '/api/health'], (req, res) => {
       meet: MEET_SERVICE_URL
     }
   });
+});
+
+// Never return index.html for API routes!
+app.all('/api/*', (req, res) => {
+  res.status(404).json({ error: 'Endpoint not found', path: req.path });
 });
 
 // Single Page fallback
