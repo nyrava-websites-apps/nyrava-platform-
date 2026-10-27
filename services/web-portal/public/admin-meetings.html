@@ -1,1 +1,142 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Meeting controls · Nyrava Home</title><link rel="stylesheet" href="/design-20261019/theme.css?v=20261019-theme-1"><link rel="stylesheet" href="/admin-meetings.css?v=1"><script defer src="/admin-meetings.js?v=1"></script></head><body><main class="meeting-admin"><header><a href="/admin.html">← Admin</a><span>Nyrava Home</span></header><p class="eyebrow">PLATFORM CONTROLS</p><h1>Meetings, on your schedule.</h1><p>Control video availability and meeting length. Saved chats, appointments and invitations remain in place.</p><p id="status" role="status" aria-live="polite">Checking administrator access…</p><form id="controls" hidden><section class="meeting-card"><h2>Availability</h2><label class="meeting-switch"><input id="enabled" type="checkbox">Keep meetings available</label><p>This stays on until you turn it off. There is no 30-minute activation window. Turning it off ends access checks for current calls.</p></section><section class="meeting-card"><h2>Meeting length</h2><div class="meeting-fields"><label>Maximum minutes<input id="maximum" type="number" min="5" max="720" step="1" required></label><label>Default minutes<input id="default" type="number" min="5" max="720" step="1" required></label></div><p>Up to 12 hours per meeting. Realtors can extend their team meetings within this maximum. Calendar client invitations keep their existing appointment duration rules.</p></section><section class="meeting-card"><h2>Current capacity</h2><p>One simultaneous meeting, two participants. These limits remain until larger real calls and server load have been tested. Recording is off.</p></section><div class="meeting-actions"><button type="submit">Save meeting controls</button><button id="refresh" type="button" class="secondary">Refresh status</button></div></form></main></body></html>
+<!doctype html>
+<html data-ny-page="admin-meetings.html" lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Meeting Controls · Nyrava Home Admin</title>
+  <link rel="stylesheet" href="/admin-operations.css?v=20261019-leads-1">
+  <link rel="stylesheet" href="/design-20261019/theme.css?v=20261019-leads-1" data-nyrava-theme="20261019-theme-1">
+  <link rel="stylesheet" href="/admin-meetings.css?v=20261027-2">
+  <link rel="stylesheet" href="/site-navigation.css?v=1">
+  <script defer src="/admin-meetings.js?v=20261027-2"></script>
+</head>
+<body>
+  <aside>
+    <a class="brand" href="/admin"><b>N</b> nyrava<span>home</span></a>
+    <small class="nav-label">PLATFORM OPERATIONS</small>
+    <nav>
+      <a href="/admin.html" class="nav-btn">Prospects & leads</a>
+      <a href="/admin.html#zips" class="nav-btn">ZIP territories</a>
+      <a href="/admin.html#subscribers" class="nav-btn">Subscribers</a>
+      <a href="/admin.html#quality" class="nav-btn">Lead quality review</a>
+      <a href="/admin.html#support" class="nav-btn">Support & replacements</a>
+      <a href="/admin.html#rules" class="nav-btn">Plans & delivery rules</a>
+      <a href="/admin.html#activity" class="nav-btn">Recent activity</a>
+      <a href="/fsbo-admin.html">FSBO collection</a>
+      <a href="/admin-prospect-bank.html">Admin prospect bank</a>
+      <a href="/professional-ai-admin.html">Professional AI settings ↗</a>
+      <a href="/admin-meetings.html" class="active">Meeting controls</a>
+      <a href="/admin-stripe.html">Billing &amp; Stripe</a>
+    </nav>
+    <div class="aside-note">
+      ● Video & Consultation Engine
+      <p>Supports up to 25 simultaneous video participants per meeting with adaptive 5×5 grid, WebRTC mesh, virtual backgrounds, and screen sharing.</p>
+      <a href="/">Public website ↗</a>
+    </div>
+  </aside>
+
+  <div class="workspace">
+    <header>
+      <div>
+        <small>NYRAVA HOME · PLATFORM CONTROLS</small>
+        <h1 id="title">Meetings & Video Capacity</h1>
+      </div>
+      <div class="account">
+        <span id="identity">Administrator</span>
+        <button class="quiet" id="logout" type="button">Sign out</button>
+      </div>
+    </header>
+
+    <main>
+      <div id="notice" role="status" aria-live="polite"></div>
+
+      <p id="status" class="status-banner" role="status" aria-live="polite">Checking administrator access…</p>
+
+      <form id="controls" class="meeting-panel" hidden>
+        <!-- Availability Section -->
+        <section class="meeting-card">
+          <div class="card-header">
+            <div>
+              <h2>Service Availability</h2>
+              <p class="caption">Control real-time video consultation accessibility across the platform.</p>
+            </div>
+            <span id="availabilityBadge" class="status-badge good">Active</span>
+          </div>
+
+          <label class="meeting-switch">
+            <input id="enabled" type="checkbox">
+            <span class="switch-slider"></span>
+            <span class="switch-label">Keep video consultation & team meetings active 24/7</span>
+          </label>
+          <p class="hint">Meetings remain accessible continuously. There is no automatic expiration. Saved appointments, calendar invites, and team meeting links remain operational.</p>
+        </section>
+
+        <!-- Capacity Section -->
+        <section class="meeting-card">
+          <h2>Server Load & Meeting Capacity</h2>
+          <p class="caption">Scalable WebRTC mesh architecture optimized for high-performance agent collaborations.</p>
+
+          <div class="capacity-grid">
+            <div class="capacity-stat">
+              <span class="stat-number">25</span>
+              <span class="stat-label">Max participants / room</span>
+              <small class="stat-sub">Tested with 20+ simultaneous peers</small>
+            </div>
+            <div class="capacity-stat">
+              <span class="stat-number">Multi</span>
+              <span class="stat-label">Concurrent rooms</span>
+              <small class="stat-sub">Redis-backed presence</small>
+            </div>
+            <div class="capacity-stat">
+              <span class="stat-number">5×5</span>
+              <span class="stat-label">Responsive video grid</span>
+              <small class="stat-sub">Dynamic viewport auto-fitting</small>
+            </div>
+            <div class="capacity-stat">
+              <span class="stat-number">&lt; 1%</span>
+              <span class="stat-label">Server CPU load</span>
+              <small class="stat-sub">Peer-to-peer WebRTC mesh</small>
+            </div>
+          </div>
+
+          <div class="feature-tags">
+            <span class="tag">HD Video & Audio</span>
+            <span class="tag">Screen Share in Settings</span>
+            <span class="tag">Office / Penthouse / Studio Backgrounds</span>
+            <span class="tag">Real-Time In-Call Chat</span>
+            <span class="tag">STUN / TURN Coturn Relay</span>
+          </div>
+        </section>
+
+        <!-- Meeting Duration Rules -->
+        <section class="meeting-card">
+          <h2>Duration & Schedule Limits</h2>
+          <p class="caption">Configure duration guardrails for appointments and team conferences.</p>
+
+          <div class="meeting-fields">
+            <label>
+              <span>Maximum minutes per meeting</span>
+              <input id="maximum" type="number" min="5" max="720" step="1" required>
+              <small class="field-hint">Up to 720 minutes (12 hours).</small>
+            </label>
+            <label>
+              <span>Default meeting length (minutes)</span>
+              <input id="default" type="number" min="5" max="720" step="1" required>
+              <small class="field-hint">Default length for new calendar invites (e.g. 30 or 45 mins).</small>
+            </label>
+          </div>
+        </section>
+
+        <div class="meeting-actions">
+          <button type="submit" class="btn primary">Save meeting controls</button>
+          <button id="refresh" type="button" class="btn quiet">Refresh status</button>
+          <a href="https://meet.home.nyrava.com/room/admin-test-boardroom" target="_blank" rel="noopener noreferrer" class="btn secondary">
+            Launch Test Room ↗
+          </a>
+        </div>
+      </form>
+    </main>
+  </div>
+</body>
+</html>

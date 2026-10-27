@@ -71,6 +71,61 @@ function extractZip(text) {
 }
 
 // ── Live FSBO Multi-Metro Sources ─────────────────────────────────────────────
+
+// ── Dynamic Subscriber Territory Detection ───────────────────────────────────
+const CITY_METRO_MAP = {
+  '77084': { city: 'Houston', state: 'TX', craig: 'houston' },
+  '78701': { city: 'Austin', state: 'TX', craig: 'austin' },
+  '78702': { city: 'Austin', state: 'TX', craig: 'austin' },
+  '78703': { city: 'Austin', state: 'TX', craig: 'austin' },
+  '78704': { city: 'Austin', state: 'TX', craig: 'austin' },
+  '78705': { city: 'Austin', state: 'TX', craig: 'austin' },
+  '75217': { city: 'Dallas', state: 'TX', craig: 'dallas' },
+  '30309': { city: 'Atlanta', state: 'GA', craig: 'atlanta' },
+  '80206': { city: 'Denver', state: 'CO', craig: 'denver' },
+  '33611': { city: 'Tampa', state: 'FL', craig: 'tampa' },
+  '90210': { city: 'Los Angeles', state: 'CA', craig: 'losangeles' },
+  '94107': { city: 'San Francisco', state: 'CA', craig: 'sfbay' },
+  '85032': { city: 'Phoenix', state: 'AZ', craig: 'phoenix' },
+  '33130': { city: 'Miami', state: 'FL', craig: 'miami' },
+  '60601': { city: 'Chicago', state: 'IL', craig: 'chicago' },
+  '98101': { city: 'Seattle', state: 'WA', craig: 'seattle' },
+};
+
+async function getActiveSources() {
+  const dynamicSources = [];
+  const coveredZips = new Set();
+
+  try {
+    const res = await fetch(`${CFG.CRM_URL}/api/v1/active-territories`);
+    if (res.ok) {
+      const data = await res.json();
+      const zips = data.activeZips || [];
+      for (const zip of zips) {
+        coveredZips.add(zip);
+        const meta = CITY_METRO_MAP[zip] || { city: 'Metro', state: 'US', craig: 'houston' };
+        dynamicSources.push({
+          name: `Craigslist FSBO (${meta.city} ${zip})`,
+          city: meta.city,
+          state: meta.state,
+          zip: zip,
+          url: `https://${meta.craig}.craigslist.org/jsonsearch/rea?query=for+sale+by+owner`
+        });
+      }
+    }
+  } catch (e) {
+    log(`  Notice: Using fallback territory feeds (${e.message})`);
+  }
+
+  // Always keep baseline multi-metro fallback sources
+  for (const src of SOURCES) {
+    if (!coveredZips.has(src.zip)) {
+      dynamicSources.push(src);
+    }
+  }
+  return dynamicSources;
+}
+
 const SOURCES = [
   { name: 'Craigslist FSBO (Atlanta)', city: 'Atlanta', state: 'GA', zip: '30309', url: 'https://atlanta.craigslist.org/jsonsearch/rea?query=for+sale+by+owner' },
   { name: 'Craigslist FSBO (Houston)', city: 'Houston', state: 'TX', zip: '77084', url: 'https://houston.craigslist.org/jsonsearch/rea?query=for+sale+by+owner' },
@@ -131,7 +186,8 @@ async function tryFetchCraigslist(source) {
 async function collectLeads() {
   log('Collecting live FSBO leads across metro territories...');
   const all = [];
-  for (const src of SOURCES) {
+  const activeSources = await getActiveSources();
+  for (const src of activeSources) {
     const leads = await tryFetchCraigslist(src);
     log(`  ${src.name}: ${leads.length} live FSBO listings found`);
     all.push(...leads);

@@ -217,7 +217,7 @@ async function boot(){
  $('stage').innerHTML='<option value="">All stages</option>'+[...new Set([...stageOptions('BUYER'),...stageOptions('SELLER')])].map(s=>'<option value="'+s+'">'+esc(M.stageLabel(s))+'</option>').join('');
  try{
   state.me=await api('/api/auth/me');$('identity').textContent=state.me.fullName||state.me.email;
-  state.canManage=state.me.role==='RealtorSubscriber';$('management').hidden=!state.canManage;
+  state.canManage=['RealtorSubscriber','Owner','Admin'].includes(state.me.role);$('management').hidden=!state.canManage;
   if(state.me.role==='BusinessEmployee'){
    const memberships=await api('/api/team/employee/memberships');
    if(!memberships.length)throw Error('No active team membership. Contact your Realtor.');

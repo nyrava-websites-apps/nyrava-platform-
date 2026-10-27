@@ -1,1 +1,417 @@
-:root{color-scheme:light}body{margin:0;background:#f5f7fb;color:#152b48;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:16px;line-height:1.55}.meeting-admin{max-width:900px;margin:auto;padding:28px 24px 64px}.meeting-admin header{display:flex;justify-content:space-between;border-bottom:1px solid #d9e2ef;padding-bottom:18px;margin-bottom:32px}.meeting-admin a{color:#1558d5}.meeting-admin h1{font-size:clamp(28px,5vw,40px);font-weight:600;line-height:1.2;margin:12px 0}.eyebrow{font-size:12px;letter-spacing:.12em;color:#42628b;font-weight:600}.meeting-card{background:#fff;border:1px solid #d4deed;border-radius:14px;padding:24px;margin:18px 0}.meeting-card h2{font-size:20px;font-weight:600;margin:0 0 14px}.meeting-card p{color:#40536d;margin-bottom:0}.meeting-fields{display:grid;grid-template-columns:1fr 1fr;gap:18px}.meeting-fields label{display:grid;gap:8px}.meeting-fields input{min-width:0;padding:12px;border:1px solid #8da1be;border-radius:8px;font:inherit;color:#152b48;background:white}.meeting-switch{display:flex;gap:12px;align-items:center;font-weight:600}.meeting-switch input{width:22px;height:22px;accent-color:#1558d5}.meeting-actions{display:flex;gap:12px;flex-wrap:wrap}.meeting-admin button{border:1px solid #1558d5;background:#1558d5;color:white;border-radius:8px;padding:12px 18px;font:inherit;cursor:pointer}.meeting-admin button.secondary{background:white;color:#1558d5}.meeting-admin button:disabled{opacity:.6;cursor:wait}.meeting-admin :focus-visible{outline:3px solid #2c77f0;outline-offset:3px}#status{overflow-wrap:anywhere}#status[data-error=true]{color:#9c1722}@media(max-width:550px){.meeting-admin{padding:20px 16px}.meeting-fields{grid-template-columns:1fr}.meeting-card{padding:20px}.meeting-actions button{width:100%}}
+/* Nyrava Home Platform Admin — Meeting Controls Theme */
+body {
+  margin: 0;
+  display: flex;
+  background: var(--surface-bg, #f4f6fa);
+  color: var(--text-primary, #0f172a);
+  font-family: var(--font-sans, system-ui, -apple-system, sans-serif);
+  font-size: 15px;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+aside {
+  width: 260px;
+  background: #0f172a;
+  color: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 16px;
+  flex-shrink: 0;
+  border-right: 1px solid #1e293b;
+}
+
+aside .brand {
+  color: #fff;
+  text-decoration: none;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  margin-bottom: 24px;
+}
+
+aside .brand b {
+  background: #2563eb;
+  color: #fff;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+}
+
+aside .brand span {
+  color: #93c5fd;
+  font-weight: 400;
+}
+
+aside .nav-label {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: #64748b;
+  font-weight: 700;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+}
+
+aside nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+aside nav a,
+aside nav .nav-btn {
+  color: #94a3b8;
+  text-decoration: none;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  transition: all 0.15s ease;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+aside nav a:hover,
+aside nav .nav-btn:hover {
+  background: #1e293b;
+  color: #fff;
+}
+
+aside nav a.active,
+aside nav .nav-btn.active {
+  background: #2563eb;
+  color: #fff;
+  font-weight: 600;
+}
+
+aside .aside-note {
+  margin-top: auto;
+  font-size: 12px;
+  color: #64748b;
+  padding-top: 16px;
+  border-top: 1px solid #1e293b;
+  line-height: 1.4;
+}
+
+aside .aside-note p {
+  margin: 6px 0 10px;
+  color: #94a3b8;
+}
+
+aside .aside-note a {
+  color: #38bdf8;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.workspace {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: #f8fafc;
+}
+
+.workspace header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 36px;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.workspace header small {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.workspace header h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 4px 0 0;
+}
+
+.workspace header .account {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 14px;
+  color: #475569;
+}
+
+.workspace main {
+  padding: 32px 36px 64px;
+  max-width: 1040px;
+}
+
+.status-banner {
+  padding: 12px 16px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 24px;
+}
+
+.status-banner[data-error="true"] {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+.meeting-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 26px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+}
+
+.meeting-card h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 6px;
+}
+
+.meeting-card .caption {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0 0 18px;
+}
+
+.meeting-card .hint {
+  font-size: 13px;
+  color: #64748b;
+  margin: 14px 0 0;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.status-badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-badge.good {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-badge.warn {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* Switch */
+.meeting-switch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #1e293b;
+  padding: 8px 0;
+}
+
+.meeting-switch input {
+  width: 20px;
+  height: 20px;
+  accent-color: #2563eb;
+}
+
+/* Capacity Grid */
+.capacity-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin: 20px 0 24px;
+}
+
+.capacity-stat {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-number {
+  font-size: 26px;
+  font-weight: 800;
+  color: #2563eb;
+  line-height: 1.1;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.stat-sub {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+/* Feature tags */
+.feature-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag {
+  background: #f1f5f9;
+  color: #334155;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid #e2e8f0;
+}
+
+/* Fields */
+.meeting-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.meeting-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.meeting-fields input {
+  padding: 10px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 15px;
+  font-family: inherit;
+  color: #0f172a;
+  background: #fff;
+  transition: border-color 0.15s;
+}
+
+.meeting-fields input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.field-hint {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 400;
+}
+
+/* Actions */
+.meeting-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 28px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  font-family: inherit;
+}
+
+.btn.primary {
+  background: #2563eb;
+  color: #fff;
+  border: 1px solid #2563eb;
+}
+
+.btn.primary:hover {
+  background: #1d4ed8;
+}
+
+.btn.secondary {
+  background: #fff;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+}
+
+.btn.secondary:hover {
+  background: #f1f5f9;
+}
+
+.btn.quiet,
+button.quiet {
+  background: none;
+  border: 1px solid transparent;
+  color: #64748b;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.btn.quiet:hover,
+button.quiet:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+@media (max-width: 800px) {
+  body {
+    flex-direction: column;
+  }
+  aside {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #1e293b;
+    padding: 16px;
+  }
+  .workspace header {
+    padding: 16px 20px;
+  }
+  .workspace main {
+    padding: 20px 16px;
+  }
+}
