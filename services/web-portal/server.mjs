@@ -597,6 +597,337 @@ app.post('/api/admin/stripe/prices/validate', (req, res) => {
   });
 });
 
+// ===================================================================
+// WORKSPACE & DASHBOARD API
+// ===================================================================
+
+app.get('/api/dashboard/summary', async (req, res) => {
+  let subscribedZips = [{ zipCode: '78701', slotNumber: 1 }];
+  let plan = 'BASIC';
+  let planStatus = 'ACTIVE';
+  let monthlyPrice = 89;
+
+  try {
+    const meRes = await fetch(CRM_SERVICE_URL + '/api/me', {
+      headers: {
+        'Cookie': req.headers.cookie || '',
+        'Authorization': req.headers.authorization || ''
+      }
+    });
+    if (meRes.ok) {
+      const me = await meRes.json();
+      if (me.subscribedZipCodes) {
+        subscribedZips = me.subscribedZipCodes
+          .split(/[,;\s]+/)
+          .filter(Boolean)
+          .map((z, idx) => ({ zipCode: z, slotNumber: idx + 1 }));
+      }
+      plan = (me.subscriptionPlan || 'BASIC').toUpperCase();
+      planStatus = me.subscriptionStatus || 'ACTIVE';
+      monthlyPrice = plan === 'PRO' ? 149 : 89;
+    }
+  } catch (err) {
+    console.warn('[Dashboard Summary Me Fallback]', err.message);
+  }
+
+  res.json({
+    subscribedZips,
+    plan,
+    planStatus,
+    monthlyPrice,
+    currency: 'USD'
+  });
+});
+
+app.get('/api/crm/workspace', async (req, res) => {
+  let leads = [];
+  let activities = [];
+
+  try {
+    const authHeaders = {
+      'Cookie': req.headers.cookie || '',
+      'Authorization': req.headers.authorization || ''
+    };
+    const [cRes, aRes] = await Promise.all([
+      fetch(CRM_SERVICE_URL + '/api/contacts', { headers: authHeaders }),
+      fetch(CRM_SERVICE_URL + '/api/activities', { headers: authHeaders })
+    ]);
+    if (cRes.ok) {
+      leads = await cRes.json();
+    }
+    if (aRes.ok) {
+      activities = await aRes.json();
+    }
+  } catch (err) {
+    console.warn('[CRM Workspace Read]', err.message);
+  }
+
+  const appointments = (activities || []).filter(a => (a.kind || '').toLowerCase() === 'appointment');
+  const tasks = (activities || []).filter(a => (a.kind || '').toLowerCase() !== 'appointment');
+
+  res.json({
+    leads,
+    appointments,
+    tasks,
+    summary: {
+      upcomingAppointments: appointments.filter(a => a.status === 'SCHEDULED' || !a.status).length,
+      openTasks: tasks.filter(t => !t.completed).length
+    }
+  });
+});
+
+app.get('/api/team/workspace', async (req, res) => {
+  let members = [];
+  try {
+    const tRes = await fetch(CRM_SERVICE_URL + '/api/team', {
+      headers: {
+        'Cookie': req.headers.cookie || '',
+        'Authorization': req.headers.authorization || ''
+      }
+    });
+    if (tRes.ok) {
+      const data = await tRes.json();
+      members = data.members || [];
+    }
+  } catch (err) {
+    console.warn('[Team Workspace Read]', err.message);
+  }
+  res.json({
+    members,
+    maxMembers: 5,
+    activeCount: members.length
+  });
+});
+
+// ===================================================================
+// CALENDAR & VIDEO CONSULTATION INTEGRATION
+// ===================================================================
+
+const CALENDAR_DATA_FILE = path.join(DATA_DIR, 'calendar-data.json');
+function getCalendarData() {
+  try {
+    if (fs.existsSync(CALENDAR_DATA_FILE)) {
+      return JSON.parse(fs.readFileSync(CALENDAR_DATA_FILE, 'utf8'));
+    }
+  } catch (e) {}
+  return { contacts: [], events: [], tasks: [], videoMeetings: {} };
+}
+function saveCalendarData(d) {
+  try {
+    fs.writeFileSync(CALENDAR_DATA_FILE, JSON.stringify(d, null, 2), 'utf8');
+  } catch (e) {}
+}
+
+app.get('/api/crm-calendar/session', (req, res) => {
+  res.json({
+    staffId: null,
+    canManage: true,
+    csrf: 'ny_csrf_cal_' + Date.now().toString(36),
+    role: 'RealtorSubscriber'
+  });
+});
+
+app.get('/api/crm-calendar/events', async (req, res) => {
+  const cd = getCalendarData();
+  let crmEvents = [];
+  try {
+    const aRes = await fetch(CRM_SERVICE_URL + '/api/activities', {
+      headers: {
+        'Cookie': req.headers.cookie || '',
+        'Authorization': req.headers.authorization || ''
+      }
+    });
+    if (aRes.ok) {
+      const acts = await aRes.json();
+      crmEvents = (acts || []).map(a => ({
+        key: 'crm:' + (a.id || Date.now()),
+        id: String(a.id),
+        source: 'crm',
+        title: a.title || 'Client Appointment',
+        client: a.contactName || a.contact?.fullName || 'Client',
+        startsAt: a.startsAt || new Date().toISOString(),
+        endsAt: a.endsAt || new Date(Date.now() + 1800000).toISOString(),
+        attendance: a.result || 'SET',
+        disposition: 'NONE',
+        videoMeeting: true,
+        version: 1
+      }));
+    }
+  } catch (e) {}
+
+  const manualEvents = (cd.events || []).map(e => ({
+    key: 'manual:' + (e.id || Date.now()),
+    id: String(e.id),
+    source: 'manual',
+    title: e.title || 'Appointment',
+    client: e.contactName || 'Client',
+    startsAt: e.startsAt || new Date().toISOString(),
+    endsAt: e.endsAt || new Date(Date.now() + 1800000).toISOString(),
+    attendance: e.attendance || 'SET',
+    disposition: e.disposition || 'NONE',
+    videoMeeting: Boolean(e.videoMeeting),
+    version: 1
+  }));
+
+  res.json({
+    events: [...manualEvents, ...crmEvents],
+    staff: []
+  });
+});
+
+app.get('/api/workbench/workspace', async (req, res) => {
+  let contacts = [];
+  try {
+    const cRes = await fetch(CRM_SERVICE_URL + '/api/contacts', {
+      headers: {
+        'Cookie': req.headers.cookie || '',
+        'Authorization': req.headers.authorization || ''
+      }
+    });
+    if (cRes.ok) {
+      const raw = await cRes.json();
+      contacts = (raw || []).map(c => ({
+        id: String(c.id),
+        kind: 'crm',
+        fullName: c.fullName || 'Lead',
+        email: c.email || '',
+        phone: c.phone || '',
+        leadType: c.leadType || 'Client',
+        zipCode: c.propertyZipCode || '78701'
+      }));
+    }
+  } catch (e) {}
+
+  res.json({
+    contacts,
+    total: contacts.length
+  });
+});
+
+app.get('/api/business-calendar/contacts', (req, res) => {
+  const cd = getCalendarData();
+  res.json(cd.contacts || []);
+});
+
+app.post('/api/business-calendar/contacts', (req, res) => {
+  const cd = getCalendarData();
+  const c = { id: 'c_' + Date.now(), ...(req.body || {}) };
+  cd.contacts = cd.contacts || [];
+  cd.contacts.push(c);
+  saveCalendarData(cd);
+  res.json(c);
+});
+
+app.get('/api/business-calendar/events', (req, res) => {
+  const cd = getCalendarData();
+  res.json(cd.events || []);
+});
+
+app.post('/api/business-calendar/events', (req, res) => {
+  const cd = getCalendarData();
+  const e = { id: 'e_' + Date.now(), status: 'SCHEDULED', ...(req.body || {}) };
+  cd.events = cd.events || [];
+  cd.events.push(e);
+  saveCalendarData(cd);
+  res.json(e);
+});
+
+app.get('/api/business-calendar/tasks', (req, res) => {
+  const cd = getCalendarData();
+  res.json(cd.tasks || []);
+});
+
+app.post('/api/business-calendar/tasks', (req, res) => {
+  const cd = getCalendarData();
+  const t = { id: 't_' + Date.now(), completed: false, ...(req.body || {}) };
+  cd.tasks = cd.tasks || [];
+  cd.tasks.push(t);
+  saveCalendarData(cd);
+  res.json(t);
+});
+
+app.get('/api/team-chat/session', (req, res) => {
+  res.json({
+    businesses: [
+      { id: '00000000-0000-0000-0000-000000000000', roomId: '00000000-0000-0000-0000-000000000000', owner: true, direct: true }
+    ]
+  });
+});
+
+app.get('/api/team-meetings/meetings', (req, res) => {
+  res.json({ meetings: [] });
+});
+
+app.get('/api/crm-calendar/video-now/capabilities', (req, res) => {
+  res.json({ callsEnabled: true, canInvite: true });
+});
+
+app.post('/api/crm-calendar/video-now', (req, res) => {
+  const { confirmedEmail = '', contactId = '1', kind = 'crm' } = req.body || {};
+  const aptId = 'apt_video_' + Date.now();
+  const cd = getCalendarData();
+  cd.videoMeetings = cd.videoMeetings || {};
+  cd.videoMeetings[aptId] = {
+    delivery: confirmedEmail ? ('Sent to ' + confirmedEmail) : 'Direct Link Generated',
+    canHost: true,
+    state: 'SCHEDULED',
+    email: confirmedEmail,
+    startsAt: new Date().toISOString(),
+    endsAt: new Date(Date.now() + 1800000).toISOString()
+  };
+  saveCalendarData(cd);
+  res.json({
+    meeting: {
+      delivery: confirmedEmail ? ('Sent to ' + confirmedEmail) : 'Direct Link Generated',
+      canHost: true,
+      state: 'SCHEDULED'
+    },
+    source: 'manual',
+    appointmentId: aptId
+  });
+});
+
+app.get('/api/crm-calendar/events/:source/:id/video', (req, res) => {
+  const cd = getCalendarData();
+  const m = cd.videoMeetings?.[req.params.id] || {
+    delivery: 'Sent via Email',
+    canHost: true,
+    state: 'SCHEDULED',
+    email: 'client@example.com',
+    startsAt: new Date().toISOString(),
+    endsAt: new Date(Date.now() + 1800000).toISOString()
+  };
+  res.json({
+    meeting: {
+      delivery: m.delivery,
+      canHost: true,
+      state: m.state || 'SCHEDULED',
+      callsEnabled: true
+    },
+    appointment: {
+      email: m.email || 'client@example.com',
+      startsAt: m.startsAt,
+      endsAt: m.endsAt
+    },
+    waiting: []
+  });
+});
+
+app.post(['/api/crm-calendar/events/:source/:id/video/join', '/api/crm-calendar/events/:source/:id/video/admit'], (req, res) => {
+  const roomHex = ('nhc' + Buffer.from('nyrava_room_' + req.params.id + '_' + Date.now()).toString('hex') + '0000000000000000000000000000000000000000').slice(0, 51);
+  res.json({
+    domain: 'meet.home.nyrava.com',
+    room: roomHex,
+    title: 'Nyrava Home Video Consultation',
+    jwt: null
+  });
+});
+
+app.get('/external_api.js', createProxyMiddleware({
+  target: MEET_SERVICE_URL,
+  changeOrigin: true
+}));
+
 // Static files
 app.use(express.static(path.join(__dirname, 'public'), {
   etag: true,

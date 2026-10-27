@@ -82,7 +82,7 @@ http://{$VALUATION_DOMAIN:value.nyrava.com}, https://{$VALUATION_DOMAIN:value.ny
 }
 
 # 4. Video Consultation & Nyra Meet (meet.nyrava.com)
-http://{$MEET_DOMAIN:meet.nyrava.com}, https://{$MEET_DOMAIN:meet.nyrava.com} {
+http://{$MEET_DOMAIN:meet.nyrava.com}, https://{$MEET_DOMAIN:meet.nyrava.com}, http://meet.home.nyrava.com, https://meet.home.nyrava.com {
     # Video meeting allows framing by parent CRM window
     header {
         Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
