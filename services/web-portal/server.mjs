@@ -375,7 +375,7 @@ app.post('/api/fsbo/listing', async (req, res) => {
   const sqft = (p.sqft || '').trim();
   const propertyType = (p.propertyType || 'Single Family').trim();
   const notes = (p.notes || '').trim();
-  const externalId = sbo--;
+  const externalId = 'fsbo-' + zip + '-' + (phone.replace(/\D/g, '') || Date.now());
 
   const crmPayload = {
     ExternalLeadId: externalId,
