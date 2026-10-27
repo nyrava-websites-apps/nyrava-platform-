@@ -43,9 +43,9 @@
     penthouse: new Image(),
     studio: new Image()
   };
-  bgImages.office.src = '/backgrounds/office.svg';
-  bgImages.penthouse.src = '/backgrounds/penthouse.svg';
-  bgImages.studio.src = '/backgrounds/studio.svg';
+  bgImages.office.src = '/backgrounds/office.jpg';
+  bgImages.penthouse.src = '/backgrounds/penthouse.jpg';
+  bgImages.studio.src = '/backgrounds/studio.jpg';
 
   const peerConnections = new Map(); // peerId -> RTCPeerConnection
   const rtcConfig = {
@@ -380,9 +380,39 @@
     }
   }
 
-  // 5. Video Processing Pipeline (Real-Time Virtual Backgrounds & Studio Lighting)
-  let maskCanvas = null;
-  let maskCtx = null;
+  // 5. Video Processing Pipeline (Real-Time MediaPipe AI Background Segmentation & Studio Lighting)
+  let selfieSegmentation = null;
+  let isSegmenterReady = false;
+  let isSegmenterInitializing = false;
+  let isProcessingFrame = false;
+
+  function initMediaPipe() {
+    if (typeof SelfieSegmentation === 'undefined') {
+      return;
+    }
+    if (selfieSegmentation || isSegmenterInitializing) return;
+
+    isSegmenterInitializing = true;
+    try {
+      selfieSegmentation = new SelfieSegmentation({
+        locateFile: (file) => `/vendor/mediapipe/${file}`
+      });
+
+      selfieSegmentation.setOptions({
+        modelSelection: 1, // 1 = landscape model (fastest, optimized for webcams / 720p-1080p video calls)
+        selfieMode: false   // false so remote peers receive normal orientation; local self-view is mirrored by CSS scaleX(-1)
+      });
+
+      selfieSegmentation.onResults(onSegmentationResults);
+      isSegmenterReady = true;
+      console.log('[Nyrava Team Meet] MediaPipe AI Selfie Segmentation ready.');
+    } catch (e) {
+      console.error('[Nyrava Team Meet] MediaPipe initialization error:', e);
+      isSegmenterReady = false;
+    } finally {
+      isSegmenterInitializing = false;
+    }
+  }
 
   function setupCanvasPipeline() {
     if (!canvasElem) {
@@ -399,11 +429,8 @@
         console.warn('captureStream error', e);
       }
     }
-    if (!maskCanvas) {
-      maskCanvas = document.createElement('canvas');
-      maskCanvas.width = 1280;
-      maskCanvas.height = 720;
-      maskCtx = maskCanvas.getContext('2d');
+    if (!isSegmenterReady && !isSegmenterInitializing) {
+      initMediaPipe();
     }
   }
 
@@ -416,7 +443,66 @@
     return 'none';
   }
 
-  function renderProcessedFrame() {
+  function onSegmentationResults(results) {
+    if (!isCamActive || isScreenSharing) return;
+    if (currentBg === 'none' && currentFilter === 'none') return;
+    if (!canvasCtx || !canvasElem) return;
+
+    const filterStr = getToneFilterString();
+
+    canvasCtx.save();
+    canvasCtx.clearRect(0, 0, 1280, 720);
+
+    if (currentBg === 'blur-soft' || currentBg === 'blur-deep') {
+      // 1. Draw AI segmentation mask as clipping boundary
+      canvasCtx.drawImage(results.segmentationMask, 0, 0, 1280, 720);
+
+      // 2. Keep ONLY the person (sharp foreground) inside mask
+      canvasCtx.globalCompositeOperation = 'source-in';
+      if (filterStr !== 'none') canvasCtx.filter = filterStr;
+      canvasCtx.drawImage(results.image, 0, 0, 1280, 720);
+
+      // 3. Composite blurred room background BEHIND the person
+      canvasCtx.globalCompositeOperation = 'destination-over';
+      const blurRadius = currentBg === 'blur-deep' ? '28px' : '14px';
+      canvasCtx.filter = (filterStr !== 'none' ? filterStr + ' ' : '') + `blur(${blurRadius})`;
+      canvasCtx.drawImage(results.image, -25, -15, 1330, 750);
+
+    } else if (currentBg === 'penthouse' || currentBg === 'office' || currentBg === 'studio') {
+      // 1. Draw AI segmentation mask as clipping boundary
+      canvasCtx.drawImage(results.segmentationMask, 0, 0, 1280, 720);
+
+      // 2. Keep ONLY the person inside mask
+      canvasCtx.globalCompositeOperation = 'source-in';
+      if (filterStr !== 'none') canvasCtx.filter = filterStr;
+      canvasCtx.drawImage(results.image, 0, 0, 1280, 720);
+
+      // 3. Composite photorealistic luxury backdrop BEHIND the person
+      canvasCtx.globalCompositeOperation = 'destination-over';
+      canvasCtx.filter = 'none';
+
+      const bgImg = bgImages[currentBg];
+      if (bgImg && bgImg.complete && bgImg.naturalWidth > 0) {
+        canvasCtx.drawImage(bgImg, 0, 0, 1280, 720);
+      } else {
+        const grad = canvasCtx.createLinearGradient(0, 0, 1280, 720);
+        grad.addColorStop(0, '#0b162c');
+        grad.addColorStop(0.5, '#1e293b');
+        grad.addColorStop(1, '#0f172a');
+        canvasCtx.fillStyle = grad;
+        canvasCtx.fillRect(0, 0, 1280, 720);
+      }
+
+    } else {
+      // Raw background with tone/lighting filter
+      if (filterStr !== 'none') canvasCtx.filter = filterStr;
+      canvasCtx.drawImage(results.image, 0, 0, 1280, 720);
+    }
+
+    canvasCtx.restore();
+  }
+
+  async function renderProcessedFrame() {
     if (!rawCameraStream || isScreenSharing || !isCamActive) return;
     const localVid = document.getElementById('localVideo');
     if (!localVid || localVid.readyState < 2) {
@@ -425,95 +511,41 @@
     }
 
     setupCanvasPipeline();
-    const filterStr = getToneFilterString();
 
-    canvasCtx.save();
-    canvasCtx.clearRect(0, 0, 1280, 720);
-
-    // 1. Virtual Architectural Backdrops (Penthouse, Office, Studio)
-    if (currentBg === 'office' || currentBg === 'penthouse' || currentBg === 'studio') {
-      const bgImg = bgImages[currentBg];
-      if (bgImg && bgImg.complete && bgImg.naturalWidth > 0) {
-        canvasCtx.drawImage(bgImg, 0, 0, 1280, 720);
-      } else {
-        // High-end fallback architectural gradient
-        const grad = canvasCtx.createLinearGradient(0, 0, 1280, 720);
-        if (currentBg === 'penthouse') {
-          grad.addColorStop(0, '#020617');
-          grad.addColorStop(0.5, '#0f172a');
-          grad.addColorStop(1, '#1e1b4b');
-        } else if (currentBg === 'office') {
-          grad.addColorStop(0, '#0b162c');
-          grad.addColorStop(0.5, '#1e293b');
-          grad.addColorStop(1, '#0f172a');
-        } else {
-          grad.addColorStop(0, '#18181b');
-          grad.addColorStop(0.5, '#27272a');
-          grad.addColorStop(1, '#09090b');
-        }
-        canvasCtx.fillStyle = grad;
-        canvasCtx.fillRect(0, 0, 1280, 720);
+    if (currentBg !== 'none') {
+      if (!isSegmenterReady && !isSegmenterInitializing) {
+        initMediaPipe();
       }
 
-      // 2. Alpha-Masked Portrait Blend
-      maskCtx.clearRect(0, 0, 1280, 720);
-      maskCtx.save();
-      if (filterStr !== 'none') maskCtx.filter = filterStr;
-      maskCtx.drawImage(localVid, 0, 0, 1280, 720);
-      maskCtx.restore();
-
-      maskCtx.save();
-      maskCtx.globalCompositeOperation = 'destination-in';
-      const grad = maskCtx.createRadialGradient(640, 420, 100, 640, 420, 480);
-      grad.addColorStop(0, 'rgba(0,0,0,1)');
-      grad.addColorStop(0.68, 'rgba(0,0,0,1)');
-      grad.addColorStop(0.92, 'rgba(0,0,0,0.15)');
-      grad.addColorStop(1, 'rgba(0,0,0,0)');
-      maskCtx.fillStyle = grad;
-      maskCtx.fillRect(0, 0, 1280, 720);
-      maskCtx.restore();
-
-      canvasCtx.drawImage(maskCanvas, 0, 0, 1280, 720);
-
-    // 2. Room Background Blur (Soft & Deep Blur)
-    } else if (currentBg === 'blur-soft' || currentBg === 'blur-deep') {
-      const blurPx = currentBg === 'blur-soft' ? '16px' : '32px';
-
-      // Blurred background layer from local room
-      canvasCtx.save();
-      canvasCtx.filter = (filterStr !== 'none' ? filterStr + ' ' : '') + `blur(${blurPx}) brightness(0.94)`;
-      canvasCtx.drawImage(localVid, -30, -30, 1340, 780);
-      canvasCtx.restore();
-
-      // Sharp portrait foreground
-      maskCtx.clearRect(0, 0, 1280, 720);
-      maskCtx.save();
-      if (filterStr !== 'none') maskCtx.filter = filterStr;
-      maskCtx.drawImage(localVid, 0, 0, 1280, 720);
-      maskCtx.restore();
-
-      maskCtx.save();
-      maskCtx.globalCompositeOperation = 'destination-in';
-      const grad = maskCtx.createRadialGradient(640, 420, 100, 640, 420, 480);
-      grad.addColorStop(0, 'rgba(0,0,0,1)');
-      grad.addColorStop(0.68, 'rgba(0,0,0,1)');
-      grad.addColorStop(0.92, 'rgba(0,0,0,0.15)');
-      grad.addColorStop(1, 'rgba(0,0,0,0)');
-      maskCtx.fillStyle = grad;
-      maskCtx.fillRect(0, 0, 1280, 720);
-      maskCtx.restore();
-
-      canvasCtx.drawImage(maskCanvas, 0, 0, 1280, 720);
-
-    // 3. Raw Background with Lighting/Tone Filter
+      if (isSegmenterReady && selfieSegmentation) {
+        if (!isProcessingFrame) {
+          isProcessingFrame = true;
+          try {
+            await selfieSegmentation.send({ image: localVid });
+          } catch (err) {
+            console.warn('[Nyrava Team Meet] MediaPipe frame error:', err);
+          } finally {
+            isProcessingFrame = false;
+          }
+        }
+      } else {
+        // Fast direct pass while AI model finishes compiling
+        const filterStr = getToneFilterString();
+        canvasCtx.save();
+        canvasCtx.clearRect(0, 0, 1280, 720);
+        if (filterStr !== 'none') canvasCtx.filter = filterStr;
+        canvasCtx.drawImage(localVid, 0, 0, 1280, 720);
+        canvasCtx.restore();
+      }
     } else {
+      // Just tone filter (zero ML overhead)
+      const filterStr = getToneFilterString();
       canvasCtx.save();
+      canvasCtx.clearRect(0, 0, 1280, 720);
       if (filterStr !== 'none') canvasCtx.filter = filterStr;
       canvasCtx.drawImage(localVid, 0, 0, 1280, 720);
       canvasCtx.restore();
     }
-
-    canvasCtx.restore();
 
     if (currentBg !== 'none' || currentFilter !== 'none') {
       animFrameId = requestAnimationFrame(renderProcessedFrame);
@@ -1251,6 +1283,9 @@
       if (command === 'requestState') notifyParentState();
     }
   });
+
+  // Pre-initialize MediaPipe AI background engine in background
+  initMediaPipe();
 
   // Announce initial ready state
   notifyParentState();

@@ -786,17 +786,17 @@ body.embed-mode .meet-header {
   background: linear-gradient(135deg, #312e81, #1e40af);
 }
 .thumb-office {
-  background-image: url('/backgrounds/office.svg');
+  background-image: url('/backgrounds/office.jpg');
   background-size: cover;
   background-position: center;
 }
 .thumb-penthouse {
-  background-image: url('/backgrounds/penthouse.svg');
+  background-image: url('/backgrounds/penthouse.jpg');
   background-size: cover;
   background-position: center;
 }
 .thumb-studio {
-  background-image: url('/backgrounds/studio.svg');
+  background-image: url('/backgrounds/studio.jpg');
   background-size: cover;
   background-position: center;
 }
