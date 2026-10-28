@@ -5,15 +5,235 @@ html { overflow-y: scroll; }
 *, *::before, *::after { box-sizing: border-box; }
 body { overflow-x: hidden; }
 </style>
-<link rel="stylesheet" href="/team-members.css?v=20261019-leads-1"><link rel="stylesheet" href="/design-20261019/theme.css?v=20261019-leads-1" data-nyrava-theme="20261019-theme-1"><link rel="stylesheet" href="/team-chat-launcher.css?v=1"><link rel="stylesheet" href="/team-workspace-style.css?v=2"><link rel="stylesheet" href="/team-meetings-popup.css?v=2"><link rel="stylesheet" href="/site-navigation.css?v=1"><script defer src="/site-navigation.js?v=1"></script><link rel="stylesheet" href="/call-workspace.css?v=1"><script defer src="/call-workspace.js?v=1"></script><link rel="stylesheet" href="/calendar-workspace.css?v=1"><link rel="stylesheet" href="/calendar-client-meetings.css?v=workspace1"></head><body><div class="shell"><aside class="rail" id="rail"><div class="actions"><div class="brand">NYRAVA HOME<span>REALTOR WORKSPACE</span></div><button class="secondary" id="mobileMenu" aria-expanded="false" aria-controls="menu">Menu</button></div><nav class="menu" id="menu" aria-label="Realtor workspace"><button data-tab="overview" class="active">Overview</button><button data-tab="profile" type="button">My Profile</button><button data-tab="leads" id="leadsMenuToggle" type="button" aria-expanded="false" aria-controls="leadsSubmenu">My Leads <span class="crm-chevron" aria-hidden="true">▾</span></button><div id="leadsSubmenu" class="crm-submenu" hidden><button type="button" data-leads-view="all">All Leads</button><button type="button" data-leads-view="buyers">Buyer Leads</button><button type="button" data-leads-view="sellers">Seller Leads</button></div><button data-tab="crm" id="crmMenuToggle" type="button" aria-expanded="false" aria-controls="crmSubmenu">Contacts &amp; CRM <span class="crm-chevron" aria-hidden="true">▾</span></button><div id="crmSubmenu" class="crm-submenu" hidden>
-<button type="button" data-crm-view="today">Today &amp; Priorities</button><button type="button" data-crm-view="contacts">All Contacts</button>
-<button type="button" data-crm-view="tasks">Follow-ups &amp; Tasks</button>
-<button type="button" data-crm-view="appointments">Appointments</button>
+<link rel="stylesheet" href="/team-members.css?v=20261019-leads-1"><link rel="stylesheet" href="/design-20261019/theme.css?v=20261019-leads-1" data-nyrava-theme="20261019-theme-1"><link rel="stylesheet" href="/team-chat-launcher.css?v=1"><link rel="stylesheet" href="/team-workspace-style.css?v=2"><link rel="stylesheet" href="/team-meetings-popup.css?v=2"><link rel="stylesheet" href="/site-navigation.css?v=1"><script defer src="/site-navigation.js?v=1"></script><link rel="stylesheet" href="/call-workspace.css?v=1"><script defer src="/call-workspace.js?v=1"></script><link rel="stylesheet" href="/calendar-workspace.css?v=1"><link rel="stylesheet" href="/calendar-client-meetings.css?v=workspace1">
+<style>
+/* NYRAVA_PROFILE_HEADER_FINAL_CLEANUP_V1 */
+
+/* Keep only the dashboard notification control */
+header.top #identity {
+    display: none !important;
+}
+
+/* Profile starts immediately below the main header */
+#panel-profile {
+    padding-top: 0 !important;
+}
+
+#panel-profile > .headline {
+    display: none !important;
+}
+</style>
+
+<style>
+/* NYRAVA_DASHBOARD_SCROLL_REPAIR_V1 */
+@media (min-width:901px) {
+  html, body {
+    height: 100%;
+    overflow: hidden !important;
+  }
+
+  .shell {
+    height: 100dvh !important;
+    min-height: 0 !important;
+    grid-template-columns: 250px minmax(0,1fr) !important;
+    overflow: hidden !important;
+  }
+
+  .rail {
+    position: relative !important;
+    top: auto !important;
+    height: 100dvh !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+  }
+
+  .content {
+    height: 100dvh !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+  }
+}
+</style>
+
+<style>
+/* NYRAVA_SIDEBAR_BILLING_CONTRAST_V1 */
+#rail .menu a.secondary[href="/billing-checkout.html"] {
+    background: #0866FF !important;
+    color: #ffffff !important;
+    border: 1px solid #0866FF !important;
+    display: block !important;
+    padding: 12px 14px !important;
+    border-radius: 9px !important;
+    text-decoration: none !important;
+    font-weight: 700 !important;
+}
+#rail .menu a.secondary[href="/billing-checkout.html"]:hover {
+    background: #0052cc !important;
+    color: #ffffff !important;
+}
+</style>
+
+<style>
+/* NYRAVA_REMOVE_DUPLICATE_SECTION_HEADERS_V1 */
+
+/* One dashboard header, no repeated panel titles */
+.content > main > .panel > .headline {
+    display: none !important;
+}
+
+/* Remove the empty space left by hidden headings */
+.content > main > .panel.active {
+    padding-top: 0 !important;
+}
+
+.content > main > .panel.active > .nyrava-workspace-frame {
+    margin-top: 0 !important;
+}
+
+/* Keep the main dashboard header */
+
+</style>
+
+<style id="nh-meet-compact-final">
+#panel-meet.active {
+  min-width: 0;
+}
+#panel-meet.active > .headline {
+  margin-bottom: 8px !important;
+  gap: 8px !important;
+  align-items: center !important;
+}
+#panel-meet.active .headline h2 {
+  font-size: 17px !important;
+  margin-bottom: 2px !important;
+}
+#panel-meet.active .headline p {
+  display: none !important;
+}
+#panel-meet.active #nh-meet-invite-bar {
+  display: flex !important;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+  padding: 7px 12px;
+  margin: 0 0 8px;
+  background: #eef4fc;
+  border: 1px solid #dce6f4;
+  border-radius: 9px;
+}
+#nh-meet-invite-bar strong {
+  font-size: 12px;
+  margin-right: auto;
+}
+#nh-meet-invite-bar .primary,
+#nh-meet-invite-bar .secondary {
+  padding: 7px 12px !important;
+  font-size: 12px !important;
+  min-height: 33px !important;
+}
+#panel-meet.active #meetVideoBox {
+  height: clamp(300px, calc(100dvh - 255px), 570px) !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  margin-bottom: 0 !important;
+}
+#panel-meet.active #nyrava-meet-frame {
+  width: 100% !important;
+  height: 100% !important;
+}
+@media (max-height: 700px) {
+  #panel-meet.active #meetVideoBox {
+    height: calc(100dvh - 215px) !important;
+    min-height: 280px !important;
+  }
+}
+</style>
+
+<style id="nh-meet-tight-layout">
+/* Compact meeting only — leave the other dashboard pages alone. */
+#panel-meet.active > .headline {
+  margin-bottom: 6px !important;
+}
+
+#panel-meet.active #nh-meet-invite-bar {
+  margin-bottom: 6px !important;
+  padding: 5px 10px !important;
+}
+
+#panel-meet.active #meetVideoBox {
+  height: min(62vh, 480px) !important;
+  min-height: 0 !important;
+  max-height: 480px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+#panel-meet.active #nyrava-meet-frame {
+  width: 100% !important;
+  height: 100% !important;
+  display: block !important;
+}
+
+@media (max-height: 750px) {
+  #panel-meet.active #meetVideoBox {
+    height: min(60vh, 420px) !important;
+  }
+}
+</style>
+
+<style id="nyrava-compact-header">
+/* NYRAVA_COMPACT_HEADER_20261028 */
+.content {
+    position: relative;
+}
+.content > header.top {
+    position: absolute !important;
+    top: 12px !important;
+    right: 20px !important;
+    left: auto !important;
+    z-index: 120 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    width: auto !important;
+    min-height: 0 !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+.content > header.top > div:first-child {
+    display: none !important;
+}
+.content > main {
+    padding-top: 12px !important;
+}
+.content > header.top #nh-notifications {
+    margin-left: 8px;
+}
+@media (max-width: 900px) {
+    .content > header.top {
+        top: 8px !important;
+        right: 12px !important;
+    }
+    .content > main {
+        padding-top: 62px !important;
+    }
+}
+</style>
+</head><body><div class="shell"><aside class="rail" id="rail"><div class="actions"><div class="brand">NYRAVA HOME<span>REALTOR WORKSPACE</span></div><button class="secondary" id="mobileMenu" aria-expanded="false" aria-controls="menu">Menu</button></div><nav class="menu" id="menu" aria-label="Realtor workspace"><button data-tab="overview" class="active">Overview</button><button data-tab="profile" type="button">My Profile</button><button data-tab="leads" id="leadsMenuToggle" type="button" aria-expanded="false" aria-controls="leadsSubmenu">My Leads <span class="crm-chevron" aria-hidden="true">▾</span></button><div id="leadsSubmenu" class="crm-submenu" hidden><button type="button" data-leads-view="all">All Leads</button><button type="button" data-leads-view="buyers">Buyer Leads</button><button type="button" data-leads-view="sellers">Seller Leads</button></div><button data-tab="crm" id="crmMenuToggle" type="button" aria-expanded="false" aria-controls="crmSubmenu">Contacts &amp; CRM <span class="crm-chevron" aria-hidden="true">▾</span></button><div id="crmSubmenu" class="crm-submenu" hidden>
+<button type="button" data-crm-view="today">Today &amp; Priorities</button><button type="button" data-crm-view="contacts">Leads &amp; Contacts</button>
+<button type="button" data-crm-view="calendar">Follow-ups &amp; Tasks</button>
+<button type="button" data-crm-view="calendar">Appointments &amp; Tasks</button>
 <button type="button" data-crm-view="pipeline">Lead Pipeline</button>
-<button type="button" data-crm-view="contacts">Client Activity &amp; Notes</button>
+
 <button type="button" disabled title="Not yet supported by the current CRM" class="crm-coming">Transactions · Coming soon</button>
 </div><button data-tab="ai" type="button">Nyra Assistance</button><button data-tab="valuation" type="button">Private Valuation</button><button data-tab="meet" type="button" style="display:flex;align-items:center;gap:8px;background:#0866FF;color:#ffffff;border:none;border-radius:9px;padding:12px 14px;font-weight:700;font-size:14px;margin:6px 0;cursor:pointer;box-shadow:0 3px 10px rgba(8,102,255,0.35);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg><span>Video Meet (HD) 📹</span></button>
-<a href="/business-calendar.html" target="_top">Calendar &amp; results</a><a href="/personal-reminders.html" target="_top">Appointments &amp; Reminders ↗</a><button data-tab="team">My Team</button><a href="/team-chat.html" target="_top">Team Chat ↗</a><button data-tab="zips">ZIP Territories</button><button data-tab="notifications">Notifications</button><button data-tab="performance">Performance</button><button data-tab="account">Account & Billing</button><a class="secondary" href="/billing-checkout.html">Billing &amp; subscription</a></nav><div class="rail-footer">Only your authorized clients and territories are visible here.</div></aside><div class="content"><header class="top"><div><h1 id="pageTitle">Good to see you</h1><p class="sub">Your real estate business, all in one place.</p></div><div style="display:flex;align-items:center;gap:14px;"><div id="headerCallIndicator" style="display:none;align-items:center;gap:8px;background:#fee2e2;color:#b91c1c;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700;"><span style="width:8px;height:8px;border-radius:50%;background:#ef4444;display:inline-block;"></span><span>Call Live</span><button type="button" onclick="realtorEndMeeting()" style="background:#dc2626;color:#fff;border:none;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;margin-left:4px;cursor:pointer;">End</button></div><button type="button" onclick="navigate('meet')" style="background:#0866FF;color:#ffffff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(8,102,255,0.25);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg><span>Launch Video Meet 📹</span></button><div class="identity" id="identity">Checking account…</div></div></header><main><div id="error" class="error" hidden role="alert"></div><div id="message" class="ok" hidden role="status"></div>
+<a href="/business-calendar.html" target="_top">Calendar &amp; results</a><a href="/personal-reminders.html" target="_top">Appointments &amp; Reminders ↗</a><button data-tab="team">My Team</button><a href="/team-chat.html" target="_top">Team Chat ↗</a><button data-tab="zips">ZIP Territories</button><button data-tab="notifications">Notifications</button><button data-tab="performance">Performance</button><button data-tab="account">Account & Billing</button><a class="secondary" href="/billing-checkout.html">Billing &amp; subscription</a></nav><div class="rail-footer">Only your authorized clients and territories are visible here.</div></aside><div class="content"><header class="top"><div><h1 id="pageTitle">Good to see you</h1><p class="sub">Your real estate business, all in one place.</p></div><div style="display:flex;align-items:center;gap:14px;"><div id="headerCallIndicator" style="display:none;align-items:center;gap:8px;background:#fee2e2;color:#b91c1c;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700;"><span style="width:8px;height:8px;border-radius:50%;background:#ef4444;display:inline-block;"></span><span>Call Live</span><button type="button" onclick="realtorEndMeeting()" style="background:#dc2626;color:#fff;border:none;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;margin-left:4px;cursor:pointer;">End</button></div><div class="identity" id="identity">Checking account…</div></div></header><main><div id="error" class="error" hidden role="alert"></div><div id="message" class="ok" hidden role="status"></div>
 <section class="panel active" id="panel-overview"><div class="headline"><div><h2>Today's workspace</h2><p>Leads, appointments, and next actions at a glance.</p></div><div class="actions"><button class="secondary" id="refresh">Refresh</button></div></div><div class="kpis"><div class="kpi"><strong id="countLeads">—</strong><small>Assigned leads</small></div><div class="kpi"><strong id="countZips">—</strong><small>ZIP territories</small></div><div class="kpi"><strong id="countAppointments">—</strong><small>Upcoming appointments</small></div><div class="kpi"><strong id="countTasks">—</strong><small>Tasks to complete</small></div></div><div class="columns"><div class="box"><h3>Recent assigned leads</h3><div id="overviewLeads" class="list"></div></div><div><div class="box"><h3>Your next appointments</h3><div id="overviewAppts" class="list"></div></div><div class="box"><h3>Priority follow-ups</h3><div id="overviewTasks" class="list"></div></div></div></div></section>
 <section class="panel" id="panel-meet">
   <div class="headline">
@@ -24,7 +244,7 @@ body { overflow-x: hidden; }
       </div>
       <p>HD multi-party video consultation with virtual backdrops, noise suppression, and presentation sharing.</p>
     </div>
-    <div class="actions" id="realtorMeetControls">
+    <div class="actions" id="realtorMeetControls" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;max-width:100%;">
       <div id="activeCallControls" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;">
         <button type="button" id="btnRealtorEndMeet" style="background:#dc2626;color:#ffffff;border:none;border-radius:8px;padding:9px 14px;font-weight:700;font-size:13px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;box-shadow:0 2px 6px rgba(220,38,38,0.3);">
           <span>🛑 End Call &amp; Stop Camera</span>
@@ -43,8 +263,8 @@ body { overflow-x: hidden; }
         </button>
       </div>
 
-      <button type="button" id="btnRealtorCopyInvite" class="secondary">📋 Copy Client Link</button>
-      <a id="btnRealtorFullscreenLink" href="https://meet.nyrava.com" target="_blank" rel="noopener noreferrer" class="primary" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;">Open Fullscreen Window ↗</a>
+      
+      
     </div>
   </div>
 
@@ -93,15 +313,18 @@ body { overflow-x: hidden; }
   </div>
 
   <!-- Video Box Container (Active during call) -->
-  <div id="meetVideoBox" class="box" style="padding:0;overflow:hidden;border-radius:14px;height:820px;background:#0b1329;display:none;">
+  <div id="nh-meet-invite-bar"><strong>Meeting invitations</strong><button type="button" id="btnRealtorCopyInvite" class="secondary">📋 Copy Guest Link</button><a id="btnRealtorFullscreenLink" href="https://meet.nyrava.com" target="_blank" rel="noopener noreferrer" class="primary" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;">Open Fullscreen Window ↗</a></div>
+  <div id="meetVideoBox" class="box" style="position:relative;padding:0;overflow:hidden;border-radius:14px;height:min(68vh,620px);min-height:360px;background:#0b1329;display:none;">
+
+
     <iframe id="nyrava-meet-frame" src="about:blank" title="Nyrava Team Meet Video Consultation" style="width:100%;height:100%;border:none;" allow="camera; microphone; display-capture; autoplay; clipboard-write; fullscreen"></iframe>
   </div>
 </section>
 <section class="panel" id="panel-leads"><div class="headline"><div><h2>My Leads</h2><p>Only leads assigned to your account.</p></div></div><div class="box"><div class="actions" style="margin-bottom:16px"><input class="field search" id="leadSearch" placeholder="Search name or ZIP" aria-label="Search leads"><select class="field" id="leadType"><option value="">All lead types</option><option value="BUYER">Buyer</option><option value="SELLER">Seller</option></select></div><div id="leadList" class="list"></div></div><div id="leadDetails" class="box" hidden></div></section>
-<section class="panel" id="panel-crm"><div class="headline"><div><h2>Contacts &amp; CRM</h2><p>Manage real contacts, appointments, notes and follow-ups without leaving the workspace.</p></div></div><iframe id="nyrava-crm-frame" class="nyrava-workspace-frame" title="Contacts and CRM" data-src="/crm.html?workspace=1" loading="lazy"></iframe></section>
+<section class="panel" id="panel-crm"><iframe id="nyrava-crm-frame" class="nyrava-workspace-frame" title="Contacts and CRM" data-src="/crm.html?workspace=1" loading="lazy"></iframe></section>
 <section class="panel" id="panel-ai"><div class="headline"><div><h2>Nyra AI Work Assistant</h2><p>Prepare client email &amp; text drafts, call talking points, and summaries with AI assistance.</p></div></div><iframe id="nyrava-ai-frame" class="nyrava-workspace-frame" title="Nyra Assistance" data-src="/professional-ai.html?workspace=1" loading="lazy"></iframe></section>
-<section class="panel" id="panel-valuation"><div class="headline"><div><h2>Private Property Valuation</h2><p>Research real CMA comparables and prepare private property reports without creating leads.</p></div></div><iframe id="nyrava-valuation-frame" class="nyrava-workspace-frame" title="Private Valuation" data-src="/professional-valuation.html?workspace=1" loading="lazy"></iframe></section>
-<section class="panel" id="panel-profile"><div class="headline"><div><h2>My Profile</h2><p>Personal details, brokerage information and account security.</p></div></div><iframe id="nyrava-profile-frame" class="nyrava-workspace-frame" title="My Profile" data-src="/subscriber-profile.html?workspace=1" loading="lazy"></iframe></section>
+<section class="panel" id="panel-valuation"><div class="headline"><div><h2>Private Property Valuation</h2><p>Research real CMA comparables and prepare private property reports without creating leads.</p></div></div><iframe id="nyrava-valuation-frame" class="nyrava-workspace-frame" title="Private Valuation" data-src="/professional-valuation.html?workspace=1&design=real-house-20261028-2" loading="lazy"></iframe></section>
+<section class="panel" id="panel-profile"><iframe id="nyrava-profile-frame" class="nyrava-workspace-frame" title="My Profile" data-src="/subscriber-profile.html?workspace=1" loading="lazy"></iframe></section>
 <section class="panel" id="panel-team"><div class="headline"><div><h2>My Team & Lead Assignments</h2><p>Delegate work to employees. Nyrava Home never changes the subscriber who exclusively owns a lead.</p></div></div><div class="box"><h3>Add a team member</h3><form id="teamForm" class="actions"><input id="staffName" class="field" maxlength="160" placeholder="Employee full name" required><input id="staffEmail" class="field" type="email" maxlength="320" placeholder="Employee email" required><button class="primary" type="submit">Add to team</button></form><p class="muted">This creates an internal team directory entry. Invite employees securely. They sign in to their own CRM; you can review each workspace below. Basic: up to 5 active members. Pro: unlimited.</p><div id="teamList" class="list"></div><div id="employeeReview" class="box" hidden></div></div><div class="box"><h3>Assign your leads to team members</h3><p class="muted">Only leads permanently delivered to your subscriber account are eligible. Reassigning work does not redistribute a lead.</p><div id="teamLeads" class="list"></div></div></section>
 <section class="panel" id="panel-calendar"><div class="headline"><div><h2>Calendar & Tasks</h2><p><a href="/personal-reminders.html">Appointments &amp; personal reminders →</a></p><p>Appointments and follow-ups saved in your CRM.</p></div><button class="secondary" type="button" id="openCrmScheduler">Open CRM scheduler →</button></div><div class="grid-two"><div class="box"><h3>Upcoming appointments</h3><div id="calendarAppts" class="list"></div></div><div class="box"><h3>Outstanding tasks</h3><div id="calendarTasks" class="list"></div></div></div></section>
 <section class="panel" id="panel-zips"><div class="headline"><div><h2>ZIP Territories</h2><p>Basic: up to 5 distinct ZIPs. Pro: up to 20. Maximum 2 subscriber businesses per ZIP.</p></div></div><div class="box"><h3>What to expect after adding ZIP codes</h3><p>Allow approximately <strong>3–5 days</strong> for qualified leads to begin arriving. This is an expected timeframe, not a guaranteed delivery date. Leads arrive as qualified opportunities become available, <strong>not daily</strong>.</p><p>Basic: maximum <strong>2 leads per business day and 10 per rolling 30 days</strong>. Pro: maximum <strong>3 per business day and 20 per rolling 30 days</strong>. These are delivery ceilings, not guaranteed quantities. Daily limits reset at midnight America/New_York.</p><p>Predictive analytics help identify possible buying or selling interest, while our website valuation and buyer/seller tools collect consumer inquiries. A valuation request or prediction alone is not a qualified lead. Before delivery we require a name, location, at least one verified email or phone channel, current buyer/seller intent and permission for the designated Realtor. AI screens evidence; flagged records receive human review. Each delivered lead goes exclusively to one subscriber business. Appointments and transactions are not guaranteed.</p><p><strong>$349 USD annual license includes the first month.</strong> Basic is $89 USD/month or Pro $149 USD/month beginning in month two.</p><h3>Your current ZIPs</h3><div id="myZips" class="list"></div></div><div class="box"><h3>Find and subscribe to a ZIP</h3><form id="zipForm" class="actions"><input class="field" id="zipQuery" maxlength="5" inputmode="numeric" pattern="[0-9]{5}" placeholder="5-digit ZIP" aria-label="ZIP code" required><button class="secondary" type="button" id="zipCheck">Check availability</button><button class="primary" type="submit">Add ZIP</button></form><div id="zipResult" class="readout" style="margin-top:14px">Check a ZIP to see real database occupancy.</div></div></section>
@@ -110,7 +333,13 @@ body { overflow-x: hidden; }
 <section class="panel" id="panel-account"><div class="headline"><div><h2>Account & Billing</h2><p><a href="/professional-ai.html">AI work assistant</a> · <a href="/professional-valuation.html">Private property valuation</a></p><p>Your identity, subscription, and current plan details.</p></div></div><div class="box"><h3>Account details</h3><a class="card-link" href="/dashboard/home#profile">Edit profile & account images</a><div id="accountInfo" class="list"></div></div><div class="box"><h3>Plan status</h3><p id="planInfo">Loading subscription information…</p><p class="muted">Paid checkout and self-service payment methods appear only after billing has been configured and verified.</p></div></section>
 </main></div></div><script>
 const $=id=>document.getElementById(id);const state={me:null,dashboard:null,crm:null,plans:null,team:null};function text(id,s){$(id).textContent=String(s??'—')}function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}function empty(s){return '<div class="empty">'+esc(s)+'</div>'}function message(s,bad=false){const e=$(bad?'error':'message');e.textContent=s;e.hidden=false;if(!bad)$('error').hidden=true}async function request(url,opts){const r=await fetch(url,{credentials:'same-origin',...opts});const contentType=r.headers.get('content-type')||'';if(!contentType.includes('json'))throw Error('Server did not return JSON for '+url+' (HTTP '+r.status+')');const data=await r.json();if(!r.ok)throw Error(data.error||data.detail||data.message||data.title||('HTTP '+r.status));return data}
-const navigate=name=>{if(!$( 'panel-'+name))return;document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+name));document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));text('pageTitle',({overview:'Your Realtor Workspace',meet:'Video Meet & Consultation',leads:'My Leads',crm:'Contacts & CRM',ai:'Nyra AI Work Assistant',valuation:'Private Property Valuation',team:'My Team',calendar:'Calendar & Tasks',zips:'ZIP Territories',notifications:'Notifications',performance:'My Performance',account:'Account & Billing',profile:'My Profile'})[name]||'Your Realtor Workspace');history.replaceState(null,'','#'+name);$('rail').classList.remove('open');$('mobileMenu').setAttribute('aria-expanded','false');if(window.activateFrame)window.activateFrame(name);};document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.tab)));window.addEventListener('hashchange',()=>{const tab=location.hash.slice(1);if(tab)navigate(tab);});$('mobileMenu').onclick=()=>{const open=$('rail').classList.toggle('open');$('mobileMenu').setAttribute('aria-expanded',String(open))};
+const navigate=name=>{if(!$( 'panel-'+name))return;document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+name));document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));text('pageTitle',({overview:'Your Realtor Workspace',meet:'Video Meet & Consultation',leads:'My Leads',crm:'Contacts & CRM',ai:'Nyra AI Work Assistant',valuation:'Private Property Valuation',team:'My Team',calendar:'Calendar & Tasks',zips:'ZIP Territories',notifications:'Notifications',performance:'My Performance',account:'Account & Billing',profile:'My Profile'})[name]||'Your Realtor Workspace');history.replaceState(null,'','#'+name);$('rail').classList.remove('open');$('mobileMenu').setAttribute('aria-expanded','false');if(window.activateFrame)window.activateFrame(name);
+if(window.innerWidth > 900) {
+    const content = document.querySelector('.content');
+    if(content) content.scrollTop = 0;
+}
+window.scrollTo({top:0,left:0,behavior:'instant'});
+};document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.tab)));window.addEventListener('hashchange',()=>{const tab=location.hash.slice(1);if(tab)navigate(tab);});$('mobileMenu').onclick=()=>{const open=$('rail').classList.toggle('open');$('mobileMenu').setAttribute('aria-expanded',String(open))};
 
 function renderTeam(){const team=state.team;if(!team){$('teamList').innerHTML=empty('Team unavailable.');$('teamLeads').innerHTML='';return}const staff=(team.staff||[]).filter(x=>!x.archived),links=team.assignments||[],leads=state.crm?.leads||[];const plan=String(state.me?.planCode||'').toUpperCase();const count=staff.filter(x=>x.active).length;$('teamList').innerHTML='<p class="muted">'+(plan==='PRO'?('Active team: '+count+' · Pro unlimited'):('Active team: '+count+' / 5 · Basic limit'))+'</p>'+(staff.length?staff.map(x=>'<div class="item"><div><strong>'+esc(x.fullName)+'</strong><small>'+esc(x.email)+' · '+esc(x.active?'Active':'Disabled')+' · '+esc(x.userId?'Access established':'Invitation needed')+'</small></div><div class="actions"><button class="secondary" data-team-edit="'+esc(x.id)+'">Edit</button><button class="secondary" data-team-review="'+esc(x.id)+'">Open CRM</button>'+(x.active&&x.userId?'<span data-nh-member-actions="'+esc(x.userId)+'"><button class="secondary" data-nh-team-meet>Meet now</button><button class="secondary" data-nh-team-chat>Chat</button></span>':'')+''+(x.active&&!x.userId?'<button class="secondary" data-team-invite="'+esc(x.id)+'">Send email invitation</button>':'')+(x.active?'<button class="secondary" data-team-disable="'+esc(x.id)+'">Remove</button>':'')+'</div></div>').join(''):empty('No employees yet.'));$('teamLeads').innerHTML=leads.length?leads.map(l=>{const current=links.find(a=>a.inquiryId===l.id)?.staffId||'';return '<div class="item"><div><strong>'+esc(l.fullName)+'</strong><small>'+esc(l.leadType)+' · ZIP '+esc(l.zipCode)+'</small></div><select class="field" data-team-lead="'+esc(l.id)+'" aria-label="Employee responsible for '+esc(l.fullName)+'"><option value="">Unassigned internally</option>'+staff.filter(x=>x.active&&x.userId).map(x=>'<option value="'+esc(x.id)+'" '+(x.id===current?'selected':'')+'>'+esc(x.fullName)+'</option>').join('')+'</select></div>'}).join(''):empty('No delivered leads available to delegate.');}
 $('teamForm').onsubmit=async e=>{e.preventDefault();try{await request('/api/team/staff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fullName:$('staffName').value,email:$('staffEmail').value})});$('teamForm').reset();message('Employee added to internal team directory.');await reload()}catch(err){message(err.message,true)}};
@@ -280,6 +509,12 @@ const leadsToggle=document.getElementById('leadsMenuToggle');
 const leadsSub=document.getElementById('leadsSubmenu');
 if(!crmToggle||!crmSub||!leadsToggle||!leadsSub)return;
 const crmButtons=[...crmSub.querySelectorAll('[data-crm-view]')];
+const savedCrmView=sessionStorage.getItem('nyrava-crm-last-view');
+if(location.hash==='#crm' && savedCrmView) {
+  const frame=document.getElementById('nyrava-crm-frame');
+  if(frame) frame.dataset.src='/crm.html?workspace=1&view='+encodeURIComponent(savedCrmView);
+}
+
 const leadsButtons=[...leadsSub.querySelectorAll('[data-leads-view]')];
 function expand(menu,open){
  const sub=menu==='crm'?crmSub:leadsSub;
@@ -302,6 +537,7 @@ function showCrm(view){
  expand('crm',true);navigate('crm');
  const frame=document.getElementById('nyrava-crm-frame');
  const target='/crm.html?workspace=1&view='+encodeURIComponent(view);
+  sessionStorage.setItem('nyrava-crm-last-view',view);
  if(frame&&frame.getAttribute('src')!==target)frame.setAttribute('src',target);
  highlight(crmButtons,'crmView',view);highlight(leadsButtons,'leadsView',null);
  setTitle(view==='today'?'CRM Today':view==='pipeline'?'Lead Pipeline':view==='tasks'?'Follow-ups & Tasks':view==='appointments'?'Appointments':'Contacts & CRM');
@@ -365,4 +601,78 @@ if(location.hash==='#leads')expand('leads',true);
 #workspace textarea{min-height:60px;resize:vertical}
 #workspace input,#workspace select,#workspace textarea{margin:5px 0 8px}
 @media(max-width:700px){#teamForm,#staffForm{grid-template-columns:1fr}#teamForm>button,#staffForm>button{justify-self:start}#teamList>.item{flex-direction:column;align-items:flex-start;gap:8px}#teamList .item>.actions{justify-content:flex-start}#workspace .grid{grid-template-columns:1fr}#panel-team button,#staff button,#staffForm button,#invites button,#workspace button{min-height:38px;padding:8px 12px}}
-</style><script defer src="/team-chat-launcher.js?v=sender1"></script><script defer src="/team-meetings-popup.js?v=call-work1"></script><script defer src="/workspace-operator.js?v=nyra-locked1"></script><script defer src="/team-member-actions.js?v=1"></script><script defer src="/nyra/v1/workspace-shell.js?v=1"></script><script defer src="/nyra/v1/embed.js?v=guided1" data-mode="support"></script><script defer src="/client-meeting-call.js?v=call-work1"></script><script defer src="/calendar-workspace.js?v=1"></script></body></html>
+</style><script defer src="/team-chat-launcher.js?v=chat-restored-20261028-v3"></script><script defer src="/team-meetings-popup.js?v=call-work1"></script><script defer src="/workspace-operator.js?v=nyra-locked1"></script><script defer src="/team-member-actions.js?v=1"></script><script defer src="/nyra/v1/workspace-shell.js?v=1"></script><script defer src="/nyra/v1/embed.js?v=guided1" data-mode="support"></script><script defer src="/client-meeting-call.js?v=call-work1"></script><script defer src="/calendar-workspace.js?v=1"></script>
+<!-- NYRAVA_DASHBOARD_HEADER_CLEANUP_V1 -->
+<style>
+#rail {
+    display: flex;
+    flex-direction: column;
+}
+#rail nav {
+    flex: 1 1 auto;
+}
+#rail .rail-footer {
+    margin-top: auto;
+    padding: 14px 10px;
+}
+#rail .rail-footer #identity {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+}
+#rail .rail-footer #identity button {
+    width: 100%;
+}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const identity = document.getElementById('identity');
+    const footer = document.querySelector('#rail .rail-footer');
+    if (identity && footer) {
+        footer.textContent = '';
+        footer.appendChild(identity);
+    }
+});
+</script>
+
+<!-- NYRAVA_SINGLE_HEADER_FIX_V1 -->
+<style>
+
+#panel-crm > .headline {
+  display: none !important;
+}
+#rail .rail-footer {
+  margin-top: auto;
+}
+#nyrava-sidebar-logout {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  background: #0866FF;
+  color: white;
+  border: 0;
+  border-radius: 8px;
+  padding: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const footer = document.querySelector('#rail .rail-footer');
+  if (!footer) return;
+
+  // Move the existing sign-out control, preserving its click handler.
+  const buttons = [...document.querySelectorAll('button')];
+  const signout = buttons.find(b =>
+    /^(sign out|log out)$/i.test(b.textContent.trim())
+  );
+
+  if (signout && !footer.contains(signout)) {
+    signout.id = 'nyrava-sidebar-logout';
+    footer.appendChild(signout);
+  }
+});
+</script>
+</body></html>

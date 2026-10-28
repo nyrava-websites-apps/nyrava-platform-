@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 390" role="img" aria-label="Modern home illustration">
+<defs><linearGradient id="sky" x2="0" y2="1"><stop stop-color="#d8ebff"/><stop offset="1" stop-color="#eef6ff"/></linearGradient><linearGradient id="wall" x2="0" y2="1"><stop stop-color="#fff"/><stop offset="1" stop-color="#d7e5f4"/></linearGradient><linearGradient id="glass" x2="0" y2="1"><stop stop-color="#75a9ce"/><stop offset="1" stop-color="#254e74"/></linearGradient></defs>
+<rect width="780" height="390" fill="url(#sky)"/><circle cx="650" cy="75" r="39" fill="#fff" opacity=".7"/>
+<path d="M0 275Q165 243 320 276T780 267V390H0Z" fill="#bfd8c8"/><path d="M0 310Q210 276 370 306T780 296V390H0Z" fill="#8ebca6"/>
+<path d="M260 196L390 100H670L736 174V321H260Z" fill="url(#wall)" stroke="#a7bacd" stroke-width="2"/><path d="M230 203L370 87H685L753 165H391L313 225Z" fill="#173d66"/><path d="M392 164H750" stroke="#487197" stroke-width="7"/>
+<path d="M420 196H545V297H420Z" fill="url(#glass)" stroke="#fff" stroke-width="9"/><path d="M550 196H698V297H550Z" fill="url(#glass)" stroke="#fff" stroke-width="9"/><path d="M482 194V301M625 195V299" stroke="#d8e8f5" stroke-width="6"/><path d="M318 231H396V322H318Z" fill="#173d66"/><circle cx="382" cy="279" r="4" fill="#f5ca7c"/>
+<path d="M170 330H775" stroke="#eef4f8" stroke-width="22"/><path d="M105 343L338 320H486L410 390H105Z" fill="#dae3e8"/><path d="M100 346L335 322" stroke="#fff" stroke-width="6"/>
+<g fill="#53977c"><ellipse cx="226" cy="310" rx="47" ry="21"/><ellipse cx="763" cy="309" rx="38" ry="18"/></g><g fill="#406d56"><path d="M215 314v-78" stroke="#6b5842" stroke-width="9"/><circle cx="207" cy="219" r="31"/><circle cx="231" cy="237" r="26"/><circle cx="192" cy="246" r="26"/></g>
+</svg>

@@ -1,0 +1,73 @@
+
+/* NYRAVA CRM - TODAY LEAD GRID ONLY */
+/* Does not affect contacts, pipeline, or other pages. */
+
+#todayView #todayNewLeads {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 14px !important;
+    padding: 18px !important;
+    align-items: stretch !important;
+}
+
+#todayView #todayNewLeads > .queue-item {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: space-between !important;
+    gap: 15px !important;
+    min-width: 0 !important;
+    min-height: 160px !important;
+    padding: 17px !important;
+    background: #ffffff !important;
+    border: 1px solid #dce7f5 !important;
+    border-radius: 13px !important;
+    box-shadow: 0 3px 12px rgba(8, 26, 58, .045) !important;
+}
+
+#todayView #todayNewLeads .queue-item h3 {
+    font-size: 14px !important;
+    line-height: 1.4 !important;
+    font-weight: 700 !important;
+    overflow-wrap: anywhere !important;
+    margin: 0 !important;
+}
+
+#todayView #todayNewLeads .queue-item p {
+    margin: 9px 0 0 !important;
+    font-size: 12px !important;
+    line-height: 1.5 !important;
+    overflow-wrap: anywhere !important;
+}
+
+#todayView #todayNewLeads .queue-item button {
+    width: 100% !important;
+    min-height: 38px !important;
+    margin-top: auto !important;
+    color: #0866ff !important;
+    background: #f5f9ff !important;
+    border: 1px solid #bbd3fb !important;
+    border-radius: 8px !important;
+    font-size: 12px !important;
+}
+
+#todayView #todayNewLeads .queue-item button:hover {
+    background: #e7f2ff !important;
+}
+
+#todayView #todayNewLeads > .empty {
+    grid-column: 1 / -1 !important;
+}
+
+@media (max-width: 1050px) {
+    #todayView #todayNewLeads {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+}
+
+@media (max-width: 580px) {
+    #todayView #todayNewLeads {
+        grid-template-columns: 1fr !important;
+        padding: 10px !important;
+    }
+}

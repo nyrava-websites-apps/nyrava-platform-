@@ -1,0 +1,39 @@
+/* NYRAVA CRM COMPACT GRID V1 - scoped exclusively to crm.html */
+html[data-ny-page="crm.html"] {--crm-blue:#0866ff;--crm-navy:#092449;}
+html[data-ny-page="crm.html"] body {background:#f2f6fc;}
+html[data-ny-page="crm.html"] .crm-shell main {max-width:none;width:100%;padding:22px 24px 50px;}
+html[data-ny-page="crm.html"] .crm-shell .topbar {padding:14px 18px;background:#f6faff;border:1px solid #e1eaf6;border-radius:14px;flex-wrap:wrap;}
+html[data-ny-page="crm.html"] .crm-shell h1 {font-size:25px;font-weight:800;color:var(--crm-navy);}
+html[data-ny-page="crm.html"] .view {margin-top:16px;}
+html[data-ny-page="crm.html"] .toolbar {align-items:center;gap:10px;flex-wrap:wrap;}
+html[data-ny-page="crm.html"] .toolbar input,html[data-ny-page="crm.html"] .toolbar select {min-height:43px;border-radius:9px;border-color:#cfdeef;}
+html[data-ny-page="crm.html"] .workspace {display:block!important;}
+html[data-ny-page="crm.html"] .workspace>.contacts {width:100%;max-width:none!important;max-height:none!important;overflow:visible!important;border:1px solid #dce8f7;border-radius:15px;box-shadow:0 8px 26px rgba(10,35,76,.045);}
+html[data-ny-page="crm.html"] .contacts>.section-title {padding:17px 20px;}
+html[data-ny-page="crm.html"] #contactList {display:grid!important;grid-template-columns:repeat(auto-fill,minmax(225px,1fr));gap:13px;padding:17px;background:#fff;}
+html[data-ny-page="crm.html"] #contactList>.contact-item {min-width:0;width:100%;min-height:146px;padding:17px!important;text-align:left;border:1px solid #dde8f5!important;border-radius:12px!important;box-shadow:0 3px 12px rgba(15,45,95,.035);background:#fff!important;transition:border-color .15s,box-shadow .15s,transform .15s;}
+html[data-ny-page="crm.html"] #contactList>.contact-item:hover,html[data-ny-page="crm.html"] #contactList>.contact-item:focus-visible {border-color:#8ebcff!important;box-shadow:0 7px 20px rgba(8,102,255,.11);transform:translateY(-1px);}
+html[data-ny-page="crm.html"] #contactList>.contact-item.active {border-color:#0866ff!important;box-shadow:0 0 0 2px rgba(8,102,255,.1);}
+html[data-ny-page="crm.html"] .contact-item strong {font-size:15px!important;color:#0b2b52;line-height:1.3;}
+html[data-ny-page="crm.html"] .contact-item small {font-size:12px!important;margin:9px 0!important;overflow-wrap:anywhere;}
+html[data-ny-page="crm.html"] .contact-meta {flex-wrap:wrap;}
+html[data-ny-page="crm.html"] .source-badge {margin-top:12px;}
+html[data-ny-page="crm.html"] .contacts .pager {border-top:1px solid #e9eff8;padding:12px 20px;}
+html[data-ny-page="crm.html"] #detail {display:none;}
+html[data-ny-page="crm.html"] body.crm-detail-open #detail {display:block!important;position:fixed!important;inset:50% auto auto 50%!important;transform:translate(-50%,-50%)!important;z-index:12001!important;width:min(760px,calc(100vw - 28px))!important;max-width:none!important;max-height:min(87vh,900px)!important;overflow-y:auto!important;overscroll-behavior:contain;background:#fff;border:1px solid #d4e2f4;border-radius:18px;box-shadow:0 25px 80px rgba(6,26,60,.27);}
+html[data-ny-page="crm.html"] #crm-grid-backdrop {display:none;position:fixed;inset:0;background:rgba(6,22,47,.57);z-index:12000;}
+html[data-ny-page="crm.html"] body.crm-detail-open #crm-grid-backdrop {display:block;}
+html[data-ny-page="crm.html"] body.crm-detail-open {overflow:hidden;}
+html[data-ny-page="crm.html"] #detail .detail-header {position:sticky;top:0;z-index:2;background:#fff;border-bottom:1px solid #e1eaf5;padding:18px 23px;}
+html[data-ny-page="crm.html"] #detail .detail-name h2 {font-size:23px;}
+html[data-ny-page="crm.html"] #detail .facts {grid-template-columns:repeat(2,minmax(0,1fr));padding:16px 22px;gap:14px;}
+html[data-ny-page="crm.html"] #detail .record-list {max-height:260px;}
+html[data-ny-page="crm.html"] #editor {z-index:15000;max-height:85vh;border-radius:15px;box-shadow:0 24px 65px rgba(5,25,55,.27);}
+html[data-ny-page="crm.html"] #editor::backdrop {background:rgba(6,22,47,.25);}
+html[data-ny-page="crm.html"] .today-columns {gap:15px;}
+html[data-ny-page="crm.html"] .metrics {gap:12px;margin-bottom:15px;}
+html[data-ny-page="crm.html"] .metric {padding:14px;border-radius:12px;}
+@media(max-width:800px){html[data-ny-page="crm.html"] .crm-shell main {padding:14px;}html[data-ny-page="crm.html"] #contactList{grid-template-columns:repeat(auto-fit,minmax(190px,1fr));padding:12px;gap:10px;}html[data-ny-page="crm.html"] #detail .facts{grid-template-columns:1fr 1fr;}html[data-ny-page="crm.html"] .crm-shell .topbar{padding:12px;}}
+@media(max-width:500px){html[data-ny-page="crm.html"] #contactList{grid-template-columns:1fr 1fr;}html[data-ny-page="crm.html"] #contactList>.contact-item{padding:12px!important;min-height:140px;}html[data-ny-page="crm.html"] #detail .facts{grid-template-columns:1fr;}html[data-ny-page="crm.html"] #detail{width:calc(100vw - 16px)!important;max-height:90vh!important;}html[data-ny-page="crm.html"] .toolbar>label:not(.search-label){width:calc(50% - 5px);}}
+@media(max-width:375px){html[data-ny-page="crm.html"] #contactList{grid-template-columns:1fr;}}
+@media print{html[data-ny-page="crm.html"] #crm-grid-backdrop{display:none!important;}html[data-ny-page="crm.html"] #detail{position:static!important;transform:none!important;max-height:none!important;}}
