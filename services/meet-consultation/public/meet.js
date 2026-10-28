@@ -138,12 +138,12 @@
       if (data.type === 'offer') {
         const pc = peerConnections.get(data.from);
         if (pc) {
-          if (data.offer && data.offer.sdp) data.offer.sdp = optimizeSdp(data.offer.sdp);
+          
           await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
           const answer = await pc.createAnswer();
-          answer.sdp = optimizeSdp(answer.sdp);
+          
           await pc.setLocalDescription(answer);
-          optimizeSenderParameters(pc);
+          
           ws.send(JSON.stringify({
             type: 'answer',
             target: data.from,
@@ -155,9 +155,9 @@
       if (data.type === 'answer') {
         const pc = peerConnections.get(data.from);
         if (pc) {
-          if (data.answer && data.answer.sdp) data.answer.sdp = optimizeSdp(data.answer.sdp);
+          
           await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-          optimizeSenderParameters(pc);
+          
         }
       }
 
@@ -394,14 +394,14 @@
   let maskCtx = null;
   let personCanvas = null;
   let personCtx = null;
-  let currentBalance = 'balanced';
+  let currentBalance = 'wide';
   const maskLut = new Uint32Array(256);
 
   function updateMaskLut(balance) {
     let low = 45;
     let high = 115;
     if (balance === 'wide') {
-      low = 28;
+      low = 20;
       high = 95;
     } else if (balance === 'crisp') {
       low = 60;
@@ -420,7 +420,7 @@
       maskLut[i] = (a << 24) | 0x00FFFFFF;
     }
   }
-  updateMaskLut('balanced');
+  updateMaskLut(currentBalance);
 
   function initMediaPipe() {
     if (typeof SelfieSegmentation === 'undefined') {
@@ -435,7 +435,7 @@
       });
 
       selfieSegmentation.setOptions({
-        modelSelection: 1, // 1 = landscape model (fastest, optimized for webcams / 720p-1080p video calls)
+        modelSelection: 0, // 1 = landscape model (fastest, optimized for webcams / 720p-1080p video calls)
         selfieMode: false   // false so remote peers receive normal orientation; local self-view is mirrored by CSS scaleX(-1)
       });
 
@@ -499,6 +499,9 @@
     setupCanvasPipeline();
 
     // 1. Draw raw neural segmentation mask onto 480x270 mask canvas
+    maskCtx.globalCompositeOperation = 'source-over';
+    maskCtx.filter = 'none';
+    maskCtx.clearRect(0, 0, 480, 270);
     maskCtx.drawImage(results.segmentationMask, 0, 0, 480, 270);
 
     // 2. Transform confidence into clean silhouette mask (smooth anti-aliasing curve)
@@ -506,7 +509,7 @@
     const u8 = imgData.data;
     const u32 = new Uint32Array(u8.buffer);
     for (let i = 0; i < u32.length; i++) {
-      const raw = u8[i * 4 + 3] < 255 ? u8[i * 4 + 3] : u8[i * 4];
+      const raw = u8[i * 4];
       u32[i] = maskLut[raw];
     }
     maskCtx.putImageData(imgData, 0, 0);
@@ -546,19 +549,25 @@
 
     // 4. STEP B: Cut out ONLY the person on offscreen personCanvas
     personCtx.save();
+    personCtx.globalCompositeOperation = 'source-over';
+    personCtx.filter = 'none';
     personCtx.clearRect(0, 0, 1280, 720);
     if (filterStr !== 'none') personCtx.filter = filterStr;
     personCtx.drawImage(results.image, 0, 0, 1280, 720);
 
     // Clip strictly to the person's silhouette using destination-in
     personCtx.globalCompositeOperation = 'destination-in';
+    // Soft, slightly expanded silhouette; full-resolution person remains sharp.
+    personCtx.filter = 'blur(0.8px)';
+    personCtx.drawImage(maskCanvas, -3, -3, 1286, 726);
     personCtx.filter = 'none';
-    personCtx.drawImage(maskCanvas, 0, 0, 1280, 720);
     personCtx.restore();
 
     // 5. STEP C: Composite the crisp, solid person directly ON TOP of the solid backdrop!
     canvasCtx.drawImage(personCanvas, 0, 0, 1280, 720);
   }
+
+  let lastSegmentationTime = 0;
 
   async function renderProcessedFrame() {
     if (!rawCameraStream || isScreenSharing || !isCamActive) return;
@@ -576,8 +585,10 @@
       }
 
       if (isSegmenterReady && selfieSegmentation) {
-        if (!isProcessingFrame) {
+        const now = performance.now();
+        if (!isProcessingFrame && now - lastSegmentationTime >= 50) {
           isProcessingFrame = true;
+          lastSegmentationTime = now;
           try {
             await selfieSegmentation.send({ image: localVid });
           } catch (err) {
@@ -773,7 +784,7 @@
 
     if (isInitiator) {
       const offer = await pc.createOffer();
-      offer.sdp = optimizeSdp(offer.sdp);
+      // SDP optimization disabled for WebRTC compatibility
       await pc.setLocalDescription(offer);
       optimizeSenderParameters(pc);
       ws.send(JSON.stringify({

@@ -1,3 +1,11 @@
+
+/* NYRAVA_EMBEDDED_NYRA_GUARD_V1 */
+if (window.self !== window.top) {
+  document.documentElement.classList.add('nyrava-embedded-nyra');
+  const style = document.createElement('style');
+  style.textContent = '.ny-op-launch { display:none !important; }';
+  document.head.appendChild(style);
+}
 (()=>{'use strict';if(window.NyravaOperator)return;window.NyravaOperator=true;
 const api='/api/workspace-operator',el=(tag,text,cls)=>{const n=document.createElement(tag);if(text)n.textContent=text;if(cls)n.className=cls;return n;};let caps,context={},active=null,busy=false,stream=null,recorder=null,timer=null,discard=false,capturing=false,recordVersion=0,lastFocus,voiceSession=null,currentCommand=null,voiceLoading=null,voiceActivation=0;
 const css=el('link');css.rel='stylesheet';css.href='/workspace-operator.css?v=handsfree1';document.head.append(css);

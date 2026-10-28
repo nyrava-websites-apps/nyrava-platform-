@@ -1,6 +1,6 @@
 (()=>{'use strict';
 const $=id=>document.getElementById(id);let saved=null,employee=false,busy=false,loadFailed=false,dirty=false;
-const definitions=[['professionalTitle','Professional title'],['phoneNumber','Phone / SMS number (include country code)'],['businessAddress','Agency address'],['businessCity','City'],['businessState','State'],['businessZipCode','Business ZIP'],['licenseNumber','License number (self-reported)'],['licenseState','License state'],['website','Website'],['facebookUrl','Facebook URL'],['instagramUrl','Instagram URL'],['linkedInUrl','LinkedIn URL'],['biography','Biography']];
+const definitions=[['phoneNumber','Phone / SMS number (include country code)'],['businessAddress','Agency address'],['businessCity','City'],['businessState','State'],['businessZipCode','Business ZIP'],['licenseNumber','License number (self-reported)'],['licenseState','License state'],['website','Website'],['facebookUrl','Facebook URL'],['instagramUrl','Instagram URL'],['linkedInUrl','LinkedIn URL'],['biography','Biography']];
 const agencyKeys=['businessAddress','businessCity','businessState','businessZipCode'];
 function status(text,error=false){$('notice').style.display='block';$('notice').className='status'+(error?' error':'');$('notice').textContent=text;}
 async function request(url,options={}){const response=await fetch(url,{credentials:'same-origin',cache:'no-store',...options,headers:{Accept:'application/json',...(options.body&&!(options.body instanceof FormData)?{'Content-Type':'application/json'}:{}),...options.headers}});const data=await response.json().catch(()=>({}));if(!response.ok)throw Error(data.error||data.detail||'Request failed ('+response.status+').');return data;}
@@ -18,7 +18,7 @@ function bannerView(u){
  else if(!employee)img.src=(u.bannerUrl||'/api/subscriber/profile/banner')+'?v='+Date.now();
 }
 $('bannerAgency').onchange=()=>{if(saved)bannerView(saved);};
-function draw(u){dirty=false;saved=u;bannerView(u);$('name').value=u.fullName||'';$('email').value=u.email||'';$('brokerage').value=u.brokerage||'';$('role').value=employee?'Team employee':'Realtor';$('displayName').textContent=u.fullName||u.email;$('displayEmail').textContent=u.email;$('accountRole').textContent=$('role').value;$('badge').textContent=employee?'Team employee':(u.planCode||'Realtor')+' · '+(u.subscriptionStatus||'');$('brokerage').readOnly=employee;$('brokerage').required=!employee;
+function draw(u){dirty=false;saved=u;bannerView(u);$('name').value=u.fullName||'';$('email').value=u.email||'';$('brokerage').value=u.brokerage||'';$('role').value=u.details?.professionalTitle||(employee?'Team employee':'Realtor');$('displayName').textContent=u.fullName||u.email;$('displayEmail').textContent=u.email;$('accountRole').textContent=$('role').value;$('badge').textContent=employee?'Team employee':(u.planCode||'Realtor')+' · '+(u.subscriptionStatus||'');$('brokerage').readOnly=employee;$('brokerage').required=!employee;
 for(const [key] of definitions){const input=$('detail-'+key);if(input)input.value=u.details?.[key]||'';}
 $('workEmail').value=u.communications?.workEmail??u.email??'';$('signature').value=u.communications?.signature||'';
 $('avatar').replaceChildren();if(u.profilePhotoUrl){const img=document.createElement('img');img.alt='Profile photo';img.src=u.profilePhotoUrl+'?v='+Date.now();img.style.cssText='width:104px;height:104px;object-fit:cover;border-radius:50%';$('avatar').append(img);}else $('avatar').textContent=(u.fullName||u.email||'?').slice(0,1).toUpperCase();
@@ -32,14 +32,113 @@ agencyView(employee?(u.agencies||[]):[{name:u.brokerage,realtorName:u.fullName,.
   }
 }
 $('profileForm').addEventListener('input',()=>{dirty=true;});window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue='';}});
-$('profileForm').onsubmit=async event=>{event.preventDefault();if(busy||!saved||loadFailed)return;busy=true;$('save').disabled=true;try{const details={};for(const input of document.querySelectorAll('[data-profile-detail]'))details[input.dataset.profileDetail]=input.value.trim();const payload={fullName:$('name').value.trim(),details,communications:{workEmail:$('workEmail').value.trim(),signature:$('signature').value.trim()}};if(!employee)payload.brokerage=$('brokerage').value.trim();draw(await request('/api/subscriber/profile',{method:'PUT',body:JSON.stringify(payload)}));status('Profile saved. Client communications use your own apps.');}catch(e){status(e.message,true);}finally{busy=false;$('save').disabled=false;}};
+
+/* NYRAVA_SAVE_FEEDBACK_V5 */
+$('profileForm').onsubmit = async event => {
+  event.preventDefault();
+  if (busy || !saved || loadFailed) return;
+
+  const button = $('save');
+  const actions = button.closest('.actions');
+  let feedback = document.getElementById('profileSaveFeedback');
+
+  if (!feedback) {
+    feedback = document.createElement('div');
+    feedback.id = 'profileSaveFeedback';
+    feedback.setAttribute('role', 'status');
+    feedback.setAttribute('aria-live', 'polite');
+    feedback.style.cssText =
+      'width:100%;padding:12px;border-radius:8px;' +
+      'font-size:14px;font-weight:700;';
+    actions.appendChild(feedback);
+  }
+
+  busy = true;
+  button.disabled = true;
+  button.textContent = 'Saving...';
+  feedback.textContent = 'Saving your profile changes...';
+  feedback.style.color = '#0866FF';
+
+  try {
+    const details = {};
+    for (const input of document.querySelectorAll('[data-profile-detail]')) {
+      details[input.dataset.profileDetail] = input.value.trim();
+    }
+    details.professionalTitle = $('role').value.trim();
+
+    const payload = {
+      fullName: $('name').value.trim(),
+      details,
+      communications: {
+        workEmail: $('workEmail').value.trim(),
+        signature: $('signature').value.trim()
+      }
+    };
+
+    if (!employee) payload.brokerage = $('brokerage').value.trim();
+
+    await request('/api/subscriber/profile', {
+      method: 'PUT',
+      body: JSON.stringify(payload)
+    });
+
+    const updated = await request('/api/subscriber/profile');
+
+    const matches =
+      updated.fullName === payload.fullName &&
+      Object.entries(details).every(
+        ([key, value]) => (updated.details?.[key] ?? '') === value
+      ) &&
+      updated.communications?.workEmail === payload.communications.workEmail &&
+      updated.communications?.signature === payload.communications.signature &&
+      (employee || updated.brokerage === payload.brokerage);
+
+    if (!matches) {
+      throw new Error('Server did not confirm all saved changes.');
+    }
+
+    draw(updated);
+    button.textContent = 'Saved successfully';
+    feedback.textContent = 'Profile updated successfully.';
+    feedback.style.color = '#147d43';
+    status('Profile updated successfully.');
+
+  } catch (error) {
+    button.textContent = 'Save Profile';
+    feedback.textContent = 'Save failed: ' + error.message;
+    feedback.style.color = '#b42318';
+    status(error.message, true);
+  } finally {
+    busy = false;
+    button.disabled = false;
+  }
+};
+
 $('cancel').onclick=()=>{if(!busy&&saved){draw(saved);$('notice').style.display='none';}};
 $('logout').onclick=async()=>{try{await request('/api/auth/logout',{method:'POST'});try{localStorage.removeItem('hsi_token');localStorage.removeItem('hsi_user');sessionStorage.removeItem('hsi_token');sessionStorage.removeItem('hsi_user');}catch(_){}window.top.location.replace('/');}catch(e){status(e.message,true);}};
 async function upload(kind,inputId){if(busy||loadFailed)return;if(dirty)return status('Save or discard your profile edits before uploading an image.',true);const file=$(inputId).files[0];if(!file)return status('Choose an image first.',true);if(file.size>2097152)return status('Choose an image up to 2 MB.',true);const form=new FormData();form.append('image',file);busy=true;document.querySelectorAll('button').forEach(b=>b.disabled=true);try{draw(await request('/api/subscriber/profile/'+kind,{method:'POST',body:form}));status('Image saved.');}catch(e){status(e.message,true);}finally{busy=false;document.querySelectorAll('button').forEach(b=>b.disabled=false);}}
 $('uploadBanner').onclick=()=>upload('banner','bannerUpload');
 $('removeBanner').onclick=async()=>{if(busy||loadFailed)return;if(dirty)return status('Save or discard your profile edits before removing the banner.',true);if(!window.confirm('Remove your agency banner for you and your team?'))return;busy=true;document.querySelectorAll('button').forEach(b=>b.disabled=true);try{draw(await request('/api/subscriber/profile/banner',{method:'DELETE'}));status('Agency banner removed.');}catch(e){status(e.message,true);}finally{busy=false;document.querySelectorAll('button').forEach(b=>b.disabled=false);}};
 $('uploadPhoto').onclick=()=>upload('photo','photoUpload');$('uploadLogo').onclick=()=>upload('logo','logoUpload');
-(async()=>{try{const me=await request('/api/auth/me');if(!['RealtorSubscriber','Owner','Admin','BusinessEmployee'].includes(me.role))throw Error('Sign in as a Realtor or team employee.');employee=me.role==='BusinessEmployee';$('workspaceLink').href=employee?'/employee.html':'/dashboard/home';fields();draw(await request('/api/subscriber/profile'));$('content').hidden=false;}catch(e){loadFailed=true;status(e.message,true);$('signin').style.display='block';}})();
+(async()=>{try{const me=await request('/api/auth/me');if(!['RealtorSubscriber','Owner','Admin','BusinessEmployee'].includes(me.role))throw Error('Sign in as a Realtor or team employee.');employee=me.role==='BusinessEmployee';$('workspaceLink').href=employee?'/employee.html':'/dashboard/home';fields();draw(await request('/api/subscriber/profile'));$('content').hidden=false;
+if (window.parent !== window) {
+  const sendProfileHeight = () => {
+    window.parent.postMessage({
+      type: 'nyrava-embedded-size',
+      section: 'profile',
+      height: Math.max(
+        document.body.scrollHeight,
+        document.documentElement.scrollHeight
+      )
+    }, location.origin);
+  };
+  requestAnimationFrame(sendProfileHeight);
+  window.addEventListener('load', sendProfileHeight);
+  if (typeof ResizeObserver !== 'undefined') {
+    const observer = new ResizeObserver(sendProfileHeight);
+    observer.observe(document.querySelector('main'));
+  }
+}}catch(e){loadFailed=true;status(e.message,true);$('signin').style.display='block';}})();
 if(new URLSearchParams(location.search).get('onboarding')==='1'){
  const box=document.createElement('section'),title=document.createElement('h2'),text=document.createElement('p'),button=document.createElement('button');
  title.textContent='Complete your profile and start';text.textContent='Save your name and brokerage above, then continue to your workspace.';button.textContent='Finish setup and open workspace';button.type='button';

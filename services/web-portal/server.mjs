@@ -208,6 +208,7 @@ async function handleCrmWorkspace(req, res) {
 app.get('/api/crm/workspace', handleCrmWorkspace);
 
 // Register comprehensive gateway microservices features BEFORE wildcard CRM proxy
+app.use(express.json({ limit: '50mb' }));
 registerGatewayFeatures(app, { CRM_SERVICE_URL, VALUATION_SERVICE_URL, MEET_SERVICE_URL });
 
 // Proxy routes to CRM service
@@ -218,7 +219,7 @@ app.use('/api/crm', createProxyMiddleware({
 }));
 
 // Parse JSON and URL-encoded bodies with 50MB limit to support property photo & video uploads
-app.use(express.json({ limit: '50mb' }));
+
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // ===================================================================

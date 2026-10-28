@@ -49,6 +49,8 @@ services:
       - VALUATION_SERVICE_URL=http://home-evaluation:5190
       - MEET_SERVICE_URL=http://meet-consultation:5000
       - REDIS_URL=redis://:${REDIS_PASSWORD:-NyravaRedisSecure2026!}@redis:6379
+    volumes:
+      - web_profile_data:/app/data
     networks:
       - nyrava_network
     depends_on:
@@ -166,6 +168,7 @@ services:
   coturn:
     image: coturn/coturn:latest
     restart: unless-stopped
+    command: ["--log-file=stdout"]
     volumes:
       - ./coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
     ports:
@@ -203,6 +206,7 @@ services:
       - nyrava_network
 
 volumes:
+  web_profile_data:
   caddy_data:
   caddy_config:
   crm_db_data:
