@@ -225,6 +225,58 @@ header.top #identity {
     }
 }
 </style>
+
+<style>
+/* NYRAVA MY LEADS FOUR-COLUMN GRID */
+#panel-leads #leadList {
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:14px;
+}
+#panel-leads #leadList > .item {
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  justify-content:space-between;
+  gap:16px;
+  min-width:0;
+  padding:18px;
+  min-height:165px;
+  border:1px solid #dce7f5;
+  border-radius:12px;
+  background:#fff;
+}
+#panel-leads #leadList > .item > div {
+  min-width:0;
+  overflow-wrap:anywhere;
+}
+#panel-leads #leadList > .item strong {
+  display:block;
+  line-height:1.4;
+}
+#panel-leads #leadList > .item small {
+  display:block;
+  margin-top:9px;
+  line-height:1.5;
+}
+#panel-leads #leadList > .item button {
+  width:100%;
+  margin-top:auto;
+}
+#panel-leads #leadList > .empty {
+  grid-column:1/-1;
+}
+@media(max-width:1200px) {
+  #panel-leads #leadList {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+@media(max-width:650px) {
+  #panel-leads #leadList {
+    grid-template-columns:1fr;
+  }
+}
+</style>
 </head><body><div class="shell"><aside class="rail" id="rail"><div class="actions"><div class="brand">NYRAVA HOME<span>REALTOR WORKSPACE</span></div><button class="secondary" id="mobileMenu" aria-expanded="false" aria-controls="menu">Menu</button></div><nav class="menu" id="menu" aria-label="Realtor workspace"><button data-tab="overview" class="active">Overview</button><button data-tab="profile" type="button">My Profile</button><button data-tab="leads" id="leadsMenuToggle" type="button" aria-expanded="false" aria-controls="leadsSubmenu">My Leads <span class="crm-chevron" aria-hidden="true">▾</span></button><div id="leadsSubmenu" class="crm-submenu" hidden><button type="button" data-leads-view="all">All Leads</button><button type="button" data-leads-view="buyers">Buyer Leads</button><button type="button" data-leads-view="sellers">Seller Leads</button></div><button data-tab="crm" id="crmMenuToggle" type="button" aria-expanded="false" aria-controls="crmSubmenu">Contacts &amp; CRM <span class="crm-chevron" aria-hidden="true">▾</span></button><div id="crmSubmenu" class="crm-submenu" hidden>
 <button type="button" data-crm-view="today">Today &amp; Priorities</button><button type="button" data-crm-view="contacts">Leads &amp; Contacts</button>
 <button type="button" data-crm-view="calendar">Follow-ups &amp; Tasks</button>
@@ -322,7 +374,7 @@ header.top #identity {
 </section>
 <section class="panel" id="panel-leads"><div class="headline"><div><h2>My Leads</h2><p>Only leads assigned to your account.</p></div></div><div class="box"><div class="actions" style="margin-bottom:16px"><input class="field search" id="leadSearch" placeholder="Search name or ZIP" aria-label="Search leads"><select class="field" id="leadType"><option value="">All lead types</option><option value="BUYER">Buyer</option><option value="SELLER">Seller</option></select></div><div id="leadList" class="list"></div></div><div id="leadDetails" class="box" hidden></div></section>
 <section class="panel" id="panel-crm"><iframe id="nyrava-crm-frame" class="nyrava-workspace-frame" title="Contacts and CRM" data-src="/crm.html?workspace=1" loading="lazy"></iframe></section>
-<section class="panel" id="panel-ai"><div class="headline"><div><h2>Nyra AI Work Assistant</h2><p>Prepare client email &amp; text drafts, call talking points, and summaries with AI assistance.</p></div></div><iframe id="nyrava-ai-frame" class="nyrava-workspace-frame" title="Nyra Assistance" data-src="/professional-ai.html?workspace=1" loading="lazy"></iframe></section>
+<section class="panel" id="panel-ai"><div class="headline"><div><h2>Nyra AI Work Assistant</h2><p>Prepare client email &amp; text drafts, call talking points, and summaries with AI assistance.</p></div></div><iframe id="nyrava-ai-frame" class="nyrava-workspace-frame" title="Nyra Assistance" data-src="/professional-ai.html?workspace=1&v=20261029-picker-removed" loading="lazy"></iframe></section>
 <section class="panel" id="panel-valuation"><div class="headline"><div><h2>Private Property Valuation</h2><p>Research real CMA comparables and prepare private property reports without creating leads.</p></div></div><iframe id="nyrava-valuation-frame" class="nyrava-workspace-frame" title="Private Valuation" data-src="/professional-valuation.html?workspace=1&design=real-house-20261028-2" loading="lazy"></iframe></section>
 <section class="panel" id="panel-profile"><iframe id="nyrava-profile-frame" class="nyrava-workspace-frame" title="My Profile" data-src="/subscriber-profile.html?workspace=1" loading="lazy"></iframe></section>
 <section class="panel" id="panel-team"><div class="headline"><div><h2>My Team & Lead Assignments</h2><p>Delegate work to employees. Nyrava Home never changes the subscriber who exclusively owns a lead.</p></div></div><div class="box"><h3>Add a team member</h3><form id="teamForm" class="actions"><input id="staffName" class="field" maxlength="160" placeholder="Employee full name" required><input id="staffEmail" class="field" type="email" maxlength="320" placeholder="Employee email" required><button class="primary" type="submit">Add to team</button></form><p class="muted">This creates an internal team directory entry. Invite employees securely. They sign in to their own CRM; you can review each workspace below. Basic: up to 5 active members. Pro: unlimited.</p><div id="teamList" class="list"></div><div id="employeeReview" class="box" hidden></div></div><div class="box"><h3>Assign your leads to team members</h3><p class="muted">Only leads permanently delivered to your subscriber account are eligible. Reassigning work does not redistribute a lead.</p><div id="teamLeads" class="list"></div></div></section>
@@ -348,7 +400,19 @@ document.addEventListener('change',async e=>{const input=e.target.closest('[data
 
 const displayLead=l=>'<div class="item"><div><strong>'+esc(l.fullName||'Contact')+'</strong><small>'+esc(l.leadType||'Inquiry')+' · ZIP '+esc(l.zipCode||'Not provided')+' · '+esc(l.crmStatus||'New')+'</small></div><button class="secondary" data-lead="'+esc(l.id)+'">View contact</button></div>';function render(){const d=state.dashboard||{};const c=state.crm||{};const leads=c.leads||[];const summary=c.summary||{};const zips=d.subscribedZips||[];text('countLeads',leads.length);text('countZips',zips.length);text('countAppointments',summary.upcomingAppointments??0);text('countTasks',summary.openTasks??0);$('overviewLeads').innerHTML=leads.length?leads.slice(0,5).map(displayLead).join(''):empty('No qualified leads assigned yet.');const q=$('leadSearch').value.trim().toLowerCase(),t=$('leadType').value;const filtered=leads.filter(l=>(!t||String(l.leadType).toUpperCase()===t)&&(!q||[l.fullName,l.zipCode,l.email].some(v=>String(v||'').toLowerCase().includes(q))));$('leadList').innerHTML=filtered.length?filtered.map(displayLead).join(''):empty('No assigned leads match your search.');$('myZips').innerHTML=zips.length?zips.map(z=>'<div class="item"><div><strong>ZIP '+esc(z.zipCode)+'</strong><small>Slot '+esc(z.slotNumber)+' · New ZIP limit: 2 businesses</small></div><button class="secondary" data-remove="'+esc(z.zipCode)+'">Remove ZIP</button></div>').join(''):empty('No active ZIP subscriptions.');let appts=(c.appointments||[]).filter(a=>a.status==='SCHEDULED'&&new Date(a.startsAt)>new Date()).sort((a,b)=>new Date(a.startsAt)-new Date(b.startsAt));let tasks=(c.tasks||[]).filter(t=>!t.completed).sort((a,b)=>new Date(a.dueAt)-new Date(b.dueAt));const renderAppt=a=>'<div class="item"><div><strong>'+esc(a.title||'Appointment')+'</strong><small>'+esc(new Date(a.startsAt).toLocaleString())+'</small></div></div>';const renderTask=t=>'<div class="item"><div><strong>'+esc(t.title||'Follow-up')+'</strong><small>Due '+esc(new Date(t.dueAt).toLocaleString())+'</small></div><button class="secondary" data-complete="'+esc(t.id)+'">Complete</button></div>';$('overviewAppts').innerHTML=appts.length?appts.slice(0,3).map(renderAppt).join(''):empty('No upcoming appointments');$('calendarAppts').innerHTML=appts.length?appts.map(renderAppt).join(''):empty('No upcoming appointments');$('overviewTasks').innerHTML=tasks.length?tasks.slice(0,3).map(renderTask).join(''):empty('No open follow-ups');$('calendarTasks').innerHTML=tasks.length?tasks.map(renderTask).join(''):empty('No open follow-ups');$('notificationList').innerHTML=leads.length?'<h3>Recent assignments</h3>'+leads.slice(0,10).map(displayLead).join(''):empty('No new assignments.');text('perfContacted',leads.filter(l=>l.crmStatus==='CONTACTED').length);text('perfAppointment',leads.filter(l=>l.crmStatus==='APPOINTMENT').length);text('perfClosed',leads.filter(l=>l.crmStatus==='CLOSED').length);text('perfAssigned',leads.length);renderTeam();const me=state.me||{};$('accountInfo').innerHTML=[['Name',me.fullName],['Email',me.email],['Brokerage',me.brokerage],['Role',me.role],['Subscription',me.subscriptionStatus]].map(([k,v])=>'<div class="item"><strong>'+esc(k)+'</strong><span>'+esc(v||'Not provided')+'</span></div>').join('');text('planInfo',state.plans?.billingStatus==='NOT_CONFIGURED_NO_CHECKOUT'?'Billing checkout is not yet available.':(state.plans?.billingStatus||'Plan status not available'));}
 async function reload(){try{const me=await request('/api/auth/me');state.me=me;text('identity',me.fullName||me.email);const rs=await Promise.allSettled([request('/api/dashboard/summary'),request('/api/crm/workspace'),request('/api/plans')]);if(rs[0].status==='rejected'||rs[1].status==='rejected')throw (rs[0].reason||rs[1].reason);state.dashboard=rs[0].value;state.crm=rs[1].value;try{state.team=await request('/api/team/workspace')}catch(e){state.team=null}state.plans=rs[2].status==='fulfilled'?rs[2].value:null;$('error').hidden=true;render()}catch(e){message('Unable to load workspace: '+e.message,true)}}$('refresh').onclick=reload;$('leadSearch').oninput=render;$('leadType').onchange=render;
-document.addEventListener('click',async ev=>{const lead=ev.target.closest('[data-lead]'),remove=ev.target.closest('[data-remove]'),complete=ev.target.closest('[data-complete]');if(lead){const l=(state.crm?.leads||[]).find(x=>String(x.id)===lead.dataset.lead);if(!l)return;const div=$('leadDetails');div.hidden=false;div.innerHTML='<h3>'+esc(l.fullName)+'</h3><div class="grid-two">'+[['Lead type',l.leadType],['ZIP code',l.zipCode],['Phone',l.phone],['Email',l.email],['Property',l.propertyAddress],['Timeframe',l.timeframe],['Buying budget',l.budgetMax],['Property value',l.estimatedPropertyValue]].map(([k,v])=>'<div class="readout"><small class="muted">'+esc(k)+'</small><br><strong>'+esc(v??'Not supplied')+'</strong></div>').join('')+'</div><p class="muted">'+esc(l.statement||'No additional statement')+'</p><a class="card-link" href="/dashboard/crm">Manage notes and appointments in CRM →</a>';navigate('leads');div.scrollIntoView({behavior:'smooth',block:'nearest'});}if(remove){if(!confirm('Remove ZIP '+remove.dataset.remove+' from future lead assignments? Existing assigned contacts remain yours.'))return;try{await request('/api/territories/'+remove.dataset.remove,{method:'DELETE'});message('ZIP removed.');await reload()}catch(e){message(e.message,true)}}if(complete){try{await request('/api/crm/tasks/'+complete.dataset.complete+'/complete',{method:'POST'});message('Task completed.');await reload()}catch(e){message(e.message,true)}}});
+document.addEventListener('click',async ev=>{const lead=ev.target.closest('[data-lead]'),remove=ev.target.closest('[data-remove]'),complete=ev.target.closest('[data-complete]');if(lead){
+ const l=(state.crm?.leads||[]).find(x=>String(x.id)===lead.dataset.lead);
+ if(!l)return;
+ const frame=document.getElementById('nyrava-crm-frame');
+ const target='/crm.html?workspace=1&view=contacts&lead='+encodeURIComponent(String(l.id));
+ if(frame)frame.setAttribute('src',target);
+ expand('crm',true);
+ navigate('crm');
+ highlight(crmButtons,'crmView','contacts');
+ highlight(leadsButtons,'leadsView',null);
+ setTitle('Leads & Contacts');
+}
+if(remove){if(!confirm('Remove ZIP '+remove.dataset.remove+' from future lead assignments? Existing assigned contacts remain yours.'))return;try{await request('/api/territories/'+remove.dataset.remove,{method:'DELETE'});message('ZIP removed.');await reload()}catch(e){message(e.message,true)}}if(complete){try{await request('/api/crm/tasks/'+complete.dataset.complete+'/complete',{method:'POST'});message('Task completed.');await reload()}catch(e){message(e.message,true)}}});
 $('zipCheck').onclick=async()=>{let z=$('zipQuery').value.trim();if(!/^\d{5}$/.test(z)){message('Enter a valid 5-digit ZIP.',true);return}try{const d=await request('/api/territories/check/'+z);$('zipResult').textContent=JSON.stringify(d,null,2)}catch(e){message(e.message,true)}};$('zipForm').onsubmit=async e=>{e.preventDefault();const z=$('zipQuery').value.trim();try{await request('/api/territories/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({zipCode:z})});message('ZIP added.');await reload()}catch(e){message(e.message,true)}};reload();
 // --- Nyrava Realtor Video Meet Command Center ---
 let realtorMeetActive = false;

@@ -102,12 +102,8 @@ public static class GeographicService
         var cleanTargetZip = propertyZipCode.Trim();
         if (cleanTargetZip.Length > 5) cleanTargetZip = cleanTargetZip[..5];
 
-        // 1. Check primary registered postal code
-        var primaryZip = realtor.PostalCode?.Trim() ?? "";
-        if (primaryZip.Length > 5) primaryZip = primaryZip[..5];
-        if (string.Equals(primaryZip, cleanTargetZip, StringComparison.OrdinalIgnoreCase)) return true;
-
-        // 2. Check comma-separated subscribed ZIP codes
+        // Mailing ZIP does not independently grant lead territory coverage.
+        // Only explicitly subscribed ZIP codes receive leads.
         if (!string.IsNullOrWhiteSpace(realtor.SubscribedZipCodes))
         {
             var zipTokens = realtor.SubscribedZipCodes

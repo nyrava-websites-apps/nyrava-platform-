@@ -511,20 +511,87 @@ var handleMe = async (CrmDb db, HttpContext http) => {
 app.MapGet("/api/me", handleMe).RequireAuthorization();
 app.MapGet("/api/auth/me", handleMe).RequireAuthorization();
 
+
+var territoryUpdateGate = new SemaphoreSlim(1, 1);
 app.MapPut("/api/subscription/territory", async (TerritoryUpdateInput input, CrmDb db, HttpContext http) => {
+    await territoryUpdateGate.WaitAsync();
+    try
+    {
     var actor = await CurrentUser(db, http);
     if (actor.Role != "Owner") return Results.Forbid();
-    if (string.IsNullOrWhiteSpace(input.ZipCodes)) return Results.BadRequest(new { error = "Provide at least one coverage ZIP code." });
-    var zips = input.ZipCodes.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries).Select(z => z.Trim()).Distinct().ToList();
-    foreach (var z in zips) {
-        if (!GeographicService.ValidatePostalCode(actor.Country, z)) {
-            return Results.BadRequest(new { error = $"Postal code '{z}' is not valid for {actor.Country}." });
+
+    var zips = (input.ZipCodes ?? "")
+        .Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries)
+        .Select(z => z.Trim())
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToList();
+
+    foreach (var z in zips)
+    {
+        if (!GeographicService.ValidatePostalCode(actor.Country, z))
+            return Results.BadRequest(new { error = $"Invalid ZIP code: {z}." });
+    }
+
+    var plan = actor.SubscriptionPlan ?? "";
+    var maxZips = plan.Contains("PRO", StringComparison.OrdinalIgnoreCase)
+        ? 20 : 5;
+
+    if (zips.Count > maxZips)
+        return Results.BadRequest(new {
+            error = $"Your subscription allows a maximum of {maxZips} ZIP codes."
+        });
+
+    var oldZips = (actor.SubscribedZipCodes ?? "")
+        .Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries)
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    var additions = zips.Where(z => !oldZips.Contains(z)).ToList();
+
+    if (additions.Count > 0)
+    {
+        if (!new[] { "Active", "FreeOrTrial" }.Contains(
+            actor.SubscriptionStatus, StringComparer.OrdinalIgnoreCase))
+            return Results.BadRequest(new {
+                error = "An active subscription is required to add ZIP codes."
+            });
+
+        var subscribers = await db.Users
+            .Where(u => u.Id != actor.Id && u.Role == "Owner" &&
+                (u.SubscriptionStatus == "Active" ||
+                 u.SubscriptionStatus == "FreeOrTrial"))
+            .Select(u => new { u.SubscribedZipCodes })
+            .ToListAsync();
+
+        foreach (var zip in additions)
+        {
+            var occupied = subscribers.Count(u =>
+                (u.SubscribedZipCodes ?? "")
+                    .Split(new[] { ',', ';', ' ' },
+                        StringSplitOptions.RemoveEmptyEntries)
+                    .Any(x => x.Equals(zip, StringComparison.OrdinalIgnoreCase)));
+
+            if (occupied >= 2)
+                return Results.Conflict(new {
+                    error = $"ZIP {zip} is full. Two subscribers already have this territory."
+                });
         }
     }
+
     actor.SubscribedZipCodes = string.Join(", ", zips);
     await db.SaveChangesAsync();
-    return Results.Ok(new { subscribedZipCodes = actor.SubscribedZipCodes, count = zips.Count });
+
+    return Results.Ok(new {
+        subscribedZipCodes = actor.SubscribedZipCodes,
+        count = zips.Count
+    });
+
+    }
+    finally
+    {
+        territoryUpdateGate.Release();
+    }
 }).RequireAuthorization();
+
 
 // Integration support is opt-in. Keys are workspace-scoped and are only shown
 // once; demo databases cannot create production-style integration credentials.
@@ -1009,10 +1076,6 @@ app.MapGet("/api/v1/active-territories", async (CrmDb db) => {
 
     var activeZips = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     foreach (var u in rawUsers) {
-        if (!string.IsNullOrWhiteSpace(u.PostalCode)) {
-            var p = u.PostalCode.Trim();
-            if (p.Length >= 5) activeZips.Add(p[..5]);
-        }
         if (!string.IsNullOrWhiteSpace(u.SubscribedZipCodes)) {
             var tokens = u.SubscribedZipCodes.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries);
             foreach (var t in tokens) {

@@ -22,7 +22,7 @@ async function loadContacts(){
  try{
   const qs=new URLSearchParams({page:state.page,search:$('search').value,type:$('type').value,stage:$('stage').value});
   const data=await api(scoped('/workspace?'+qs));if(version!==listVersion)return;
-  state.contacts=data.contacts;state.total=data.total;state.canManage=data.canManage;state.staff=data.staff;
+  state.contacts=Array.isArray(data.contacts)?data.contacts:[];state.total=Number(data.total)||0;state.canManage=!!data.canManage;state.staff=Array.isArray(data.staff)?data.staff:[];
   if(state.page>1&&state.contacts.length===0&&state.total>0){state.page=Math.ceil(state.total/50);return await loadContacts();}
   $('management').hidden=!data.canManage;renderContacts();renderPipeline();
  }catch(e){if(version===listVersion){state.contacts=[];$('contactList').innerHTML='<div class="empty">Leads could not be loaded.</div>';message(e.message,true);}}
@@ -41,13 +41,13 @@ async function selectContact(kind,id,scroll=false){
  const version=++detailVersion;state.selected=kind+':'+id;state.detail=null;renderContacts();
  $('detail').innerHTML='<div class="empty">Loading client workspace…</div>';
  try{const d=await api(scoped('/contacts/'+encodeURIComponent(kind)+'/'+encodeURIComponent(id)));if(version!==detailVersion)return;
-  window.dispatchEvent(new CustomEvent('nyrava-operator-context',{detail:{kind,id,label:d.contact.fullName}}));state.detail=d;state.tab='activity';renderDetail();if(scroll&&matchMedia('(max-width:800px)').matches)$('detail').scrollIntoView({behavior:'smooth',block:'start'});
+  window.dispatchEvent(new CustomEvent('nyrava-operator-context',{detail:{kind,id,label:d.contact.fullName}}));state.detail=d;state.tab='activity';renderDetail();if(scroll)$('detail').scrollIntoView({behavior:'smooth',block:'nearest'});
  }catch(e){if(version===detailVersion){clearSelection();message(e.message,true);}}
 }
 function renderDetail(){
  const d=state.detail;if(!d)return;const c=d.contact;
- const tasks=M.openTasks(d.tasks);const next=tasks[0];
- const assignment=state.staff.find(s=>s.id===c.staffId);
+ const tasks=M.openTasks(Array.isArray(d.tasks)?d.tasks:[]);const next=tasks[0];
+ const assignment=(state.staff||[]).find(s=>s.id===c.staffId);
  const stageValues=stageOptions(c.leadType);if(c.crmStatus&&!stageValues.includes(c.crmStatus))stageValues.push(c.crmStatus);
  $('detail').innerHTML='<div class="detail-header"><div class="detail-name"><div><span class="pill">'+esc(c.leadType)+'</span><h2>'+esc(c.fullName)+'</h2></div><button class="icon" data-close-contact aria-label="Close client workspace">×</button></div><p class="source">'+esc(M.sourceLabel(c))+'</p><div class="detail-links"><span>'+esc(c.email||'Email not recorded')+'</span><span>'+esc(c.phone||'Phone not recorded')+'</span></div></div>'+
  '<div class="facts"><div class="fact"><small>Budget / property value</small><strong>'+esc(money(c.budgetMax))+'</strong></div><div class="fact"><small>Timeframe</small><strong>'+esc(c.timeframe||'Not recorded')+'</strong></div><div class="fact"><small>Working with</small><strong>'+esc(assignment?.fullName||(c.staffId?'Assigned team member':'Business owner'))+'</strong></div><div class="fact"><small>Location / ZIP</small><strong>'+esc(c.zipCode||'Not recorded')+'</strong></div><div class="fact"><small>Property address</small><strong>'+esc(c.propertyAddress||'Not recorded')+'</strong></div></div>'+
@@ -228,7 +228,7 @@ async function boot(){
   // Load the roster once even when opening Today; management controls use the same data for both pages.
   if(state.view==='today'||state.view==='calendar')await loadContacts();
   const manual=params.get('kind')==='manual'?params.get('id'):null;if(manual&&/^[\da-f-]{36}$/i.test(manual)){await view('contacts');await selectContact('manual',manual);}
-  const lead=params.get('lead');if(lead&&/^[\da-f-]{36}$/i.test(lead)){await view('contacts');await selectContact('platform',lead);}
+  const lead=params.get('lead');if(lead&&/^[A-Za-z0-9_-]{1,80}$/.test(lead)){await view('contacts');await selectContact('platform',lead);}
  }catch(e){message(e.message,true);$('newContact').disabled=true;$('refresh').disabled=true;}
 }
 let backgroundBusy=false;

@@ -771,27 +771,92 @@ export function registerGatewayFeatures(app, { CRM_SERVICE_URL, VALUATION_SERVIC
     });
   });
 
-  app.post('/api/territories/subscribe', async (req, res) => {
-    const { zipCode } = req.body || {};
-    const z = (zipCode || '').trim();
-    if (!/^\d{5}$/.test(z)) {
-      return res.status(400).json({ error: 'Valid 5-digit ZIP required.' });
-    }
-    const prof = getProfile();
-    if (!prof.activeZips.includes(z)) {
-      prof.activeZips.push(z);
-      saveJson(PROFILE_FILE, prof);
-    }
-    res.json({ ok: true, message: `Subscribed to ZIP ${z}.` });
-  });
 
-  app.delete('/api/territories/:zip', (req, res) => {
-    const z = req.params.zip;
-    const prof = getProfile();
-    prof.activeZips = (prof.activeZips || []).filter(x => x !== z);
-    saveJson(PROFILE_FILE, prof);
-    res.json({ ok: true, message: `Removed ZIP ${z}.` });
-  });
+  // ZIP assignments are owned by CRM, never local profile JSON.
+  async function updateSubscriberTerritory(req, res, operation) {
+    try {
+      const zip = String(
+        operation === 'add' ? req.body?.zipCode : req.params.zip
+      ).trim();
+
+      if (!/^\d{5}$/.test(zip)) {
+        return res.status(400).json({error:'Enter a valid five-digit ZIP.'});
+      }
+
+      const headers = {
+        Cookie: req.headers.cookie || '',
+        Authorization: req.headers.authorization || ''
+      };
+
+      const currentResponse = await fetch(CRM_SERVICE_URL + '/api/me', {
+        headers
+      });
+
+      if (!currentResponse.ok) {
+        return res.status(currentResponse.status).json({
+          error:'Unable to authenticate the subscriber.'
+        });
+      }
+
+      const current = await currentResponse.json();
+
+      if (String(current.role).toLowerCase() !== 'owner') {
+        return res.status(403).json({
+          error:'Only the subscriber account owner may change ZIP codes.'
+        });
+      }
+
+      const existing = String(current.subscribedZipCodes || '')
+        .split(/[,;\s]+/)
+        .filter(Boolean);
+
+      const updated = operation === 'add'
+        ? [...new Set([...existing, zip])]
+        : existing.filter(z => z !== zip);
+
+      if (operation === 'remove' && !existing.includes(zip)) {
+        return res.status(404).json({error:'ZIP is not assigned to your account.'});
+      }
+
+      const updateResponse = await fetch(
+        CRM_SERVICE_URL + '/api/subscription/territory',
+        {
+          method:'PUT',
+          headers:{
+            ...headers,
+            'Content-Type':'application/json'
+          },
+          body:JSON.stringify({zipCodes:updated.join(', ')})
+        }
+      );
+
+      const result = await updateResponse.json().catch(() => ({}));
+
+      if (!updateResponse.ok) {
+        return res.status(updateResponse.status).json({
+          error:result.error || 'ZIP update failed.'
+        });
+      }
+
+      return res.json({
+        ok:true,
+        message:operation === 'add' ? 'ZIP added.' : 'ZIP removed.',
+        subscribedZipCodes:result.subscribedZipCodes,
+        count:result.count
+      });
+    } catch (err) {
+      console.error('[Territory Update]',err);
+      return res.status(502).json({
+        error:'Could not save ZIP changes to the CRM.'
+      });
+    }
+  }
+
+  app.post('/api/territories/subscribe', (req,res) =>
+    updateSubscriberTerritory(req,res,'add'));
+
+  app.delete('/api/territories/:zip', (req,res) =>
+    updateSubscriberTerritory(req,res,'remove'));
 
   // -------------------------------------------------------------
   // 8. CRM ACTIVITIES, TASKS & WORKBENCH (/api/workbench/* & /api/crm/*)
