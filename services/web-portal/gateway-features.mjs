@@ -771,13 +771,8 @@ export function registerGatewayFeatures(app, { CRM_SERVICE_URL, VALUATION_SERVIC
   // 10. ADMIN OPERATIONS & BUSINESS OVERVIEW (/api/admin/*)
   // -------------------------------------------------------------
   app.get('/api/admin/operations/session', (req, res) => {
-    res.json({
-      email: 'fictional-contact@example.test',
-      fullName: 'Nyrava Platform Administrator',
-      role: 'SuperAdmin',
-      canSend: true,
-      csrf: randomBytes(32).toString('hex')
-    });
+    if (!req.platformAdminUser) return res.status(401).json({error:'Administrator login required.'});
+    res.json({ email:req.platformAdminUser.email, fullName:req.platformAdminUser.email, role:'SuperAdmin', canSend:true, csrf:randomBytes(32).toString('hex') });
   });
 
   app.get('/api/admin/operations/records', async (req, res) => {
@@ -791,22 +786,22 @@ export function registerGatewayFeatures(app, { CRM_SERVICE_URL, VALUATION_SERVIC
 
     const rows = (contacts || []).map(c => {
       const isDelivered = c.stage === 'Dispatched' || c.source === 'Nyrava Verified';
-      const isGood = Boolean(c.phone || c.email);
+      const isGood = Boolean((c.phone || c.email) && c.contactVerifiedAt && c.intentVerifiedAt && c.consentCapturedAt && c.consentRecipient && !String(c.name||'').startsWith('Owner:') && c.source !== 'Fsbo Prospect');
       return {
         id: String(c.id),
-        fullName: c.name || 'Verified Property Owner',
+        fullName: c.name || 'Name requires review',
         email: c.email || '',
         phone: c.phone || '',
         source: c.source === 'Fsbo' ? 'FSBO' : (c.source === 'Nyrava Verified' ? 'VALUATION_INQUIRY' : 'INQUIRY'),
         receivedAt: c.updatedAt || c.contactVerifiedAt || new Date().toISOString(),
-        zipCode: c.propertyZipCode || '78701',
+        zipCode: c.propertyZipCode || '',
         propertyAddress: [c.notes, (c.propertyZipCode === '78701' || c.propertyZipCode === '78702' || c.propertyZipCode === '78703' || c.propertyZipCode === '78704' || c.propertyZipCode === '78705') ? 'Austin, TX' : (c.propertyZipCode === '77084' || c.propertyZipCode === '77002') ? 'Houston, TX' : (c.propertyZipCode === '75217') ? 'Dallas, TX' : (c.propertyZipCode === '30309') ? 'Atlanta, GA' : (c.propertyZipCode === '80206') ? 'Denver, CO' : (c.propertyZipCode === '33611') ? 'Tampa, FL' : (c.propertyZipCode === '98101') ? 'Seattle, WA' : (c.propertyZipCode === '90210') ? 'Beverly Hills, CA' : ''].filter(Boolean).join(' · '),
         statement: c.notes || '',
         aiState: isGood ? 'GOOD' : 'REVIEW',
-        status: isDelivered ? 'DELIVERED' : (c.stage === 'New' ? 'QUALIFIED' : 'PENDING'),
+        status: isDelivered ? 'DELIVERED' : (isGood && c.stage === 'New' ? 'QUALIFIED' : 'PENDING'),
         stage: c.stage || 'New',
-        assignedAgentId: isDelivered ? (c.userId === 4 ? 'fictional-contact@example.test' : 'Delivered') : null,
-        bankOnly: c.source === 'Fsbo' && !isDelivered,
+        assignedAgentId: isDelivered ? String(c.userId) : null,
+        bankOnly: ['Fsbo','Fsbo Prospect'].includes(c.source) && !isDelivered,
         reportOnly: false
       };
     });
@@ -966,7 +961,7 @@ export function registerGatewayFeatures(app, { CRM_SERVICE_URL, VALUATION_SERVIC
       id: String(c.id),
       fullName: c.name || c.fullName || 'Qualified Candidate',
       leadType: c.leadType || 'Seller',
-      zipCode: c.propertyZipCode || '78701'
+      zipCode: c.propertyZipCode || ''
     }));
 
     res.json(candidates);

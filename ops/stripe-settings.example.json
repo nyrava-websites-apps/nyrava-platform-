@@ -1,0 +1,11 @@
+{
+  "secretKey": "",
+  "publishableKey": "",
+  "webhookSecret": "",
+  "annualPriceId": "",
+  "basicPriceId": "",
+  "proPriceId": "",
+  "checkoutEnabled": false,
+  "basicCheckoutParameters": {},
+  "proCheckoutParameters": {}
+}

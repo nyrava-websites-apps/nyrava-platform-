@@ -56,6 +56,9 @@ public sealed class CrmUser
     public string SubscriptionPlan { get; set; } = "Realtor Standard Monthly";
     public decimal SubscriptionPrice { get; set; } = 299.00m;
     public string Currency { get; set; } = "USD";
+    public string? StripeCustomerId { get; set; }
+    public string? StripeSubscriptionId { get; set; }
+    public DateTimeOffset? StripeSyncedAt { get; set; }
     public DateTimeOffset? SubscriptionEntitlementVerifiedAt { get; set; }
     public DateTimeOffset? SubscriptionCurrentPeriodEnd { get; set; }
     public DateTimeOffset? SubscriptionNonBillingAccessGrantedAt { get; set; }
@@ -120,6 +123,7 @@ public sealed class CrmContact
     public string? FsboAdminReviewReference { get; set; }
     public DateTimeOffset? FsboAdminReviewedAt { get; set; }
     public string? SourceUrl { get; set; }
+    public DateTimeOffset? DeliveredAt { get; set; }
     public DateTimeOffset? ArchivedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }

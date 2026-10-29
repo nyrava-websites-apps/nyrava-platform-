@@ -1,3 +1,4 @@
+import { registerBillingIntegration, checkoutParameters } from './billing-integration.mjs';
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
@@ -39,13 +40,23 @@ function getStripeSettings() {
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
     annualPriceId: process.env.STRIPE_PRICE_ANNUAL || '',
     basicPriceId: process.env.STRIPE_PRICE_BASIC || '',
-    proPriceId: process.env.STRIPE_PRICE_PRO || ''
+    proPriceId: process.env.STRIPE_PRICE_PRO || '',
+    checkoutEnabled: false,
+    basicCheckoutParameters: null,
+    proCheckoutParameters: null
   };
+}
+
+function stripeCheckoutReady(settings) {
+  try {
+    return Boolean(settings.checkoutEnabled && settings.secretKey && settings.webhookSecret && (process.env.Crm__BillingSyncSecret || '').length >= 32 && ['BASIC','PRO'].every(plan => checkoutParameters(settings, {ownerId:1,email:'validation@example.test'}, plan)));
+  } catch { return false; }
 }
 
 function saveStripeSettings(data) {
   try {
-    fs.writeFileSync(STRIPE_SETTINGS_FILE, JSON.stringify(data, null, 2), 'utf8');
+    fs.writeFileSync(STRIPE_SETTINGS_FILE, JSON.stringify(data, null, 2), { encoding: 'utf8', mode: 0o600 });
+    fs.chmodSync(STRIPE_SETTINGS_FILE, 0o600);
   } catch (e) {
     console.error('[Stripe Settings Save]', e.message);
   }
@@ -77,6 +88,59 @@ app.use((req, res, next) => {
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   next();
+});
+
+// ADMIN API AUTHORIZATION — verify the existing CRM session.
+app.use(async (req, res, next) => {
+  const pathname = req.path;
+  if (!(
+    pathname === '/api/admin' ||
+    pathname.startsWith('/api/admin/') ||
+    pathname === '/api/ops' ||
+    pathname.startsWith('/api/ops/')
+  )) return next();
+
+  try {
+    const authResponse = await fetch(CRM_SERVICE_URL + '/api/me', {
+      headers: {
+        Cookie: req.headers.cookie || '',
+        Authorization: req.headers.authorization || ''
+      },
+      signal: AbortSignal.timeout(5000)
+    });
+
+    if (authResponse.status === 401 || authResponse.status === 403) {
+      return res.status(401).json({ error: 'Administrator login required.' });
+    }
+
+    if (!authResponse.ok) {
+      return res.status(503).json({ error: 'Authentication service unavailable.' });
+    }
+
+    const user = await authResponse.json();
+
+    if (user.isPlatformAdmin !== true) {
+      return res.status(403).json({ error: 'Platform administrator access required.' });
+    }
+
+    req.platformAdminUser = user;
+    next();
+  } catch (error) {
+    console.error('[Admin Authorization]', error.message);
+    res.status(503).json({ error: 'Administrator authentication unavailable.' });
+  }
+});
+
+// Verify subscriber workspace entitlement before gateway-local handlers run.
+app.use(async (req, res, next) => {
+  if (!/^\/api\/(workbench|crm|dashboard|team|personal-reminders|business-calendar|crm-calendar|subscriber)(\/|$)/.test(req.path)) return next();
+  try {
+    const response = await fetch(CRM_SERVICE_URL + '/api/billing/identity', { headers: { Cookie:req.headers.cookie||'', Authorization:req.headers.authorization||'' }, signal:AbortSignal.timeout(10000) });
+    if (!response.ok) return res.status(response.status).json({error:'Sign in to access your workspace.'});
+    const identity = await response.json();
+    if (!identity.canAccess) return res.status(402).json({error:'A paid subscription or administrator-approved exemption is required.',billingRequired:true});
+    return next();
+  } catch { return res.status(503).json({error:'Workspace access could not be verified.'}); }
 });
 
 // Cloudflare Access Zero Trust bypass rewrite:
@@ -513,6 +577,8 @@ app.post('/api/fsbo/listing', async (req, res) => {
 // BILLING & STRIPE INTEGRATION API
 // ===================================================================
 
+registerBillingIntegration(app, { CRM_SERVICE_URL, getStripeSettings, recordWebhookEvent, isValidStripeWebhookSignature });
+
 app.get('/api/billing/session', async (req, res) => {
   try {
     const crmRes = await fetch(CRM_SERVICE_URL + '/api/billing/session', {
@@ -530,6 +596,7 @@ app.get('/api/billing/session', async (req, res) => {
     const stripeReady = Boolean(
       (settings.secretKey || '').startsWith('sk_') || (settings.secretKey || '').startsWith('rk_')
     ) && Boolean(settings.webhookSecret && settings.annualPriceId && settings.basicPriceId && settings.proPriceId);
+    if (data.billing) data.billing.checkoutEnabled = Boolean(data.billing.checkoutEnabled && stripeCheckoutReady(settings));
     data.csrf = 'ny_csrf_' + Date.now().toString(36);
     if (data.billing) {
       data.billing.checkoutEnabled = Boolean(data.billing.checkoutEnabled && stripeReady);
@@ -540,72 +607,6 @@ app.get('/api/billing/session', async (req, res) => {
   } catch (err) {
     return res.status(502).json({ error: 'Billing status is temporarily unavailable. Please try again.' });
   }
-});
-
-app.post('/api/billing/account/checkout', async (req, res) => {
-  const { plan = 'BASIC', licenseTermsAccepted = false } = req.body || {};
-  if (!licenseTermsAccepted) return res.status(400).json({ error: 'Please accept the subscription terms before continuing.' });
-  if (!['BASIC', 'PRO'].includes(String(plan).toUpperCase())) return res.status(400).json({ error: 'Choose a valid subscription plan.' });
-  const settings = getStripeSettings();
-  const stripeSecret = settings.secretKey;
-  if (!stripeSecret || (!stripeSecret.startsWith('sk_') && !stripeSecret.startsWith('rk_')) ||
-      !settings.webhookSecret || !settings.annualPriceId || !settings.basicPriceId || !settings.proPriceId) {
-    return res.status(503).json({ error: 'Secure checkout is not configured. No payment was started.' });
-  }
-
-  if (stripeSecret && (stripeSecret.startsWith('sk_') || stripeSecret.startsWith('rk_'))) {
-    try {
-      const priceId = plan === 'PRO' ? settings.proPriceId : settings.basicPriceId;
-      const annualPriceId = settings.annualPriceId;
-      const params = new URLSearchParams();
-      params.append('payment_method_types[]', 'card');
-      params.append('mode', 'subscription');
-      params.append('success_url', 'https://home.nyrava.com/dashboard/home?checkout=success');
-      params.append('cancel_url', 'https://home.nyrava.com/billing-checkout.html?returned=1');
-      if (annualPriceId) {
-        params.append('line_items[0][price]', annualPriceId);
-        params.append('line_items[0][quantity]', '1');
-      } else if (priceId) {
-        params.append('line_items[0][price]', priceId);
-        params.append('line_items[0][quantity]', '1');
-      }
-    const crmRes = await fetch(CRM_SERVICE_URL + '/api/v1/inbound-leads', {
-        method: 'POST',
-        headers: {
-          'Authorization': Bearer ,
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: params.toString()
-      });
-      const sessionData = await stripeRes.json();
-      if (sessionData.url) {
-        return res.json({ url: sessionData.url });
-      }
-    } catch (err) {
-      console.warn('[Stripe Checkout Live Session]', err.message);
-      return res.status(502).json({ error: 'Secure checkout could not be started. No payment was confirmed.' });
-    }
-  }
-
-  return res.status(502).json({ error: 'Stripe did not return a checkout session. No payment was started.' });
-});
-
-app.post('/api/billing/account/portal', (req, res) => {
-  return res.json({
-    url: 'https://billing.stripe.com/p/session/live_nyrava_customer_portal'
-  });
-});
-
-app.post('/api/billing/account/refresh', (req, res) => {
-  res.json({ ok: true, state: 'ACTIVE' });
-});
-
-app.post('/api/billing/account/cancel', (req, res) => {
-  res.json({ ok: true, state: 'ENDING' });
-});
-
-app.post('/api/billing/account/profile-complete', (req, res) => {
-  res.json({ ok: true });
 });
 
 function isValidStripeWebhookSignature(rawBody, signatureHeader, secret, nowSeconds = Math.floor(Date.now() / 1000)) {
@@ -631,32 +632,11 @@ function isValidStripeWebhookSignature(rawBody, signatureHeader, secret, nowSeco
   });
 }
 
-app.post('/api/billing/stripe/webhook', (req, res) => {
-  const settings = getStripeSettings();
-  if (!settings.webhookSecret) return res.status(503).json({ error: 'Stripe webhook verification is not configured.' });
-  if (!isValidStripeWebhookSignature(req.rawBody, req.get('stripe-signature'), settings.webhookSecret))
-    return res.status(400).json({ error: 'Stripe webhook signature is invalid or expired.' });
-
-  const event = req.body || {};
-  const eventId = typeof event.id === 'string' ? event.id : 'unknown';
-  const eventType = event.type || 'unknown';
-  recordWebhookEvent({
-    id: eventId,
-    type: eventType,
-    receivedAt: new Date().toISOString(),
-    state: ['checkout.session.completed', 'customer.subscription.created', 'customer.subscription.updated', 'customer.subscription.deleted', 'invoice.paid', 'invoice.payment_failed'].includes(eventType)
-      ? 'RECORDED'
-      : 'IGNORED_EVENT_TYPE'
-  });
-  console.log('[Stripe Webhook Received] Type: ' + eventType + ' | ID: ' + eventId);
-  res.json({ received: true });
-});
-
 // Admin Stripe Endpoints
 app.get('/api/admin/stripe/overview', (req, res) => {
   const settings = getStripeSettings();
   res.json({
-    checkoutEnabled: true,
+    checkoutEnabled: stripeCheckoutReady(settings),
     webhookPath: '/api/billing/stripe/webhook',
     eventTypes: [
       'checkout.session.completed',
@@ -672,7 +652,10 @@ app.get('/api/admin/stripe/overview', (req, res) => {
       publishableKey: settings.publishableKey || '',
       annualPriceId: settings.annualPriceId || '',
       basicPriceId: settings.basicPriceId || '',
-      proPriceId: settings.proPriceId || ''
+      proPriceId: settings.proPriceId || '',
+      checkoutEnabled: Boolean(settings.checkoutEnabled),
+      basicCheckoutParameters: settings.basicCheckoutParameters || {},
+      proCheckoutParameters: settings.proCheckoutParameters || {}
     },
     events: getRecentWebhookEvents(),
     billingAccounts: []
@@ -688,8 +671,15 @@ app.post('/api/admin/stripe/settings', (req, res) => {
     webhookSecret: b.WebhookSecret ? b.WebhookSecret.trim() : current.webhookSecret,
     annualPriceId: b.AnnualPriceId !== undefined ? b.AnnualPriceId.trim() : current.annualPriceId,
     basicPriceId: b.BasicPriceId !== undefined ? b.BasicPriceId.trim() : current.basicPriceId,
-    proPriceId: b.ProPriceId !== undefined ? b.ProPriceId.trim() : current.proPriceId
+    proPriceId: b.ProPriceId !== undefined ? b.ProPriceId.trim() : current.proPriceId,
+    checkoutEnabled: b.CheckoutEnabled === undefined ? Boolean(current.checkoutEnabled) : b.CheckoutEnabled === true,
+    basicCheckoutParameters: b.BasicCheckoutParameters === undefined ? current.basicCheckoutParameters : b.BasicCheckoutParameters,
+    proCheckoutParameters: b.ProCheckoutParameters === undefined ? current.proCheckoutParameters : b.ProCheckoutParameters
   };
+  try {
+    for (const plan of ['BASIC','PRO']) checkoutParameters(updated, {ownerId:1,email:'validation@example.test'}, plan);
+    if (updated.checkoutEnabled && !stripeCheckoutReady(updated)) return res.status(400).json({error:'Complete the keys, signing secret, server sync secret and both checkout templates before enabling payments.'});
+  } catch (error) { return res.status(400).json({error:error.message}); }
   saveStripeSettings(updated);
   res.json({
     secretConfigured: Boolean(updated.secretKey),
@@ -697,40 +687,36 @@ app.post('/api/admin/stripe/settings', (req, res) => {
     publishableKey: updated.publishableKey,
     annualPriceId: updated.annualPriceId,
     basicPriceId: updated.basicPriceId,
-    proPriceId: updated.proPriceId
+    proPriceId: updated.proPriceId,
+    checkoutEnabled: updated.checkoutEnabled,
+    basicCheckoutParameters: updated.basicCheckoutParameters || {},
+    proCheckoutParameters: updated.proCheckoutParameters || {}
   });
 });
 
 app.post('/api/admin/stripe/test', async (req, res) => {
   const settings = getStripeSettings();
-  if (settings.secretKey) {
-    try {
-    const crmRes = await fetch(CRM_SERVICE_URL + '/api/v1/inbound-leads', {
-        headers: { 'Authorization': Bearer  }
-      });
-      if (stripeRes.ok) {
-        return res.json({ success: true, message: 'Stripe API connection verified and active.' });
-      }
-      const errData = await stripeRes.json();
-      return res.json({ success: false, message: errData.error?.message || 'Stripe API returned error.' });
-    } catch (e) {
-      return res.json({ success: false, message: e.message });
-    }
-  }
-  return res.json({ success: true, message: 'Stripe configuration stored. Ready for live transactions.' });
+  if (!settings.secretKey) return res.status(503).json({ success: false, message: 'Stripe key is not configured.' });
+  try {
+    const response = await fetch('https://api.stripe.com/v1/balance', { headers: { Authorization: 'Bearer ' + settings.secretKey }, signal: AbortSignal.timeout(10000) });
+    return res.status(response.ok ? 200 : 502).json({ success: response.ok, message: response.ok ? 'Stripe API connection verified.' : 'Stripe rejected the API key or its permissions.' });
+  } catch { return res.status(502).json({ success: false, message: 'Stripe API could not be reached.' }); }
 });
 
-app.post('/api/admin/stripe/prices/validate', (req, res) => {
-  const s = getStripeSettings();
-  res.json({
-    success: true,
-    message: 'All price configurations checked.',
-    prices: [
-      { field: 'AnnualPriceId', valid: Boolean(s.annualPriceId), unitAmount: 34900, interval: 'year', message: s.annualPriceId ? 'Active annual price' : 'Enter price ID' },
-      { field: 'BasicPriceId', valid: Boolean(s.basicPriceId), unitAmount: 8900, interval: 'month', message: s.basicPriceId ? 'Active monthly price' : 'Enter price ID' },
-      { field: 'ProPriceId', valid: Boolean(s.proPriceId), unitAmount: 14900, interval: 'month', message: s.proPriceId ? 'Active monthly price' : 'Enter price ID' }
-    ]
-  });
+app.post('/api/admin/stripe/prices/validate', async (req, res) => {
+  const settings = getStripeSettings();
+  if (!settings.secretKey) return res.status(503).json({ success: false, error: 'Add your existing Stripe secret key first.' });
+  const prices = await Promise.all(['AnnualPriceId', 'BasicPriceId', 'ProPriceId'].map(async field => {
+    const id = settings[field[0].toLowerCase() + field.slice(1)];
+    if (!id) return { field, valid: false, message: 'Not configured.' };
+    try {
+      const response = await fetch('https://api.stripe.com/v1/prices/' + encodeURIComponent(id), { headers: { Authorization: 'Bearer ' + settings.secretKey }, signal: AbortSignal.timeout(10000) });
+      if (!response.ok) return { field, valid: false, message: 'Stripe could not verify this price.' };
+      const price = await response.json();
+      return { field, valid: price.active, unitAmount: price.unit_amount, currency: price.currency, interval: price.recurring?.interval || 'one-time', message: price.active ? 'Verified with Stripe.' : 'Price is inactive.' };
+    } catch { return { field, valid: false, message: 'Stripe could not be reached.' }; }
+  }));
+  res.json({ success: prices.every(p => p.valid), prices, message: 'Read-only Stripe price check complete.' });
 });
 
 // ===================================================================
