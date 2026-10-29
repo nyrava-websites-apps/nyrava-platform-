@@ -15,10 +15,8 @@ public sealed class LegacySubscriptionMigrationTests
     {
         using var factory = new CrmApplicationFactory
         {
-            BootstrapAdminEnabled = true,
             SeedLegacySubscriptionAccounts = true
         };
-        factory.BootstrapAdminEmail = factory.LegacyAdminEmail;
         factory.BootstrapRealtorEmail = factory.LegacyRealtorEmail;
 
         using var admin = factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
@@ -29,6 +27,13 @@ public sealed class LegacySubscriptionMigrationTests
         using var adminLoginBody = JsonDocument.Parse(await adminLogin.Content.ReadAsStringAsync());
         Assert.Equal("Admin", adminLoginBody.RootElement.GetProperty("role").GetString());
         var adminId = adminLoginBody.RootElement.GetProperty("user").GetProperty("id").GetInt64();
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CrmDb>();
+            db.Memberships.RemoveRange(await db.Memberships.Where(membership => membership.UserId == adminId).ToListAsync());
+            await db.SaveChangesAsync();
+        }
 
         var adminBilling = await admin.GetFromJsonAsync<JsonElement>("/api/billing/session");
         Assert.Equal("SuperAdmin", adminBilling.GetProperty("role").GetString());
