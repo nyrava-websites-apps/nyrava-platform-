@@ -2,6 +2,7 @@
 (()=>{'use strict';
 const M=window.NyravaCrm,$=id=>document.getElementById(id),esc=M.esc;
 const state={me:null,staffId:null,view:'today',page:1,total:0,contacts:[],staff:[],canManage:false,selected:null,detail:null,tab:'activity',today:null};
+let routeReady=false,restoringRoute=false;
 let listVersion=0,detailVersion=0,todayVersion=0,searchTimer,saveHandler,saveBusy=false;
 const fmt=value=>value?new Date(value).toLocaleString([],{dateStyle:'medium',timeStyle:'short'}):'Not scheduled';
 const money=value=>value==null?'Not recorded':new Intl.NumberFormat(undefined,{style:'currency',currency:'USD',maximumFractionDigits:0}).format(value);
@@ -15,8 +16,18 @@ async function api(url,options={}){
 }
 const send=(path,body,method='POST')=>api(scoped(path),{method,body:JSON.stringify(body)});
 const current=()=>state.detail?.contact;
+function syncRoute(replace=false){
+ if(!routeReady||restoringRoute)return;
+ const route=new URL(location.href);route.searchParams.set('view',state.view);
+ for(const key of ['lead','kind','id'])route.searchParams.delete(key);
+ const c=['contacts','pipeline'].includes(state.view)?current():null;
+ if(c){if(c.kind==='manual'){route.searchParams.set('kind','manual');route.searchParams.set('id',c.id);}else route.searchParams.set('lead',c.id);}
+ if(route.href!==location.href)history[replace||window.self!==window.top?'replaceState':'pushState'](null,'',route);
+ if(window.self!==window.top)window.parent.postMessage({type:'NYRAVA_CRM_STATE',view:state.view,kind:c?.kind,id:c?.id},location.origin);
+}
+window.addEventListener('popstate',async()=>{restoringRoute=true;try{clearSelection();const q=new URLSearchParams(location.search);await view(q.get('view')||'today');const id=q.get('lead')||q.get('id');if(id)await selectContact(q.has('lead')?'platform':'manual',id);}finally{restoringRoute=false;}});
 function currentKey(){const c=current();return c?M.key(c):null;}
-function clearSelection(){state.selected=null;state.detail=null;detailVersion++;$('detail').innerHTML='<div class="empty"><h2>Select a lead</h2><p>Your client history and next steps will appear here.</p></div>';}
+function clearSelection(){state.selected=null;state.detail=null;detailVersion++;syncRoute();$('detail').innerHTML='<div class="empty"><h2>Select a lead</h2><p>Your client history and next steps will appear here.</p></div>';}
 async function loadContacts(){
  const version=++listVersion;$('contactList').classList.add('loading');
  try{
@@ -41,7 +52,7 @@ async function selectContact(kind,id,scroll=false){
  const version=++detailVersion;state.selected=kind+':'+id;state.detail=null;renderContacts();
  $('detail').innerHTML='<div class="empty">Loading client workspace…</div>';
  try{const d=await api(scoped('/contacts/'+encodeURIComponent(kind)+'/'+encodeURIComponent(id)));if(version!==detailVersion)return;
-  window.dispatchEvent(new CustomEvent('nyrava-operator-context',{detail:{kind,id,label:d.contact.fullName}}));state.detail=d;state.tab='activity';renderDetail();if(scroll)$('detail').scrollIntoView({behavior:'smooth',block:'nearest'});
+  window.dispatchEvent(new CustomEvent('nyrava-operator-context',{detail:{kind,id,label:d.contact.fullName}}));state.detail=d;state.tab='activity';renderDetail();syncRoute();if(scroll)$('detail').scrollIntoView({behavior:'smooth',block:'nearest'});
  }catch(e){if(version===detailVersion){clearSelection();message(e.message,true);}}
 }
 function renderDetail(){
@@ -53,7 +64,7 @@ function renderDetail(){
  '<div class="facts"><div class="fact"><small>Budget / property value</small><strong>'+esc(money(c.budgetMax))+'</strong></div><div class="fact"><small>Timeframe</small><strong>'+esc(c.timeframe||'Not recorded')+'</strong></div><div class="fact"><small>Working with</small><strong>'+esc(assignment?.fullName||(c.staffId?'Assigned team member':'Business owner'))+'</strong></div><div class="fact"><small>Location / ZIP</small><strong>'+esc(c.zipCode||'Not recorded')+'</strong></div><div class="fact"><small>Property address</small><strong>'+esc(c.propertyAddress||'Not recorded')+'</strong></div></div>'+
  (c.statement?'<p class="brief">'+esc(c.statement)+'</p>':'')+
  '<div class="next-action"><small>NEXT FOLLOW-UP</small>'+(next?esc(next.title)+' · '+esc(fmt(next.dueAt)):'Set a follow-up so this client always has a next step.')+'</div>'+
- '<div class="detail-actions"><button data-edit="note">+ Note</button><button data-edit="task">+ Follow-up</button><button data-edit="appointment">+ Appointment</button><button data-edit="email" '+(!c.email?'disabled':'')+'>Email</button><button data-edit="sms" '+(!c.phone?'disabled':'')+'>Text</button><button data-edit="call" '+(!c.phone?'disabled':'')+'>Call</button>'+(c.kind==='manual'?'<button data-edit-contact>Edit details</button>':'')+'</div>'+
+ '<div class="detail-actions"><button data-edit="note">+ Note</button><button data-edit="task">+ Follow-up</button><button data-edit="appointment">+ Appointment</button><button data-edit="email" '+(!c.email?'disabled':'')+'>Email</button><button data-edit="sms" '+(!c.phone?'disabled':'')+'>Text</button><button data-edit="call" '+(!c.phone?'disabled':'')+'>Call</button>'+'<button data-edit-contact>Edit details</button>'+'</div>'+
  '<div class="detail-controls"><label>Pipeline stage<select id="clientStage">'+stageValues.map(s=>'<option '+(s===c.crmStatus?'selected':'')+' value="'+esc(s)+'">'+esc(M.stageLabel(s))+'</option>').join('')+'</select></label>'+
  (state.canManage?'<label>Assigned to<select id="clientAssignment"><option value="">Business owner</option>'+state.staff.filter(s=>(s.active&&s.userId)||s.id===c.staffId).map(s=>'<option value="'+esc(s.id)+'" '+(s.id===c.staffId?'selected':'')+'>'+esc(s.fullName)+(s.active?'':' (access removed)')+'</option>').join('')+'</select></label>':'')+'</div>'+
  (c.kind==='platform'?'<div class="detail-actions"><button data-quality-report>Report lead quality</button>'+(state.canManage?'<button data-quality-review>Review quality reports</button>':'')+'</div>':'')+
@@ -61,7 +72,7 @@ function renderDetail(){
  '<div class="detail-tabs">'+[['activity','Activity & notes'],['tasks','Tasks ('+tasks.length+')'],['appointments','Appointments'],['messages','Messages']].map(([id,label])=>'<button data-detail-tab="'+id+'" class="'+(state.tab===id?'active':'')+'">'+esc(label)+'</button>').join('')+'</div><div class="record-list" id="records"></div>';
  const tools=document.createElement('div');tools.className='detail-actions';
  const toolQuery=new URLSearchParams({kind:c.kind,id:c.id});if(state.staffId)toolQuery.set('staffId',state.staffId);
- for(const [href,label]of [['/professional-ai.html','AI work assistant'],['/professional-valuation.html','Private property valuation'],['/personal-reminders.html','Appointment reminders']]){const a=document.createElement('a');a.textContent=label;a.href=href+'?'+toolQuery;a.target='_top';tools.append(a);}
+ for(const [href,label]of [['/professional-ai.html','AI work assistant'],['/professional-valuation.html','Private property valuation'],['/personal-reminders.html','Appointment reminders']]){const a=document.createElement('a');a.textContent=label;a.href=href+'?'+toolQuery;a.target=window.self===window.top?'_self':'_parent';tools.append(a);}
  $('detail').insertBefore(tools,$('detail').querySelector('.detail-controls'));
  renderRecords();
 }
@@ -100,6 +111,7 @@ async function view(name){if(!['today','contacts','pipeline','calendar'].include
  document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===name));
  if(name==='pipeline'&&!$('type').value)$('type').value='BUYER';
  if(name==='today'||name==='calendar')await loadToday();else await loadContacts();
+ syncRoute();
 }
 window.addEventListener('nyrava-operator-updated',()=>refresh());
 async function refresh(){message('');await Promise.all([loadContacts(),loadToday()]);const c=current();if(c)await selectContact(c.kind,c.id);}
@@ -119,8 +131,9 @@ function contactEditor(existing=null){const c=existing||{};
   const body={...values,budgetMax:values.budgetMax===''?null:Number(values.budgetMax)};
   if(!values.email&&!values.phone)throw Error('Enter an email address or phone number.');
   const result=await send(existing?'/contacts/'+c.id:'/contacts',body,existing?'PUT':'POST');
-  $('editor').close();await view('contacts');await selectContact('manual',existing?c.id:result.id,true);await loadToday();message(existing?'Contact updated.':'Contact added to your business CRM.');
+  $('editor').close();await view('contacts');await selectContact(existing?c.kind:'manual',existing?c.id:result.id,true);await loadToday();message(existing?'Contact updated.':'Contact added to your business CRM.');
  });
+ if(existing&&state.canManage){const archive=document.createElement('button');archive.type='button';archive.className='quiet';archive.textContent='Archive lead';archive.onclick=async()=>{if(!confirm('Archive this lead? Saved notes, appointments and work history will be retained.'))return;archive.disabled=true;try{await send('/contacts/'+c.kind+'/'+c.id+'/action',{action:'archive',confirmed:true});$('editor').close();clearSelection();await refresh();message('Lead archived. Work history retained.');}catch(e){$('editorError').textContent=e.message;}finally{archive.disabled=false;}};$('editorFields').append(archive);}
 }
 async function action(p,contact=current()){
  if(!contact)throw Error('Select a lead first.');const key=M.key(contact);
@@ -151,7 +164,7 @@ function workEditor(kind,recordId){
   (async()=>{const key=M.key(c);try{const profile=await api('/api/subscriber/profile');if(state.selected!==key)return;const prefs=profile.communications||{};editor('Email using your work account',field('subject','Subject','text','',true,'required maxlength="200"')+textArea('body','Message',prefs.signature?'\n\n'+prefs.signature:'',10000)+'<p class="caption full">Opens your email app. Choose '+esc(prefs.workEmail||state.me.email||'your work email')+' as the sender there. Nyrava does not send this message or automatically mark the lead contacted.</p><div class="full" id="deviceDraft"></div>',async v=>{const uri=M.emailDraft(c.email,v.subject,v.body);$('deviceDraft').innerHTML='<a href="'+esc(uri)+'">Open draft in my email app →</a>';},'Prepare draft');}catch(e){message(e.message,true);}})();return;
  }
  const isAppointment=kind==='appointment'||kind==='moveAppointment';
- const existing=(kind==='moveTask'?state.detail.tasks:state.detail.appointments).find(x=>x.id===recordId);
+ const existing=recordId?(kind==='moveTask'?state.detail.tasks:state.detail.appointments).find(x=>x.id===recordId):null;
  const fields=(!recordId?field('text','Title','text','',true,'required maxlength="200"'):'')+
  field('startsAt',isAppointment?'Start':'Due','datetime-local',localInput(existing?.dueAt||existing?.startsAt),'', 'required')+
  (isAppointment?'<p class="caption full">'+(existing?'The existing appointment duration is preserved.':'A 30-minute slot is reserved automatically.')+'</p>':'')+
@@ -185,6 +198,11 @@ document.addEventListener('click',async event=>{
    else if(b.dataset.work!=='cancelAppointment'||confirm('Cancel this appointment?')){b.disabled=true;await action({action:b.dataset.work,recordId:b.dataset.record});message('Work updated.');}}
  }catch(e){message(e.message,true);}finally{if(b.isConnected)b.disabled=false;}
 });
+document.addEventListener('click',event=>{
+ if(window.self===window.top)return;const a=event.target.closest('a[href]');if(!a||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;
+ const url=new URL(a.href,location.href);if(url.origin!==location.origin||!['/','/dashboard/home','/team-chat.html','/business-calendar.html','/professional-ai.html','/professional-valuation.html','/personal-reminders.html','/team.html','/subscriber-profile.html'].includes(url.pathname))return;
+ event.preventDefault();window.parent.postMessage({type:'NYRAVA_WORKSPACE_NAV',url:url.pathname+url.search+url.hash},location.origin);
+});
 document.addEventListener('change',async event=>{
  const el=event.target;
  if(el.id==='clientStage'&&el.value==='CONTACTED'&&current()?.kind==='platform'){
@@ -200,8 +218,7 @@ document.addEventListener('change',async event=>{
  if(el.id==='clientAssignment'){
   const c=current();if(!c)return;el.disabled=true;
   try{const target=el.value||null;
-   if(c.kind==='manual')await send('/contacts/'+c.id+'/assign',{staffId:target});
-   else await api('/api/team/leads/'+c.id+'/assign',{method:'POST',body:JSON.stringify({staffId:target})});
+   await send('/contacts/'+c.id+'/assign',{staffId:target});
    await selectContact(c.kind,c.id);message('Work reassigned. History preserved.');
   }catch(e){message(e.message,true);renderDetail();}finally{el.disabled=false;}
  }
@@ -227,8 +244,9 @@ async function boot(){
   await view(requested==='tasks'||requested==='appointments'?'calendar':requested||'today');
   // Load the roster once even when opening Today; management controls use the same data for both pages.
   if(state.view==='today'||state.view==='calendar')await loadContacts();
-  const manual=params.get('kind')==='manual'?params.get('id'):null;if(manual&&/^[\da-f-]{36}$/i.test(manual)){await view('contacts');await selectContact('manual',manual);}
+  const manual=params.get('kind')==='manual'?params.get('id'):null;if(manual&&/^(?:[0-9]+|[\da-f-]{36})$/i.test(manual)){await view('contacts');await selectContact('manual',manual);}
   const lead=params.get('lead');if(lead&&/^[A-Za-z0-9_-]{1,80}$/.test(lead)){await view('contacts');await selectContact('platform',lead);}
+  routeReady=true;syncRoute(true);
  }catch(e){message(e.message,true);$('newContact').disabled=true;$('refresh').disabled=true;}
 }
 let backgroundBusy=false;

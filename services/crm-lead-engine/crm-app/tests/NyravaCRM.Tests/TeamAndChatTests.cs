@@ -25,9 +25,9 @@ public sealed class TeamAndChatTests : IClassFixture<CrmApplicationFactory>
 
         var demoInfo = await subscriber.GetFromJsonAsync<JsonElement>("/api/demo-info");
         Assert.True(demoInfo.GetProperty("enabled").GetBoolean());
-        var subscriberLogin = await subscriber.PostAsJsonAsync("/api/login", new { email = "testone@example.test", password = "DemoCRM!2026TestOne" });
+        var subscriberLogin = await subscriber.PostAsJsonAsync("/api/login", new { email = _factory.DemoOwnerEmail, password = _factory.DemoOwnerPassword });
         Assert.True(subscriberLogin.StatusCode == HttpStatusCode.OK, await subscriberLogin.Content.ReadAsStringAsync());
-        var employeeLogin = await employee.PostAsJsonAsync("/api/login", new { email = "testtwo@example.test", password = "DemoCRM!2026TestTwo" });
+        var employeeLogin = await employee.PostAsJsonAsync("/api/login", new { email = _factory.DemoEmployeeEmail, password = _factory.DemoEmployeePassword });
         Assert.True(employeeLogin.StatusCode == HttpStatusCode.OK, await employeeLogin.Content.ReadAsStringAsync());
 
         var owner = await subscriber.GetFromJsonAsync<JsonElement>("/api/me");
@@ -46,7 +46,7 @@ public sealed class TeamAndChatTests : IClassFixture<CrmApplicationFactory>
         Assert.NotNull(subscriberContacts);
         Assert.True(subscriberContacts.Length > assignedContacts.Length);
 
-        var deniedInvite = await employee.PostAsJsonAsync("/api/team/invitations", new { email = "blocked@example.test" });
+        var deniedInvite = await employee.PostAsJsonAsync("/api/team/invitations", new { email = "invitee@example.test" });
         Assert.Equal(HttpStatusCode.Forbidden, deniedInvite.StatusCode);
 
         var ownerContacts = subscriberContacts.Where(contact => contact.GetProperty("assignedToUserId").GetInt64() == ownerId).ToArray();
@@ -59,20 +59,20 @@ public sealed class TeamAndChatTests : IClassFixture<CrmApplicationFactory>
         });
         Assert.Equal(HttpStatusCode.NotFound, forbiddenEdit.StatusCode);
 
-        var invitation = await subscriber.PostAsJsonAsync("/api/team/invitations", new { email = "new-member@example.test" });
+        var invitation = await subscriber.PostAsJsonAsync("/api/team/invitations", new { email = _factory.InviteeEmail });
         Assert.Equal(HttpStatusCode.OK, invitation.StatusCode);
         using var invitationJson = JsonDocument.Parse(await invitation.Content.ReadAsStringAsync());
-        Assert.Equal("1234", invitationJson.RootElement.GetProperty("code").GetString());
+        Assert.Equal(_factory.DemoInviteCode, invitationJson.RootElement.GetProperty("code").GetString());
         Assert.StartsWith("/index.html?invite=", invitationJson.RootElement.GetProperty("joinUrl").GetString());
 
         var wrongEmail = await invited.PostAsJsonAsync("/api/register", new
         {
-            email = "wrong-member@example.test", password = "AuditCRM!2026Pass", invitationCode = "1234"
+            email = "wrong-invitee@example.test", password = _factory.InviteePassword, invitationCode = _factory.DemoInviteCode
         });
         Assert.Equal(HttpStatusCode.BadRequest, wrongEmail.StatusCode);
         var accepted = await invited.PostAsJsonAsync("/api/register", new
         {
-            email = "new-member@example.test", password = "AuditCRM!2026Pass", invitationCode = "1234"
+            email = _factory.InviteeEmail, password = _factory.InviteePassword, invitationCode = _factory.DemoInviteCode
         });
         Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
         var newMember = await invited.GetFromJsonAsync<JsonElement>("/api/me");

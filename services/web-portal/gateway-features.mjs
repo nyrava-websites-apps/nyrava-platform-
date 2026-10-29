@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { randomBytes } from 'node:crypto';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -40,9 +41,9 @@ export function registerGatewayFeatures(app, { CRM_SERVICE_URL, VALUATION_SERVIC
 
   function getProfile() {
     return loadJson(PROFILE_FILE, {
-      fullName: 'H G',
-      email: 'h.g4972@gmail.com',
-      brokerage: 'Nyrava Realty Partners',
+      fullName: 'Fictional Agent',
+      email: 'fictional-contact@example.test',
+      brokerage: 'Example Realty',
       role: 'RealtorSubscriber',
       planCode: 'PRO',
       subscriptionStatus: 'ACTIVE',
@@ -55,15 +56,15 @@ export function registerGatewayFeatures(app, { CRM_SERVICE_URL, VALUATION_SERVIC
       profilePhotoUrl: null,
       brokerageLogoUrl: null,
       communications: {
-        workEmail: 'h.g4972@gmail.com',
-        signature: 'Best regards,\nH G\nNyrava Realty Partners | (512) 555-0199'
+        workEmail: 'fictional-contact@example.test',
+        signature: 'Best regards,\nFictional Agent\nExample Realty | +1-202-555-0101'
       },
       details: {
         professionalTitle: 'Senior Real Estate Specialist',
-        phoneNumber: '(512) 555-0199',
-        businessAddress: '100 Congress Ave, Suite 2000',
-        businessCity: 'Austin',
-        businessState: 'TX',
+        phoneNumber: '+1-202-555-0101',
+        businessAddress: '123 Example Street, Suite 1',
+        businessCity: 'Exampletown',
+        businessState: 'EX',
         businessZipCode: '78701',
         licenseNumber: 'TX-0749210',
         licenseState: 'TX',
@@ -485,8 +486,8 @@ export function registerGatewayFeatures(app, { CRM_SERVICE_URL, VALUATION_SERVIC
       messages: [
         {
           id: 1,
-          businessId: '00000000-0000-0000-0000-000000000001',
-          roomId: '00000000-0000-0000-0000-000000000000',
+          businessId: '+1-202-555-0101-0000-0000-+1-202-555-0101',
+          roomId: '+1-202-555-0101-0000-0000-+1-202-555-0101',
           senderId: 'sys',
           senderName: 'Nyrava Workspace',
           body: 'Welcome to your unified team collaboration room. Share lead notes, assignments, and coordination updates securely.',
@@ -504,8 +505,8 @@ export function registerGatewayFeatures(app, { CRM_SERVICE_URL, VALUATION_SERVIC
       csrf: 'ny_tc_csrf_' + Date.now().toString(36),
       businesses: [
         {
-          id: '00000000-0000-0000-0000-000000000001',
-          roomId: '00000000-0000-0000-0000-000000000000',
+          id: '+1-202-555-0101-0000-0000-+1-202-555-0101',
+          roomId: '+1-202-555-0101-0000-0000-+1-202-555-0101',
           name: 'Main Team Workspace',
           owner: true,
           direct: false
@@ -518,8 +519,8 @@ export function registerGatewayFeatures(app, { CRM_SERVICE_URL, VALUATION_SERVIC
     res.json({
       businesses: [
         {
-          id: '00000000-0000-0000-0000-000000000001',
-          roomId: '00000000-0000-0000-0000-000000000000',
+          id: '+1-202-555-0101-0000-0000-+1-202-555-0101',
+          roomId: '+1-202-555-0101-0000-0000-+1-202-555-0101',
           name: 'Main Team Workspace',
           owner: true,
           direct: false
@@ -527,8 +528,8 @@ export function registerGatewayFeatures(app, { CRM_SERVICE_URL, VALUATION_SERVIC
       ],
       counts: [
         {
-          businessId: '00000000-0000-0000-0000-000000000001',
-          roomId: '00000000-0000-0000-0000-000000000000',
+          businessId: '+1-202-555-0101-0000-0000-+1-202-555-0101',
+          roomId: '+1-202-555-0101-0000-0000-+1-202-555-0101',
           unread: 0,
           muted: false
         }
@@ -552,7 +553,7 @@ export function registerGatewayFeatures(app, { CRM_SERVICE_URL, VALUATION_SERVIC
     const newMsg = {
       id: msgId,
       businessId: req.params.business,
-      roomId: req.query.room || '00000000-0000-0000-0000-000000000000',
+      roomId: req.query.room || '+1-202-555-0101-0000-0000-+1-202-555-0101',
       senderId: '1',
       senderName: prof.fullName || 'Realtor',
       body: req.body?.body || req.body?.text || '',
@@ -597,134 +598,6 @@ export function registerGatewayFeatures(app, { CRM_SERVICE_URL, VALUATION_SERVIC
   // -------------------------------------------------------------
   // 6. TEAM MEMBERS & STAFF MANAGEMENT (/api/team/*)
   // -------------------------------------------------------------
-  const STAFF_FILE = 'team-staff-data.json';
-
-  function getStaffData() {
-    return loadJson(STAFF_FILE, {
-      staff: [
-        {
-          id: 'staff-1',
-          fullName: 'Sarah Jenkins',
-          email: 'sarah.j@example.com',
-          role: 'Employee',
-          active: true,
-          leadsCount: 2,
-          tasksCount: 1,
-          createdAt: new Date().toISOString()
-        }
-      ],
-      invitations: []
-    });
-  }
-
-  app.post('/api/team/staff', (req, res) => {
-    const data = getStaffData();
-    const { fullName = 'New Staff', email = '' } = req.body || {};
-    const newStaff = {
-      id: 'staff-' + Date.now(),
-      fullName: fullName.trim(),
-      email: email.trim(),
-      role: 'Employee',
-      active: true,
-      leadsCount: 0,
-      tasksCount: 0,
-      createdAt: new Date().toISOString()
-    };
-    data.staff.push(newStaff);
-    saveJson(STAFF_FILE, data);
-    res.json({ saved: true, staff: newStaff });
-  });
-
-  app.put('/api/team/staff/:id', (req, res) => {
-    const data = getStaffData();
-    const item = data.staff.find(s => s.id === req.params.id);
-    if (item) {
-      if (req.body?.fullName) item.fullName = req.body.fullName.trim();
-      saveJson(STAFF_FILE, data);
-    }
-    res.json({ saved: true });
-  });
-
-  app.delete('/api/team/staff/:id', (req, res) => {
-    const data = getStaffData();
-    data.staff = data.staff.filter(s => s.id !== req.params.id);
-    saveJson(STAFF_FILE, data);
-    res.json({ saved: true, removed: true });
-  });
-
-  app.post('/api/team/staff/:id/active', (req, res) => {
-    const data = getStaffData();
-    const item = data.staff.find(s => s.id === req.params.id);
-    if (item) {
-      item.active = !item.active;
-      saveJson(STAFF_FILE, data);
-    }
-    res.json({ saved: true });
-  });
-
-  app.post('/api/team/staff/:id/invite', (req, res) => {
-    res.json({ emailAccepted: true, message: 'Invitation email dispatched.' });
-  });
-
-  app.post('/api/team/staff/:id/archive', (req, res) => {
-    const data = getStaffData();
-    const item = data.staff.find(s => s.id === req.params.id);
-    if (item) item.active = false;
-    saveJson(STAFF_FILE, data);
-    res.json({ saved: true });
-  });
-
-  app.post('/api/team/staff/:id/restore', (req, res) => {
-    const data = getStaffData();
-    const item = data.staff.find(s => s.id === req.params.id);
-    if (item) item.active = true;
-    saveJson(STAFF_FILE, data);
-    res.json({ saved: true });
-  });
-
-  app.get('/api/team/staff/:id/review', (req, res) => {
-    const data = getStaffData();
-    const item = data.staff.find(s => s.id === req.params.id) || { fullName: 'Employee' };
-    res.json({
-      staff: item,
-      leads: [],
-      notes: [],
-      tasks: [],
-      appointments: []
-    });
-  });
-
-  app.post('/api/team/leads/:id/assign', (req, res) => {
-    res.json({ saved: true, message: 'Lead assigned to team member.' });
-  });
-
-  app.get('/api/team/invitations', (req, res) => {
-    res.json({ invitations: [] });
-  });
-
-  app.get('/api/team/profile', (req, res) => {
-    res.json({
-      businessName: 'Nyrava Realty Team',
-      ownerName: 'Realtor Owner',
-      maxEmployees: 5,
-      activeCount: 1
-    });
-  });
-
-  app.post('/api/team/profile', (req, res) => {
-    res.json({ saved: true });
-  });
-
-  app.get('/api/team/employee/memberships', (req, res) => {
-    res.json([
-      {
-        id: '00000000-0000-0000-0000-000000000001',
-        businessName: 'Nyrava Realty Agency',
-        role: 'Employee'
-      }
-    ]);
-  });
-
   // -------------------------------------------------------------
   // 7. TERRITORIES & ZIP CATALOG (/api/territories/*)
   // -------------------------------------------------------------
@@ -861,231 +734,6 @@ export function registerGatewayFeatures(app, { CRM_SERVICE_URL, VALUATION_SERVIC
   // -------------------------------------------------------------
   // 8. CRM ACTIVITIES, TASKS & WORKBENCH (/api/workbench/* & /api/crm/*)
   // -------------------------------------------------------------
-  app.get('/api/workbench/today', async (req, res) => {
-    let leads = [];
-    let activities = [];
-    try {
-      const authHeaders = {
-        'Cookie': req.headers.cookie || '',
-        'Authorization': req.headers.authorization || ''
-      };
-      const [cRes, aRes] = await Promise.all([
-        fetch(CRM_SERVICE_URL + '/api/contacts', { headers: authHeaders }),
-        fetch(CRM_SERVICE_URL + '/api/activities', { headers: authHeaders })
-      ]);
-      if (cRes.ok) leads = await cRes.json();
-      if (aRes.ok) activities = await aRes.json();
-    } catch (e) {
-      console.warn('[Workbench Today Fetch]', e.message);
-    }
-
-    const newLeads = (leads || []).filter(c => !c.stage || c.stage.toLowerCase() === 'new').map(c => ({
-      id: String(c.id),
-      kind: 'crm',
-      fullName: c.fullName || c.name || 'Territory Lead',
-      leadType: c.leadType || 'Buyer',
-      zipCode: c.propertyZipCode || c.zipCode || '78701',
-      crmStatus: 'NEW'
-    }));
-
-    const tasks = (activities || []).filter(a => (a.kind === 'TASK' || a.type === 'Task') && !a.completed).map(t => ({
-      id: String(t.id),
-      contactId: String(t.contactId || '1'),
-      kind: 'crm',
-      title: t.title || t.text || 'Client Follow-up',
-      at: t.dueAt || t.startsAt || new Date().toISOString(),
-      completed: false
-    }));
-
-    const appointments = (activities || []).filter(a => (a.kind === 'APPOINTMENT' || a.type === 'Appointment')).map(a => ({
-      id: String(a.id),
-      contactId: String(a.contactId || '1'),
-      kind: 'crm',
-      title: a.title || a.text || 'Client Consultation',
-      at: a.startsAt || new Date().toISOString(),
-      status: a.status || 'SCHEDULED'
-    }));
-
-    res.json({
-      newLeadCount: newLeads.length,
-      newLeads: newLeads.slice(0, 10),
-      contactCount: (leads || []).length,
-      openTasks: tasks.length,
-      overdue: 0,
-      upcoming: appointments.length,
-      tasks: tasks.slice(0, 100),
-      appointments: appointments.slice(0, 100),
-      queueLimit: 100
-    });
-  });
-
-  app.get('/api/workbench/agenda', async (req, res) => {
-    let activities = [];
-    try {
-      const authHeaders = {
-        'Cookie': req.headers.cookie || '',
-        'Authorization': req.headers.authorization || ''
-      };
-      const aRes = await fetch(CRM_SERVICE_URL + '/api/activities', { headers: authHeaders });
-      if (aRes.ok) activities = await aRes.json();
-    } catch (e) {}
-
-    const tasks = (activities || []).filter(a => (a.kind === 'TASK' || a.type === 'Task')).map(t => ({
-      id: String(t.id),
-      contactId: String(t.contactId || '1'),
-      kind: 'crm',
-      title: t.title || t.text || 'Client Follow-up',
-      at: t.dueAt || t.startsAt || new Date().toISOString(),
-      completed: !!t.completed
-    }));
-
-    const appointments = (activities || []).filter(a => (a.kind === 'APPOINTMENT' || a.type === 'Appointment')).map(a => ({
-      id: String(a.id),
-      contactId: String(a.contactId || '1'),
-      kind: 'crm',
-      title: a.title || a.text || 'Client Consultation',
-      at: a.startsAt || new Date().toISOString(),
-      status: a.status || 'SCHEDULED'
-    }));
-
-    res.json({
-      tasks,
-      appointments
-    });
-  });
-
-  app.post('/api/workbench/contacts', async (req, res) => {
-    const body = req.body || {};
-    try {
-      const authHeaders = {
-        'Content-Type': 'application/json',
-        'Cookie': req.headers.cookie || '',
-        'Authorization': req.headers.authorization || ''
-      };
-      const cRes = await fetch(CRM_SERVICE_URL + '/api/contacts', {
-        method: 'POST',
-        headers: authHeaders,
-        body: JSON.stringify({
-          fullName: body.fullName || 'New Contact',
-          email: body.email || '',
-          phone: body.phone || '',
-          leadType: body.leadType || 'Buyer',
-          propertyZipCode: body.zipCode || '78701',
-          notes: body.statement || ''
-        })
-      });
-      if (cRes.ok) {
-        const created = await cRes.json();
-        return res.json({ id: String(created.id), kind: 'manual' });
-      }
-    } catch (e) {}
-    res.json({ id: 'man_' + Date.now(), kind: 'manual' });
-  });
-
-  app.put('/api/workbench/contacts/:id', async (req, res) => {
-    res.json({ saved: true });
-  });
-
-  app.post('/api/workbench/contacts/:id/assign', (req, res) => {
-    res.json({ saved: true });
-  });
-
-  app.post('/api/crm/tasks/:id/complete', (req, res) => {
-    res.json({ ok: true, message: 'Task marked completed.' });
-  });
-
-  app.get('/api/crm/distribution', (req, res) => {
-    res.json({
-      status: 'ACTIVE',
-      notifications: [],
-      queueLength: 0,
-      dailyAllocation: 3,
-      deliveredToday: 0
-    });
-  });
-
-  app.post('/api/crm/distribution/notifications/read', (req, res) => {
-    res.json({ success: true });
-  });
-
-  app.get('/api/crm/quality-reports', (req, res) => {
-    res.json({
-      metrics: {
-        score: 98,
-        tier: 'A+',
-        verifiedRate: '100%',
-        disposition: 'DELIVERED'
-      },
-      reports: []
-    });
-  });
-
-  app.get('/api/workbench/contacts/:kind/:id', async (req, res) => {
-    const id = req.params.id;
-    let contact = {
-      id,
-      kind: req.params.kind,
-      fullName: 'Territory Client',
-      leadType: 'Buyer',
-      zipCode: '78701',
-      phone: '(512) 555-0199',
-      email: 'client@example.com',
-      crmStatus: 'NEW',
-      notes: '',
-      statement: '',
-      timeframe: 'Exploring',
-      budgetMax: 500000
-    };
-    try {
-      const cRes = await fetch(CRM_SERVICE_URL + `/api/contacts/${id}`, {
-        headers: {
-          'Cookie': req.headers.cookie || '',
-          'Authorization': req.headers.authorization || ''
-        }
-      });
-      if (cRes.ok) {
-        const c = await cRes.json();
-        contact = {
-          id: String(c.id),
-          kind: 'platform',
-          fullName: c.fullName || c.name || 'Territory Client',
-          leadType: c.leadType || 'Buyer',
-          zipCode: c.propertyZipCode || c.zipCode || '78701',
-          phone: c.phone || '',
-          email: c.email || '',
-          crmStatus: c.stage || 'NEW',
-          notes: c.notes || '',
-          statement: c.notes || '',
-          timeframe: 'Exploring',
-          budgetMax: 500000
-        };
-      }
-    } catch (e) {}
-    res.json({
-      contact,
-      notes: [],
-      tasks: [],
-      appointments: [],
-      communications: []
-    });
-  });
-
-  app.post('/api/workbench/contacts/:kind/:id/action', (req, res) => {
-    res.json({ ok: true, message: 'Action recorded successfully.' });
-  });
-
-  app.post('/api/crm/leads/:id/notes', (req, res) => {
-    res.json({ message: 'Note saved' });
-  });
-
-  app.post('/api/crm/leads/:id/tasks', (req, res) => {
-    res.json({ message: 'Task saved' });
-  });
-
-  app.post('/api/crm/leads/:id/appointments', (req, res) => {
-    res.json({ message: 'Appointment booked' });
-  });
-
   // -------------------------------------------------------------
   // 9. WORKSPACE OPERATOR AI (/api/workspace-operator/*)
   // -------------------------------------------------------------
@@ -1124,11 +772,11 @@ export function registerGatewayFeatures(app, { CRM_SERVICE_URL, VALUATION_SERVIC
   // -------------------------------------------------------------
   app.get('/api/admin/operations/session', (req, res) => {
     res.json({
-      email: 'admin@nyrava.com',
+      email: 'fictional-contact@example.test',
       fullName: 'Nyrava Platform Administrator',
       role: 'SuperAdmin',
       canSend: true,
-      csrf: 'ny_admin_csrf_' + Date.now().toString(36)
+      csrf: randomBytes(32).toString('hex')
     });
   });
 
@@ -1157,7 +805,7 @@ export function registerGatewayFeatures(app, { CRM_SERVICE_URL, VALUATION_SERVIC
         aiState: isGood ? 'GOOD' : 'REVIEW',
         status: isDelivered ? 'DELIVERED' : (c.stage === 'New' ? 'QUALIFIED' : 'PENDING'),
         stage: c.stage || 'New',
-        assignedAgentId: isDelivered ? (c.userId === 4 ? 'h.g4972@gmail.com' : 'Delivered') : null,
+        assignedAgentId: isDelivered ? (c.userId === 4 ? 'fictional-contact@example.test' : 'Delivered') : null,
         bankOnly: c.source === 'Fsbo' && !isDelivered,
         reportOnly: false
       };
@@ -1183,8 +831,8 @@ export function registerGatewayFeatures(app, { CRM_SERVICE_URL, VALUATION_SERVIC
     res.json({
       id: req.params.id,
       fullName: 'Verified Prospect',
-      email: 'prospect@example.com',
-      phone: '(512) 555-0100',
+      email: 'fictional-contact@example.test',
+      phone: '+1-202-555-0101',
       zipCode: '78701',
       assessment: {
         fingerprint: 'fp_' + req.params.id
@@ -1215,8 +863,8 @@ export function registerGatewayFeatures(app, { CRM_SERVICE_URL, VALUATION_SERVIC
       rows: [
         {
           id: 'sub-1',
-          fullName: 'H G',
-          email: 'h.g4972@gmail.com',
+          fullName: 'Fictional Agent',
+          email: 'fictional-contact@example.test',
           role: 'RealtorSubscriber',
           plan: 'PRO',
           status: 'ACTIVE',
@@ -1279,8 +927,8 @@ export function registerGatewayFeatures(app, { CRM_SERVICE_URL, VALUATION_SERVIC
         {
           id: 'qr-1',
           createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
-          ownerEmail: 'h.g4972@gmail.com',
-          reportedBy: 'H G (Workspace Owner)',
+          ownerEmail: 'fictional-contact@example.test',
+          reportedBy: 'Fictional Agent (Workspace Owner)',
           reason: 'Phone disconnected during initial outreach attempt',
           state: 'ADMIN_REVIEW',
           ownerNotes: 'Requested territory lead replacement verification.'
@@ -1299,7 +947,7 @@ export function registerGatewayFeatures(app, { CRM_SERVICE_URL, VALUATION_SERVIC
     res.json([
       {
         inquiryId: 'inq-101',
-        agentId: 'h.g4972@gmail.com',
+        agentId: 'fictional-contact@example.test',
         reason: 'Client schedule requested evening contact after 6 PM',
         timestamp: new Date(Date.now() - 86400000).toISOString(),
         decision: null
@@ -1333,7 +981,7 @@ export function registerGatewayFeatures(app, { CRM_SERVICE_URL, VALUATION_SERVIC
     res.json([
       {
         timestamp: new Date().toISOString(),
-        actorEmail: 'admin@nyrava.com',
+        actorEmail: 'fictional-contact@example.test',
         action: 'LEAD_DISPATCH_EVALUATED',
         entityName: 'Territory Lead Ingestion Engine'
       },
@@ -1345,7 +993,7 @@ export function registerGatewayFeatures(app, { CRM_SERVICE_URL, VALUATION_SERVIC
       },
       {
         timestamp: new Date(Date.now() - 600000).toISOString(),
-        actorEmail: 'h.g4972@gmail.com',
+        actorEmail: 'fictional-contact@example.test',
         action: 'REALTOR_WORKSPACE_ACTIVE',
         entityName: 'Workspace #4 (PRO Plan)'
       },
@@ -1369,8 +1017,8 @@ export function registerGatewayFeatures(app, { CRM_SERVICE_URL, VALUATION_SERVIC
 
   app.get('/api/admin/meetings/session', (req, res) => {
     res.json({
-      csrf: 'nyrava-meeting-csrf-token',
-      user: { role: 'Admin', email: 'admin@home.nyrava.com' }
+      csrf: randomBytes(32).toString('hex'),
+      user: { role: 'Admin', email: 'fictional-contact@example.test' }
     });
   });
 

@@ -385,13 +385,13 @@ header.top #identity {
 <section class="panel" id="panel-account"><div class="headline"><div><h2>Account & Billing</h2><p><a href="/professional-ai.html">AI work assistant</a> · <a href="/professional-valuation.html">Private property valuation</a></p><p>Your identity, subscription, and current plan details.</p></div></div><div class="box"><h3>Account details</h3><a class="card-link" href="/dashboard/home#profile">Edit profile & account images</a><div id="accountInfo" class="list"></div></div><div class="box"><h3>Plan status</h3><p id="planInfo">Loading subscription information…</p><p class="muted">Paid checkout and self-service payment methods appear only after billing has been configured and verified.</p></div></section>
 </main></div></div><script>
 const $=id=>document.getElementById(id);const state={me:null,dashboard:null,crm:null,plans:null,team:null};function text(id,s){$(id).textContent=String(s??'—')}function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}function empty(s){return '<div class="empty">'+esc(s)+'</div>'}function message(s,bad=false){const e=$(bad?'error':'message');e.textContent=s;e.hidden=false;if(!bad)$('error').hidden=true}async function request(url,opts){const r=await fetch(url,{credentials:'same-origin',...opts});const contentType=r.headers.get('content-type')||'';if(!contentType.includes('json'))throw Error('Server did not return JSON for '+url+' (HTTP '+r.status+')');const data=await r.json();if(!r.ok)throw Error(data.error||data.detail||data.message||data.title||('HTTP '+r.status));return data}
-const navigate=name=>{if(!$( 'panel-'+name))return;document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+name));document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));text('pageTitle',({overview:'Your Realtor Workspace',meet:'Video Meet & Consultation',leads:'My Leads',crm:'Contacts & CRM',ai:'Nyra AI Work Assistant',valuation:'Private Property Valuation',team:'My Team',calendar:'Calendar & Tasks',zips:'ZIP Territories',notifications:'Notifications',performance:'My Performance',account:'Account & Billing',profile:'My Profile'})[name]||'Your Realtor Workspace');history.replaceState(null,'','#'+name);$('rail').classList.remove('open');$('mobileMenu').setAttribute('aria-expanded','false');if(window.activateFrame)window.activateFrame(name);
+const navigate=(name,recordHistory=true)=>{if(!$( 'panel-'+name))return;document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+name));document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));text('pageTitle',({overview:'Your Realtor Workspace',meet:'Video Meet & Consultation',leads:'My Leads',crm:'Contacts & CRM',ai:'Nyra AI Work Assistant',valuation:'Private Property Valuation',team:'My Team',calendar:'Calendar & Tasks',zips:'ZIP Territories',notifications:'Notifications',performance:'My Performance',account:'Account & Billing',profile:'My Profile'})[name]||'Your Realtor Workspace');if(recordHistory&&location.hash!=='#'+name){const route=new URL(location.href);route.hash=name;if(name!=='crm')for(const key of ['crmView','lead','kind','id'])route.searchParams.delete(key);history.pushState(null,'',route);}$('rail').classList.remove('open');$('mobileMenu').setAttribute('aria-expanded','false');if(window.activateFrame)window.activateFrame(name);
 if(window.innerWidth > 900) {
     const content = document.querySelector('.content');
     if(content) content.scrollTop = 0;
 }
 window.scrollTo({top:0,left:0,behavior:'instant'});
-};document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.tab)));window.addEventListener('hashchange',()=>{const tab=location.hash.slice(1);if(tab)navigate(tab);});$('mobileMenu').onclick=()=>{const open=$('rail').classList.toggle('open');$('mobileMenu').setAttribute('aria-expanded',String(open))};
+};document.querySelectorAll('[data-tab]:not(#crmMenuToggle):not(#leadsMenuToggle)').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.tab)));window.addEventListener('hashchange',()=>{const tab=location.hash.slice(1);if(tab)navigate(tab,false);});$('mobileMenu').onclick=()=>{const open=$('rail').classList.toggle('open');$('mobileMenu').setAttribute('aria-expanded',String(open))};
 
 function renderTeam(){const team=state.team;if(!team){$('teamList').innerHTML=empty('Team unavailable.');$('teamLeads').innerHTML='';return}const staff=(team.staff||[]).filter(x=>!x.archived),links=team.assignments||[],leads=state.crm?.leads||[];const plan=String(state.me?.planCode||'').toUpperCase();const count=staff.filter(x=>x.active).length;$('teamList').innerHTML='<p class="muted">'+(plan==='PRO'?('Active team: '+count+' · Pro unlimited'):('Active team: '+count+' / 5 · Basic limit'))+'</p>'+(staff.length?staff.map(x=>'<div class="item"><div><strong>'+esc(x.fullName)+'</strong><small>'+esc(x.email)+' · '+esc(x.active?'Active':'Disabled')+' · '+esc(x.userId?'Access established':'Invitation needed')+'</small></div><div class="actions"><button class="secondary" data-team-edit="'+esc(x.id)+'">Edit</button><button class="secondary" data-team-review="'+esc(x.id)+'">Open CRM</button>'+(x.active&&x.userId?'<span data-nh-member-actions="'+esc(x.userId)+'"><button class="secondary" data-nh-team-meet>Meet now</button><button class="secondary" data-nh-team-chat>Chat</button></span>':'')+''+(x.active&&!x.userId?'<button class="secondary" data-team-invite="'+esc(x.id)+'">Send email invitation</button>':'')+(x.active?'<button class="secondary" data-team-disable="'+esc(x.id)+'">Remove</button>':'')+'</div></div>').join(''):empty('No employees yet.'));$('teamLeads').innerHTML=leads.length?leads.map(l=>{const current=links.find(a=>a.inquiryId===l.id)?.staffId||'';return '<div class="item"><div><strong>'+esc(l.fullName)+'</strong><small>'+esc(l.leadType)+' · ZIP '+esc(l.zipCode)+'</small></div><select class="field" data-team-lead="'+esc(l.id)+'" aria-label="Employee responsible for '+esc(l.fullName)+'"><option value="">Unassigned internally</option>'+staff.filter(x=>x.active&&x.userId).map(x=>'<option value="'+esc(x.id)+'" '+(x.id===current?'selected':'')+'>'+esc(x.fullName)+'</option>').join('')+'</select></div>'}).join(''):empty('No delivered leads available to delegate.');}
 $('teamForm').onsubmit=async e=>{e.preventDefault();try{await request('/api/team/staff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fullName:$('staffName').value,email:$('staffEmail').value})});$('teamForm').reset();message('Employee added to internal team directory.');await reload()}catch(err){message(err.message,true)}};
@@ -403,14 +403,7 @@ async function reload(){try{const me=await request('/api/auth/me');state.me=me;t
 document.addEventListener('click',async ev=>{const lead=ev.target.closest('[data-lead]'),remove=ev.target.closest('[data-remove]'),complete=ev.target.closest('[data-complete]');if(lead){
  const l=(state.crm?.leads||[]).find(x=>String(x.id)===lead.dataset.lead);
  if(!l)return;
- const frame=document.getElementById('nyrava-crm-frame');
- const target='/crm.html?workspace=1&view=contacts&lead='+encodeURIComponent(String(l.id));
- if(frame)frame.setAttribute('src',target);
- expand('crm',true);
- navigate('crm');
- highlight(crmButtons,'crmView','contacts');
- highlight(leadsButtons,'leadsView',null);
- setTitle('Leads & Contacts');
+ window.openCrmContact(l);
 }
 if(remove){if(!confirm('Remove ZIP '+remove.dataset.remove+' from future lead assignments? Existing assigned contacts remain yours.'))return;try{await request('/api/territories/'+remove.dataset.remove,{method:'DELETE'});message('ZIP removed.');await reload()}catch(e){message(e.message,true)}}if(complete){try{await request('/api/crm/tasks/'+complete.dataset.complete+'/complete',{method:'POST'});message('Task completed.');await reload()}catch(e){message(e.message,true)}}});
 $('zipCheck').onclick=async()=>{let z=$('zipQuery').value.trim();if(!/^\d{5}$/.test(z)){message('Enter a valid 5-digit ZIP.',true);return}try{const d=await request('/api/territories/check/'+z);$('zipResult').textContent=JSON.stringify(d,null,2)}catch(e){message(e.message,true)}};$('zipForm').onsubmit=async e=>{e.preventDefault();const z=$('zipQuery').value.trim();try{await request('/api/territories/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({zipCode:z})});message('ZIP added.');await reload()}catch(e){message(e.message,true)}};reload();
@@ -552,7 +545,7 @@ document.querySelectorAll('#menu [data-tab]').forEach(b=>b.addEventListener('cli
 window.addEventListener('message',e=>{if(e.origin!==location.origin||!e.data||e.data.type!=='nyrava-embedded-size')return;const f=frames[e.data.section];if(f&&e.source===f.contentWindow&&Number.isFinite(e.data.height))f.style.height=Math.max(700,Math.min(7000,e.data.height+32))+'px';});
 function showProfile(){document.querySelector('#menu [data-tab="profile"]')?.click();}
 const identity=document.getElementById('identity');if(identity){identity.title='Open My Profile';identity.tabIndex=0;identity.addEventListener('click',showProfile);identity.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();showProfile();}})}
-const tab=location.hash.slice(1);if(frames[tab]){activateFrame(tab);document.querySelector('#menu [data-tab="'+tab+'"]')?.click()}
+const tab=location.hash.slice(1);if(frames[tab])activateFrame(tab);
 })();
 </script>
 <style id="nyrava-crm-subnav-style">
@@ -573,7 +566,7 @@ const leadsToggle=document.getElementById('leadsMenuToggle');
 const leadsSub=document.getElementById('leadsSubmenu');
 if(!crmToggle||!crmSub||!leadsToggle||!leadsSub)return;
 const crmButtons=[...crmSub.querySelectorAll('[data-crm-view]')];
-const savedCrmView=sessionStorage.getItem('nyrava-crm-last-view');
+const savedCrmView=new URLSearchParams(location.search).get('crmView')||sessionStorage.getItem('nyrava-crm-last-view');
 if(location.hash==='#crm' && savedCrmView) {
   const frame=document.getElementById('nyrava-crm-frame');
   if(frame) frame.dataset.src='/crm.html?workspace=1&view='+encodeURIComponent(savedCrmView);
@@ -596,16 +589,32 @@ function showLeads(view){
  highlight(leadsButtons,'leadsView',view);highlight(crmButtons,'crmView',null);
  setTitle(view==='buyers'?'Buyer Leads':view==='sellers'?'Seller Leads':'My Leads');
 }
-function showCrm(view){
- // nyrava-shared-crm-navigation-v1
- expand('crm',true);navigate('crm');
+function showCrm(view,contact=null,restore=false){
+ expand('crm',true);navigate('crm',false);
  const frame=document.getElementById('nyrava-crm-frame');
- const target='/crm.html?workspace=1&view='+encodeURIComponent(view);
-  sessionStorage.setItem('nyrava-crm-last-view',view);
+ const route=new URL(location.href);route.hash='crm';route.searchParams.set('crmView',view);
+ for(const key of ['lead','kind','id'])route.searchParams.delete(key);
+ const query=new URLSearchParams({workspace:'1',view});
+ if(contact){if(contact.kind==='manual'){query.set('kind','manual');query.set('id',contact.id);route.searchParams.set('kind','manual');route.searchParams.set('id',contact.id);}else{query.set('lead',contact.id);route.searchParams.set('lead',contact.id);}}
+ if(!restore&&route.href!==location.href)history.pushState(null,'',route);
+ sessionStorage.setItem('nyrava-crm-last-view',view);
+ const target='/crm.html?'+query;
  if(frame&&frame.getAttribute('src')!==target)frame.setAttribute('src',target);
  highlight(crmButtons,'crmView',view);highlight(leadsButtons,'leadsView',null);
  setTitle(view==='today'?'CRM Today':view==='pipeline'?'Lead Pipeline':view==='tasks'?'Follow-ups & Tasks':view==='appointments'?'Appointments':'Contacts & CRM');
 }
+window.openCrmContact=contact=>showCrm('contacts',contact);
+function restoreCrm(){if(location.hash!=='#crm'){navigate(location.hash.slice(1)||'overview',false);return;}const q=new URLSearchParams(location.search);showCrm(q.get('crmView')||savedCrmView||'contacts',q.get('lead')?{id:q.get('lead'),kind:'platform'}:q.get('id')?{id:q.get('id'),kind:'manual'}:null,true);}
+window.addEventListener('popstate',restoreCrm);
+window.addEventListener('message',e=>{
+ const frame=document.getElementById('nyrava-crm-frame');if(e.origin!==location.origin||e.source!==frame?.contentWindow||e.data?.type!=='NYRAVA_CRM_STATE'||location.hash!=='#crm')return;
+ const {view,kind,id}=e.data;if(!['today','contacts','pipeline','calendar','tasks','appointments'].includes(view))return;
+ const route=new URL(location.href);route.searchParams.set('crmView',view);for(const key of ['lead','kind','id'])route.searchParams.delete(key);
+ if(id&&/^[A-Za-z0-9_-]{1,80}$/.test(String(id))){if(kind==='manual'){route.searchParams.set('kind','manual');route.searchParams.set('id',id);}else route.searchParams.set('lead',id);}
+ if(route.href!==location.href)history.pushState(null,'',route);
+ sessionStorage.setItem('nyrava-crm-last-view',view);highlight(crmButtons,'crmView',view);
+});
+if(location.hash==='#crm')restoreCrm();
 leadsToggle.addEventListener('click',()=>{const opening=leadsSub.hidden;if(opening)showLeads('all');else expand('leads',false);});
 crmToggle.addEventListener('click',()=>{const opening=crmSub.hidden;if(opening)showCrm('contacts');else expand('crm',false);});
 leadsButtons.forEach(b=>b.addEventListener('click',()=>showLeads(b.dataset.leadsView)));

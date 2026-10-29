@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { NYRA_CONFIG, NYRA_RESPONSES, resolveTopic } from './nyra-sales-engine.mjs';
 import { registerGatewayFeatures } from './gateway-features.mjs';
+import { registerFunctionalCrmGateway } from './functional-crm-gateway.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -99,38 +100,7 @@ const crmAuthProxy = createProxyMiddleware({
   changeOrigin: true
 });
 
-// Authenticated Realtor & Subscriber normalization for /api/auth/me and /api/me
-app.get(['/api/auth/me', '/api/me'], async (req, res) => {
-  try {
-    const authHeaders = {
-      'Cookie': req.headers.cookie || '',
-      'Authorization': req.headers.authorization || ''
-    };
-    const cRes = await fetch(CRM_SERVICE_URL + '/api/auth/me', { headers: authHeaders });
-    if (!cRes.ok) {
-      const err = await cRes.json().catch(() => ({ error: 'Unauthorized' }));
-      return res.status(cRes.status).json(err);
-    }
-    const data = await cRes.json();
-    const isOwner = (data.role === 'Owner' || data.role === 'RealtorSubscriber');
-    data.originalRole = data.role;
-    data.role = isOwner ? 'RealtorSubscriber' : data.role;
-    data.subscriptionStatus = 'ACTIVE';
-    data.subscriptionPlan = data.subscriptionPlan || 'PRO';
-    data.planCode = 'PRO';
-    if (!data.fullName || data.fullName.trim() === '') {
-      data.fullName = data.email === 'h.g4972@gmail.com' ? 'H G' : (data.email ? data.email.split('@')[0] : 'Realtor');
-    }
-    data.brokerage = data.brokerage || 'Nyrava Realty Partners';
-    data.activeZips = (data.subscribedZipCodes || '78701, 78702, 78703, 78704, 78705')
-      .split(',').map(s => s.trim()).filter(Boolean);
-    data.canManage = true;
-    return res.json(data);
-  } catch (err) {
-    console.error('[Auth Me Normalizer]', err.message);
-    res.status(500).json({ error: 'Auth check failed' });
-  }
-});
+registerFunctionalCrmGateway(app, { CRM_SERVICE_URL });
 
 app.use((req, res, next) => {
   if (
@@ -145,67 +115,6 @@ app.use((req, res, next) => {
   }
   next();
 });
-
-async function handleCrmWorkspace(req, res) {
-  let leads = [];
-  let activities = [];
-
-  try {
-    const authHeaders = {
-      'Cookie': req.headers.cookie || '',
-      'Authorization': req.headers.authorization || ''
-    };
-    const [cRes, aRes] = await Promise.all([
-      fetch(CRM_SERVICE_URL + '/api/contacts', { headers: authHeaders }),
-      fetch(CRM_SERVICE_URL + '/api/activities', { headers: authHeaders })
-    ]);
-    if (cRes.ok) {
-      leads = await cRes.json();
-    }
-    if (aRes.ok) {
-      activities = await aRes.json();
-    }
-  } catch (err) {
-    console.warn('[CRM Workspace Read]', err.message);
-  }
-
-  const mappedLeads = (leads || []).map(c => ({
-    id: String(c.id),
-    name: c.name || c.fullName || 'Lead',
-    fullName: c.name || c.fullName || 'Lead',
-    email: c.email || '',
-    phone: c.phone || '',
-    company: c.company || '',
-    leadType: c.leadType || 'Buyer',
-    zipCode: c.propertyZipCode || c.zipCode || '78701',
-    propertyZipCode: c.propertyZipCode || c.zipCode || '78701',
-    stage: c.stage || 'New',
-    crmStatus: c.stage || 'New',
-    notes: c.notes || '',
-    statement: c.notes || '',
-    propertyAddress: c.notes ? (c.notes.match(/Address:\s*([^|]+)/i)?.[1]?.trim() || '') : '',
-    timeframe: c.notes ? (c.notes.match(/Timeframe:\s*([^|]+)/i)?.[1]?.trim() || 'Exploring') : 'Exploring',
-    budgetMax: c.notes ? (c.notes.match(/Budget\/Val:\s*([^|]+)/i)?.[1]?.trim() || '') : '',
-    source: c.source || 'Direct',
-    assignedAgentId: c.assignedToUserId ? String(c.assignedToUserId) : null,
-    externalFsbo: Boolean(c.externalFsbo)
-  }));
-
-  const appointments = (activities || []).filter(a => (a.kind || '').toLowerCase() === 'appointment');
-  const tasks = (activities || []).filter(a => (a.kind || '').toLowerCase() !== 'appointment');
-
-  res.json({
-    leads: mappedLeads,
-    appointments,
-    tasks,
-    summary: {
-      upcomingAppointments: appointments.filter(a => a.status === 'SCHEDULED' || !a.status).length,
-      openTasks: tasks.filter(t => !t.completed).length
-    }
-  });
-}
-
-app.get('/api/crm/workspace', handleCrmWorkspace);
 
 // Register comprehensive gateway microservices features BEFORE wildcard CRM proxy
 app.use(express.json({ limit: '50mb' }));
@@ -334,7 +243,7 @@ app.get('/subscriber-login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'subscriber-login.html'));
 });
 
-app.get('/dashboard/home', (req, res) => {
+app.get(['/dashboard/home', '/dashboard/crm', '/dashboard/leads', '/dashboard/calendar'], (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'dashboard-home.html'));
 });
 
@@ -418,11 +327,13 @@ app.post('/api/nyra/v1/speech', (req, res) => {
 
 // Inquiries API - Ingests verified lead into Nyrava CRM with Territory Routing
 app.post('/api/inquiries', async (req, res) => {
+  if(!process.env.CRM_INBOUND_TOKEN)return res.status(503).json({error:'Lead intake integration is not configured. Your submission has not been saved.'});
   const p = req.body || {};
   const zip = (p.zipCode || '78701').trim();
   const cleanPhone = (p.phone || '').trim();
   const cleanEmail = (p.email || '').trim();
-  const cleanName = (p.fullName || 'Inquiry Contact').trim();
+  const cleanName = (p.fullName || '').trim();
+  if(!cleanName)return res.status(400).json({error:'Enter your name.'});
   const externalId = `inq-${zip}-${cleanPhone.replace(/\D/g, '') || Date.now()}`;
 
   const crmPayload = {
@@ -449,13 +360,14 @@ app.post('/api/inquiries', async (req, res) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer nycrm_JVsFAh7zwIJo-iejVRvl3UZ7APQ1zyNC7_0ai7c9a9A'
+        'Authorization': 'Bearer '+process.env.CRM_INBOUND_TOKEN
       },
       body: JSON.stringify(crmPayload)
     });
+    if(!crmRes.ok){const error=await crmRes.json().catch(()=>({}));return res.status(crmRes.status).json({error:error.error||'CRM rejected this submission. It has not been confirmed.'});}
     console.log(`[Lead Ingested to CRM] ZIP: ${zip} | Status: ${crmRes.status}`);
   } catch (err) {
-    console.warn('[CRM Network]', err.message);
+    return res.status(502).json({error:'CRM unavailable. Your submission was not confirmed.'});
   }
 
   return res.json({
@@ -463,14 +375,15 @@ app.post('/api/inquiries', async (req, res) => {
     status: 'ACTIVE',
     confirmation: {
       ok: true,
-      status: 'CONFIRMATION_SENT',
-      message: 'Your inquiry has been submitted and dispatched to our territory network.'
+      status: 'SAVED',
+      message: 'Your inquiry has been saved to the CRM. Assignment and email delivery are not confirmed by this receipt.'
     }
   });
 });
 
 // FSBO direct listing endpoint -> Ingests into CRM as Seller Lead with Territory Routing & Property Media
 app.post('/api/fsbo/listing', async (req, res) => {
+  if(!process.env.CRM_INBOUND_TOKEN)return res.status(503).json({error:'Lead intake integration is not configured. Your submission has not been saved.'});
   const p = req.body || {};
   const zip = (p.zipCode || '78701').trim();
   const phone = (p.phone || '').trim();
@@ -561,13 +474,14 @@ app.post('/api/fsbo/listing', async (req, res) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer nycrm_JVsFAh7zwIJo-iejVRvl3UZ7APQ1zyNC7_0ai7c9a9A'
+        'Authorization': 'Bearer '+process.env.CRM_INBOUND_TOKEN
       },
       body: JSON.stringify(crmPayload)
     });
+    if(!crmRes.ok){const error=await crmRes.json().catch(()=>({}));return res.status(crmRes.status).json({error:error.error||'CRM rejected this submission. It has not been confirmed.'});}
     console.log('[FSBO Lead Ingested to CRM] ZIP: ' + zip + ' | Media: ' + uploadedUrls.length + ' | Status: ' + crmRes.status);
   } catch (err) {
-    console.warn('[CRM Network FSBO]', err.message);
+    return res.status(502).json({error:'CRM unavailable. Your submission was not confirmed.'});
   }
 
   return res.json({
@@ -575,7 +489,7 @@ app.post('/api/fsbo/listing', async (req, res) => {
     success: true,
     media: uploadedUrls,
     videoUrl: videoUrl,
-    message: 'Your FSBO listing with property photos and video has been successfully published and routed to qualified buyers and territory agents!'
+    message: 'Your FSBO submission has been saved to the CRM for review.'
   });
 });
 
@@ -765,70 +679,6 @@ app.post('/api/admin/stripe/prices/validate', (req, res) => {
 // WORKSPACE & DASHBOARD API
 // ===================================================================
 
-app.get('/api/dashboard/summary', async (req, res) => {
-  let subscribedZips = [{ zipCode: '78701', slotNumber: 1 }];
-  let plan = 'BASIC';
-  let planStatus = 'ACTIVE';
-  let monthlyPrice = 89;
-
-  try {
-    const meRes = await fetch(CRM_SERVICE_URL + '/api/me', {
-      headers: {
-        'Cookie': req.headers.cookie || '',
-        'Authorization': req.headers.authorization || ''
-      }
-    });
-    if (meRes.ok) {
-      const me = await meRes.json();
-      if (me.subscribedZipCodes) {
-        subscribedZips = me.subscribedZipCodes
-          .split(/[,;\s]+/)
-          .filter(Boolean)
-          .map((z, idx) => ({ zipCode: z, slotNumber: idx + 1 }));
-      }
-      plan = (me.subscriptionPlan || 'BASIC').toUpperCase();
-      planStatus = me.subscriptionStatus || 'ACTIVE';
-      monthlyPrice = plan === 'PRO' ? 149 : 89;
-    }
-  } catch (err) {
-    console.warn('[Dashboard Summary Me Fallback]', err.message);
-  }
-
-  res.json({
-    subscribedZips,
-    plan,
-    planStatus,
-    monthlyPrice,
-    currency: 'USD'
-  });
-});
-
-// CRM Workspace handled above
-
-app.get('/api/team/workspace', async (req, res) => {
-  let members = [];
-  try {
-    const tRes = await fetch(CRM_SERVICE_URL + '/api/team', {
-      headers: {
-        'Cookie': req.headers.cookie || '',
-        'Authorization': req.headers.authorization || ''
-      }
-    });
-    if (tRes.ok) {
-      const data = await tRes.json();
-      members = data.members || [];
-    }
-  } catch (err) {
-    console.warn('[Team Workspace Read]', err.message);
-  }
-  res.json({
-    members,
-    staff: members,
-    maxMembers: 5,
-    activeCount: members.length
-  });
-});
-
 // ===================================================================
 // CALENDAR & VIDEO CONSULTATION INTEGRATION
 // ===================================================================
@@ -902,35 +752,6 @@ app.get('/api/crm-calendar/events', async (req, res) => {
   res.json({
     events: [...manualEvents, ...crmEvents],
     staff: []
-  });
-});
-
-app.get('/api/workbench/workspace', async (req, res) => {
-  let contacts = [];
-  try {
-    const cRes = await fetch(CRM_SERVICE_URL + '/api/contacts', {
-      headers: {
-        'Cookie': req.headers.cookie || '',
-        'Authorization': req.headers.authorization || ''
-      }
-    });
-    if (cRes.ok) {
-      const raw = await cRes.json();
-      contacts = (raw || []).map(c => ({
-        id: String(c.id),
-        kind: 'crm',
-        fullName: c.fullName || 'Lead',
-        email: c.email || '',
-        phone: c.phone || '',
-        leadType: c.leadType || 'Client',
-        zipCode: c.propertyZipCode || '78701'
-      }));
-    }
-  } catch (e) {}
-
-  res.json({
-    contacts,
-    total: contacts.length
   });
 });
 
@@ -1023,7 +844,7 @@ app.get('/api/crm-calendar/events/:source/:id/video', (req, res) => {
     delivery: 'Sent via Email',
     canHost: true,
     state: 'SCHEDULED',
-    email: 'client@example.com',
+    email: 'fictional-contact@example.test',
     startsAt: new Date().toISOString(),
     endsAt: new Date(Date.now() + 1800000).toISOString()
   };
@@ -1035,7 +856,7 @@ app.get('/api/crm-calendar/events/:source/:id/video', (req, res) => {
       callsEnabled: true
     },
     appointment: {
-      email: m.email || 'client@example.com',
+      email: m.email || 'fictional-contact@example.test',
       startsAt: m.startsAt,
       endsAt: m.endsAt
     },
@@ -1061,7 +882,7 @@ app.get('/external_api.js', createProxyMiddleware({
 // Static files
 app.use(express.static(path.join(__dirname, 'public'), {
   etag: true,
-  maxAge: '1h'
+  maxAge: 0
 }));
 
 // Health check

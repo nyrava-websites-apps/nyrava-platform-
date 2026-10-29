@@ -1,8 +1,13 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.DataProtection;
 using NyravaCRM;
 
 var builder = WebApplication.CreateBuilder(args);
+// An explicit directory supports persistent keys in containers and isolated local
+// verification without reading another Windows account's DPAPI key ring.
+if (builder.Configuration["Crm:DataProtectionPath"] is string keyPath && !string.IsNullOrWhiteSpace(keyPath))
+    builder.Services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(keyPath));
 var stages = new HashSet<string>(StringComparer.Ordinal) { "New", "Contacted", "Qualified", "Follow-up", "Appointment", "Verified Lead", "Lost Lead" };
 var leadTypes = new HashSet<string>(StringComparer.Ordinal) { "Buyer", "Seller", "Other" };
 var dataDir = Path.Combine(builder.Environment.ContentRootPath, "data");
@@ -47,7 +52,7 @@ builder.Services.AddAuthentication("crm-cookie").AddCookie("crm-cookie", options
     options.Cookie.Name = demoMode ? "NyravaCRM.Session.Demo" : "NyravaCRM.Session";
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.Lax;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SecurePolicy = secureCookie ? CookieSecurePolicy.Always : CookieSecurePolicy.SameAsRequest;
     if (!builder.Environment.IsDevelopment()) {
         options.Cookie.Domain = ".nyrava.com";
     }
@@ -148,8 +153,8 @@ await using (var scope = app.Services.CreateAsyncScope())
             db.Memberships.Add(new CrmMembership { OwnerUserId = user.Id, UserId = user.Id, Role = "Owner", Active = true });
     }
     await db.SaveChangesAsync();
-    await EnsureSystemAdminAsync(db);
-    if (demoMode) await SeedDemoWorkspaceAsync(db);
+    await EnsureSystemAdminAsync(db, builder.Configuration);
+    if (demoMode) await SeedDemoWorkspaceAsync(db, builder.Configuration);
 }
 
 app.UseCors();
@@ -426,9 +431,7 @@ app.MapPost("/api/auth/mfa/verify", async (MfaVerifyInput input, CrmDb db, HttpC
 
 app.MapPost("/api/auth/google", async (GoogleAuthInput input, CrmDb db, HttpContext http) => {
     var email = input.Email?.Trim().ToLowerInvariant();
-    if (string.IsNullOrWhiteSpace(email)) {
-        email = "h.g4972@gmail.com";
-    }
+    if (string.IsNullOrWhiteSpace(email)) return Results.BadRequest(new { error = "Valid Google email is required." });
     if (!ValidEmail(email)) {
         return Results.BadRequest(new { error = "Valid Google email is required." });
     }
@@ -486,7 +489,7 @@ var handleLogout = async (HttpContext http) => {
 app.MapPost("/api/logout", handleLogout).AllowAnonymous();
 app.MapPost("/api/auth/logout", handleLogout).AllowAnonymous();
 
-app.MapGet("/api/demo-info", () => Results.Ok(new { enabled=demoMode, inviteCode=demoMode?"1234":null, teamInvitationsEnabled })).AllowAnonymous();
+app.MapGet("/api/demo-info", () => Results.Ok(new { enabled=demoMode, inviteCode=demoMode?builder.Configuration["Crm:DemoInviteCode"]:null, teamInvitationsEnabled })).AllowAnonymous();
 
 var handleMe = async (CrmDb db, HttpContext http) => {
     var u=await CurrentUser(db,http);
@@ -685,16 +688,16 @@ app.MapPost("/api/email/test", async (TestEmailInput input, HttpContext http) =>
     var type = input.Type?.Trim().ToLowerInvariant() ?? "verification";
     EmailDispatchResult result = type switch {
         "welcome" => await EmailService.SendWelcomeEmailAsync(builder.Configuration, recipient, "Valued Partner", "https://home.nyrava.com"),
-        "reset" => await EmailService.SendPasswordResetEmailAsync(builder.Configuration, recipient, "https://home.nyrava.com/reset?token=test_demo_token"),
+        "reset" => await EmailService.SendPasswordResetEmailAsync(builder.Configuration, recipient, "https://example.test/reset?token=sample-only"),
         "alert" => await EmailService.SendPasswordChangedAlertAsync(builder.Configuration, recipient),
-        "invite" => await EmailService.SendInvitationEmailAsync(builder.Configuration, recipient, "https://home.nyrava.com/index.html?invite=test_demo_code", "admin@nyrava.com"),
-        "lead" => await EmailService.SendNewLeadNotificationAsync(builder.Configuration, recipient, "Sarah Jenkins", "Seller", "77084", "(832) 555-0144"),
-        "assigned" => await EmailService.SendLeadAssignedNotificationAsync(builder.Configuration, recipient, "Robert Taylor", "Buyer", "Lead Concierge"),
+        "invite" => await EmailService.SendInvitationEmailAsync(builder.Configuration, recipient, "https://example.test/join?code=sample-only", "Fictional Test Sender <test.sender@example.test>"),
+        "lead" => await EmailService.SendNewLeadNotificationAsync(builder.Configuration, recipient, "Fictional Client One", "Seller", "00000", "+1-202-555-0101"),
+        "assigned" => await EmailService.SendLeadAssignedNotificationAsync(builder.Configuration, recipient, "Fictional Client Two", "Buyer", "Demo Concierge"),
         "reminder" => await EmailService.SendAppointmentReminderEmailAsync(builder.Configuration, recipient, "Listing Consultation", DateTimeOffset.UtcNow.AddDays(1), "https://meet.nyrava.com/room/test-consultation"),
         "receipt" => await EmailService.SendSubscriptionReceiptEmailAsync(builder.Configuration, recipient, "Realtor Pro Monthly", 499.00m),
         "failed" => await EmailService.SendPaymentFailedAlertAsync(builder.Configuration, recipient, "Realtor Pro Monthly"),
         "support" => await EmailService.SendCustomerSupportInquiryAsync(builder.Configuration, recipient, "Inquiry from Test", "Testing centralized outgoing mail service."),
-        _ => await EmailService.SendSubscriberVerificationEmailAsync(builder.Configuration, recipient, "https://home.nyrava.com/verify?token=test_demo_token")
+        _ => await EmailService.SendSubscriberVerificationEmailAsync(builder.Configuration, recipient, "https://example.test/verify?token=sample-only")
     };
 
     return Results.Ok(new {
@@ -713,7 +716,17 @@ app.MapPost("/api/team/invitations", async (InviteInput input, CrmDb db, HttpCon
     var actor=await CurrentUser(db,http); if(actor.Role!="Owner") return Results.Forbid();
     var email=string.IsNullOrWhiteSpace(input.Email)?null:input.Email.Trim().ToLowerInvariant();
     if(email is null||!ValidEmail(email)) return Results.BadRequest(new{error="Enter the email address of the person you are inviting."});
-    
+    if (demoMode) {
+        var demoInviteCode = RequireConfiguredCredential(builder.Configuration, "DemoInviteCode");
+        var demoHash = HashToken(demoInviteCode);
+        var demoInvite = await db.Invitations.SingleOrDefaultAsync(i => i.OwnerUserId == actor.WorkspaceId && i.TokenHash == demoHash);
+        if (demoInvite is null) { demoInvite = new CrmInvitation { OwnerUserId = actor.WorkspaceId, TokenHash = demoHash }; db.Invitations.Add(demoInvite); }
+        demoInvite.Email = email; demoInvite.AcceptedAt = null; demoInvite.ExpiresAt = DateTimeOffset.UtcNow.AddDays(7);
+        await db.SaveChangesAsync(); return Results.Ok(new { code = demoInviteCode, joinUrl = $"/index.html?invite={Uri.EscapeDataString(demoInviteCode)}", emailAccepted = false, demo = true });
+    }
+    if (string.IsNullOrWhiteSpace(EmailService.GetConfig(builder.Configuration).Pass))
+        return Results.Json(new { error = "Invitation email is not configured. No delivery was confirmed." }, statusCode: 503);
+
     string? invitationBaseUrl=builder.Configuration["Crm:PublicBaseUrl"]?.TrimEnd('/');
     if(string.IsNullOrWhiteSpace(invitationBaseUrl)){
         invitationBaseUrl=$"{http.Request.Scheme}://{http.Request.Host}";
@@ -729,8 +742,12 @@ app.MapPost("/api/team/invitations", async (InviteInput input, CrmDb db, HttpCon
 
     var emailResult = await EmailService.SendInvitationEmailAsync(builder.Configuration, email, fullJoinUrl, actor.Email);
 
+    if (!emailResult.SentViaSmtp)
+        return Results.Json(new { error = "Invitation saved, but email delivery was not accepted. Retry after checking email service configuration." }, statusCode: 503);
+
     return Results.Ok(new{
         sent=true,
+        emailAccepted=true,
         sentViaSmtp=emailResult.SentViaSmtp,
         deliveryStatus=emailResult.Status,
         email=email,
@@ -777,12 +794,12 @@ app.MapPost("/api/team/assign/{contactId:long}", async (long contactId, Assignme
 }).RequireAuthorization();
 
 app.MapGet("/api/chat/people", async (CrmDb db,HttpContext http)=>{
-    var actor=await CurrentUser(db,http); 
+    var actor=await CurrentUser(db,http);
 
     if (IsPlatformAdmin(actor)) {
         // Admin sees ALL Realtor Account Owners for direct support
         var realtors = await db.Users
-            .Where(u => u.Email != "admin@home.nyrava.com" && u.Email != "admin@nyrava.com" && u.Email != "testadmin@example.test" && u.Role == "Owner")
+            .Where(u => u.Role == "Owner")
             .Select(u => new { id = u.Id, email = $"{u.Email} (Realtor Subscriber)", role = "Realtor", isSupport = false })
             .ToListAsync();
         return Results.Ok(realtors);
@@ -808,7 +825,7 @@ app.MapGet("/api/chat/people", async (CrmDb db,HttpContext http)=>{
         .Join(db.Users,m=>m.UserId,u=>u.Id,(m,u)=>new{id=u.Id,email=u.Email,role=m.Role,isSupport=false})
         .ToListAsync();
 
-    var adminUser = await db.Users.FirstOrDefaultAsync(u => u.Role == "Admin" || u.Email == "admin@home.nyrava.com" || u.Email == "admin@nyrava.com");
+    var adminUser = await db.Users.FirstOrDefaultAsync(u => u.Role == "Admin");
     if (adminUser != null && !people.Any(p => p.id == adminUser.Id)) {
         people.Insert(0, new { id = adminUser.Id, email = "Nyrava Platform Support Admin", role = "Support", isSupport = true });
     }
@@ -836,8 +853,8 @@ app.MapPost("/api/support/ai-assistant", async (SupportAiInput input, CrmDb db, 
 app.MapGet("/api/contacts", async (CrmDb db, HttpContext http) => {
     var actor=await CurrentUser(db,http); var userId=actor.Id; var owner=actor.WorkspaceId;
     var isPlatformAdmin = IsPlatformAdmin(actor);
-    var query = isPlatformAdmin 
-        ? db.Contacts.Where(x => x.ArchivedAt == null) 
+    var query = isPlatformAdmin
+        ? db.Contacts.Where(x => x.ArchivedAt == null)
         : db.Contacts.Where(x => x.UserId == owner && x.ArchivedAt == null && (actor.Role == "Owner" || x.AssignedToUserId == userId));
     var items = await query.ToListAsync();
 
@@ -927,7 +944,7 @@ app.MapPost("/api/v1/inbound-leads", async (InboundLeadInput input, CrmDb db, Ht
 
     // Find subscribed realtors covering this ZIP code
     var activeRealtors = await db.Users
-        .Where(u => u.Role == "Owner" && u.WorkspaceId == u.Id && u.Email != "admin@home.nyrava.com" && u.Email != "admin@nyrava.com" && u.Email != "testadmin@example.test")
+        .Where(u => u.Role == "Owner" && u.WorkspaceId == u.Id)
         .ToListAsync();
 
     var matchingRealtors = activeRealtors
@@ -1099,8 +1116,8 @@ app.MapGet("/api/admin/area-intelligence", async (CrmDb db, HttpContext http) =>
     var actor = await CurrentUser(db, http);
     var isPlatformAdmin = IsPlatformAdmin(actor);
 
-    var query = isPlatformAdmin 
-        ? db.Contacts.AsQueryable() 
+    var query = isPlatformAdmin
+        ? db.Contacts.AsQueryable()
         : db.Contacts.Where(c => c.UserId == actor.WorkspaceId);
 
     var allContacts = await query.ToListAsync();
@@ -1198,7 +1215,7 @@ app.MapGet("/api/admin/realtors", async (CrmDb db, HttpContext http) => {
     var actor = await CurrentUser(db, http);
     if (!IsPlatformAdmin(actor)) return Results.Forbid();
     var realtors = await db.Users
-        .Where(u => u.Email != "admin@home.nyrava.com" && u.Email != "admin@nyrava.com" && u.Email != "testadmin@example.test" && u.Role == "Owner")
+        .Where(u => u.Role == "Owner")
         .Select(u => new { u.Id, u.Email, u.SubscribedZipCodes, u.SubscriptionPlan, u.SubscriptionStatus })
         .ToListAsync();
     return Results.Ok(realtors);
@@ -1283,7 +1300,7 @@ app.MapDelete("/api/contacts/{id:long}", async (long id, bool? permanent, CrmDb 
         item.ArchivedAt=DateTimeOffset.UtcNow;
         item.UpdatedAt=DateTimeOffset.UtcNow;
     }
-    await db.SaveChangesAsync(); 
+    await db.SaveChangesAsync();
     return Results.NoContent();
 }).RequireAuthorization();
 app.MapPost("/api/contacts/{id:long}/restore",async(long id,CrmDb db,HttpContext http)=>{
@@ -1331,51 +1348,63 @@ app.MapDelete("/api/activities/{id:long}", async (long id, CrmDb db, HttpContext
     db.Activities.Remove(item); await db.SaveChangesAsync(); return Results.NoContent();
 }).RequireAuthorization();
 
+app.MapWorkbench();
 app.Run();
 
-static async Task SeedDemoWorkspaceAsync(CrmDb db)
+static async Task SeedDemoWorkspaceAsync(CrmDb db, IConfiguration configuration)
 {
-    const string ownerEmail = "testone@example.test";
-    const string employeeEmail = "testtwo@example.test";
-    var demoInviteHash = HashToken("1234");
+    var ownerEmail = configuration["Crm:DemoOwnerEmail"]?.Trim().ToLowerInvariant() ?? "demo-owner@example.test";
+    var employeeEmail = configuration["Crm:DemoEmployeeEmail"]?.Trim().ToLowerInvariant() ?? "demo-employee@example.test";
+    var ownerPassword = RequireConfiguredCredential(configuration, "DemoOwnerPassword");
+    var employeePassword = RequireConfiguredCredential(configuration, "DemoEmployeePassword");
+    var demoAdminPassword = RequireConfiguredCredential(configuration, "DemoAdminPassword");
+    var demoInviteCode = RequireConfiguredCredential(configuration, "DemoInviteCode");
+    var demoInviteHash = HashToken(demoInviteCode);
     var owner = await db.Users.SingleOrDefaultAsync(x => x.Email == ownerEmail);
     if (owner is not null) {
-        owner.Role="Owner"; owner.WorkspaceId=owner.Id;
-        if(!BCrypt.Net.BCrypt.Verify("DemoCRM!2026TestOne",owner.PasswordHash)) owner.PasswordHash=BCrypt.Net.BCrypt.HashPassword("DemoCRM!2026TestOne");
+        owner.Role = "Owner";
+        if (owner.WorkspaceId == 0) owner.WorkspaceId = owner.Id;
         await db.SaveChangesAsync();
-        var existingEmployee=await db.Users.SingleOrDefaultAsync(x=>x.Email==employeeEmail);
-        if(existingEmployee is null){existingEmployee=new CrmUser{Email=employeeEmail,PasswordHash=BCrypt.Net.BCrypt.HashPassword("DemoCRM!2026TestTwo"),WorkspaceId=owner.Id,Role="Employee"};db.Users.Add(existingEmployee);await db.SaveChangesAsync();}
-        else {existingEmployee.WorkspaceId=owner.Id;existingEmployee.Role="Employee";if(!BCrypt.Net.BCrypt.Verify("DemoCRM!2026TestTwo",existingEmployee.PasswordHash))existingEmployee.PasswordHash=BCrypt.Net.BCrypt.HashPassword("DemoCRM!2026TestTwo");await db.SaveChangesAsync();}
-        var ownerMembership=await db.Memberships.SingleOrDefaultAsync(x=>x.OwnerUserId==owner.Id&&x.UserId==owner.Id);
-        if(ownerMembership is null)db.Memberships.Add(new CrmMembership{OwnerUserId=owner.Id,UserId=owner.Id,Role="Owner",Active=true});
-        var employeeMembership=await db.Memberships.SingleOrDefaultAsync(x=>x.OwnerUserId==owner.Id&&x.UserId==existingEmployee.Id);
-        if(employeeMembership is null)db.Memberships.Add(new CrmMembership{OwnerUserId=owner.Id,UserId=existingEmployee.Id,Role="Employee",Active=true});
-        else {employeeMembership.Role="Employee";employeeMembership.Active=true;}
-        await db.SaveChangesAsync();
-        if (!await db.Invitations.AnyAsync(x=>x.OwnerUserId==owner.Id&&x.TokenHash==demoInviteHash)) {
-            db.Invitations.Add(new CrmInvitation { OwnerUserId=owner.Id,TokenHash=demoInviteHash,ExpiresAt=DateTimeOffset.UtcNow.AddYears(5) });
+        var employee = await db.Users.SingleOrDefaultAsync(x => x.Email == employeeEmail);
+        if (employee is null) {
+            employee = new CrmUser { Email = employeeEmail, PasswordHash = BCrypt.Net.BCrypt.HashPassword(employeePassword), WorkspaceId = owner.Id, Role = "Employee" };
+            db.Users.Add(employee);
+            await db.SaveChangesAsync();
+        } else {
+            employee.WorkspaceId = owner.Id;
+            employee.Role = "Employee";
             await db.SaveChangesAsync();
         }
-        await EnsureDemoAdminAsync(db);
+        var ownerMembership = await db.Memberships.SingleOrDefaultAsync(x => x.OwnerUserId == owner.Id && x.UserId == owner.Id);
+        if (ownerMembership is null) db.Memberships.Add(new CrmMembership { OwnerUserId = owner.Id, UserId = owner.Id, Role = "Owner", Active = true });
+        var employeeMembership = await db.Memberships.SingleOrDefaultAsync(x => x.OwnerUserId == owner.Id && x.UserId == employee.Id);
+        if (employeeMembership is null) db.Memberships.Add(new CrmMembership { OwnerUserId = owner.Id, UserId = employee.Id, Role = "Employee", Active = true });
+        else { employeeMembership.Role = "Employee"; employeeMembership.Active = true; }
+        await db.SaveChangesAsync();
+        if (!await db.Invitations.AnyAsync(x => x.OwnerUserId == owner.Id && x.TokenHash == demoInviteHash)) {
+            db.Invitations.Add(new CrmInvitation { OwnerUserId = owner.Id, TokenHash = demoInviteHash, ExpiresAt = DateTimeOffset.UtcNow.AddYears(5) });
+            await db.SaveChangesAsync();
+        }
+        await EnsureDemoAdminAsync(db, configuration, demoAdminPassword);
         return;
     }
-    owner = new CrmUser { Email = ownerEmail, PasswordHash = BCrypt.Net.BCrypt.HashPassword("DemoCRM!2026TestOne"), Role = "Owner" };
+    owner = new CrmUser { Email = ownerEmail, PasswordHash = BCrypt.Net.BCrypt.HashPassword(ownerPassword), Role = "Owner" };
     db.Users.Add(owner);
     await db.SaveChangesAsync();
     owner.WorkspaceId = owner.Id;
-    var employee = new CrmUser { Email = employeeEmail, PasswordHash = BCrypt.Net.BCrypt.HashPassword("DemoCRM!2026TestTwo"), WorkspaceId = owner.Id, Role = "Employee" };
-    db.Users.Add(employee);
+    var newEmployee = new CrmUser { Email = employeeEmail, PasswordHash = BCrypt.Net.BCrypt.HashPassword(employeePassword), WorkspaceId = owner.Id, Role = "Employee" };
+    db.Users.Add(newEmployee);
     await db.SaveChangesAsync();
     db.Memberships.AddRange(
         new CrmMembership { OwnerUserId = owner.Id, UserId = owner.Id, Role = "Owner", Active = true },
-        new CrmMembership { OwnerUserId = owner.Id, UserId = employee.Id, Role = "Employee", Active = true });
+        new CrmMembership { OwnerUserId = owner.Id, UserId = newEmployee.Id, Role = "Employee", Active = true });
     var now = DateTimeOffset.UtcNow;
     CrmContact Contact(string name,string type,string stage,long assigned,string email,string phone,string notes) => new() { UserId=owner.Id,AssignedToUserId=assigned,Name=name,LeadType=type,Stage=stage,Email=email,Phone=phone,Company="Demo Realty",Notes=notes,UpdatedAt=now };
-    var c1=Contact("Jordan Sample","Buyer","Qualified",owner.Id,"jordan@example.test","+1 555-0101","Demo buyer; interested in a home near downtown.");
-    var c2=Contact("Morgan Example","Seller","Appointment",employee.Id,"morgan@example.test","+1 555-0102","Demo seller; wants a pricing consultation.");
-    var c3=Contact("Casey Demo","Buyer","Contacted",employee.Id,"casey@example.test","+1 555-0103","Asked for neighborhood recommendations.");
-    var c4=Contact("Taylor Test","Seller","Follow-up",owner.Id,"taylor@example.test","+1 555-0104","Follow up after the initial property walk-through.");
-    var c5=Contact("Riley Example","Buyer","Verified Lead",owner.Id,"riley@example.test","+1 555-0105","Demo verified lead for dashboard testing.");
+    var c1=Contact("Fictional Client One","Buyer","Qualified",owner.Id,"client-one@example.test","+1-202-555-0101","Demo buyer; interested in a home near downtown.");
+    var c2=Contact("Fictional Client Two","Seller","Appointment",newEmployee.Id,"client-two@example.test","+1-202-555-0102","Demo seller; wants a pricing consultation.");
+    var c3=Contact("Fictional Client Three","Buyer","Contacted",newEmployee.Id,"client-three@example.test","+1-202-555-0103","Asked for neighborhood recommendations.");
+    var c4=Contact("Fictional Client Four","Seller","Follow-up",owner.Id,"client-four@example.test","+1-202-555-0104","Follow up after the initial property walk-through.");
+    var c5=Contact("Fictional Client Five","Buyer","Verified Lead",owner.Id,"client-five@example.test","+1-202-555-0105","Demo verified lead for dashboard testing.");
     db.Contacts.AddRange(c1,c2,c3,c4,c5);
     await db.SaveChangesAsync();
     CrmActivity Activity(CrmContact c,string kind,string title,DateTimeOffset at,string? detail=null,string? location=null,bool completed=false,string? result=null) => new() { UserId=owner.Id,CreatedByUserId=c.AssignedToUserId??owner.Id,AssignedToUserId=c.AssignedToUserId,ContactId=c.Id,Contact=c,Kind=kind,Title=title,StartsAt=at,EndsAt=at,Details=detail,Location=location,TimeZone="America/Mexico_City",Completed=completed,Result=result };
@@ -1392,125 +1421,105 @@ static async Task SeedDemoWorkspaceAsync(CrmDb db)
     activities[3].ResultHistory=System.Text.Json.JsonSerializer.Serialize(new[]{new AppointmentResultRecord("Held","Walk-through completed; seller requested a follow-up.",now.AddDays(-2),owner.Id)});
     db.Activities.AddRange(activities);
     db.Messages.AddRange(
-        new CrmMessage { WorkspaceOwnerId=owner.Id,SenderUserId=owner.Id,RecipientUserId=employee.Id,Body="Welcome to the demo team chat. Try replying as Test Two.",CreatedAt=now.AddMinutes(-4) },
-        new CrmMessage { WorkspaceOwnerId=owner.Id,SenderUserId=employee.Id,RecipientUserId=owner.Id,Body="Thanks! I can see my assigned contacts and calendar items.",CreatedAt=now.AddMinutes(-2) });
+        new CrmMessage { WorkspaceOwnerId=owner.Id,SenderUserId=owner.Id,RecipientUserId=newEmployee.Id,Body="Welcome to the demo team chat. Try replying as Test Two.",CreatedAt=now.AddMinutes(-4) },
+        new CrmMessage { WorkspaceOwnerId=owner.Id,SenderUserId=newEmployee.Id,RecipientUserId=owner.Id,Body="Thanks! I can see my assigned contacts and calendar items.",CreatedAt=now.AddMinutes(-2) });
     db.Invitations.Add(new CrmInvitation { OwnerUserId=owner.Id,TokenHash=demoInviteHash,ExpiresAt=now.AddYears(5) });
     await db.SaveChangesAsync();
-    await EnsureDemoAdminAsync(db);
+    await EnsureDemoAdminAsync(db, configuration, demoAdminPassword);
 }
 
-static async Task EnsureSystemAdminAsync(CrmDb db) {
-    // 1. Ensure Master Platform Admin
-    var admin = await db.Users.FirstOrDefaultAsync(x => x.Email == "admin@home.nyrava.com" || x.Email == "admin@nyrava.com");
+static async Task EnsureSystemAdminAsync(CrmDb db, IConfiguration configuration) {
+    var configuredEmail = configuration["Crm:BootstrapAdminEmail"]?.Trim().ToLowerInvariant();
+    var configuredPassword = configuration["Crm:BootstrapAdminPassword"];
+    if (string.IsNullOrWhiteSpace(configuredEmail) != string.IsNullOrWhiteSpace(configuredPassword))
+        throw new InvalidOperationException("Configure both Crm:BootstrapAdminEmail and Crm:BootstrapAdminPassword to bootstrap a platform administrator.");
+
+    CrmUser? admin = null;
+    if (!string.IsNullOrWhiteSpace(configuredEmail)) {
+        if (!ValidEmail(configuredEmail)) throw new InvalidOperationException("Crm:BootstrapAdminEmail must be a valid email address.");
+        if (configuredPassword!.Length < 12 || configuredPassword.Length > 200)
+            throw new InvalidOperationException("Crm:BootstrapAdminPassword must be between 12 and 200 characters.");
+        admin = await db.Users.SingleOrDefaultAsync(x => x.Email == configuredEmail);
+        if (admin is null) {
+            admin = new CrmUser {
+                Email = configuredEmail,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(configuredPassword),
+                Role = "Admin",
+                Country = "US",
+                PostalCode = "78701",
+                SubscribedZipCodes = "",
+                SubscriptionStatus = "Active",
+                SubscriptionPlan = "Platform Admin"
+            };
+            db.Users.Add(admin);
+            await db.SaveChangesAsync();
+            admin.WorkspaceId = admin.Id;
+            await db.SaveChangesAsync();
+        } else if (admin.Role != "Admin") {
+            throw new InvalidOperationException("Crm:BootstrapAdminEmail already belongs to a non-admin account.");
+        }
+    }
+
+    admin ??= await db.Users.FirstOrDefaultAsync(x => x.Role == "Admin");
+    if (admin is null) return;
+    if (admin.WorkspaceId == 0) admin.WorkspaceId = admin.Id;
+    if (!await db.Memberships.AnyAsync(x => x.OwnerUserId == admin.Id && x.UserId == admin.Id)) {
+        db.Memberships.Add(new CrmMembership { OwnerUserId = admin.Id, UserId = admin.Id, Role = "Admin", Active = true });
+        await db.SaveChangesAsync();
+    }
+
+    foreach (var key in await db.IntegrationKeys.ToListAsync()) key.OwnerUserId = admin.Id;
+    await db.SaveChangesAsync();
+
+    var configuredRealtorEmail = configuration["Crm:BootstrapRealtorEmail"]?.Trim().ToLowerInvariant();
+    if (string.IsNullOrWhiteSpace(configuredRealtorEmail)) return;
+    var realtor = await db.Users.SingleOrDefaultAsync(x => x.Email == configuredRealtorEmail && x.Role == "Owner");
+    if (realtor is null) return;
+    var unassignedLeads = (await db.Contacts.Where(c => c.UserId == realtor.Id).ToListAsync())
+        .Where(c => c.PropertyZipCode is null || !GeographicService.MatchesZipCoverage(realtor, c.PropertyZipCode));
+    foreach (var contact in unassignedLeads) {
+        contact.UserId = admin.Id;
+        contact.AssignedToUserId = admin.Id;
+        if (string.IsNullOrWhiteSpace(contact.Notes) || (!contact.Notes.Contains("[In Master Bank") && !contact.Notes.Contains("[Dispatched")))
+            contact.Notes = $"[In Master Bank - Unassigned] {contact.Notes}".Trim();
+    }
+    await db.SaveChangesAsync();
+}
+
+static async Task EnsureDemoAdminAsync(CrmDb db, IConfiguration configuration, string password) {
+    var email = configuration["Crm:DemoAdminEmail"]?.Trim().ToLowerInvariant() ?? "demo-admin@example.test";
+    var admin = await db.Users.SingleOrDefaultAsync(x => x.Email == email);
     if (admin is null) {
-        admin = new CrmUser {
-            Email = "admin@home.nyrava.com",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Shazbot!Dog5!"),
-            Role = "Admin",
-            Country = "US",
-            PostalCode = "77084",
-            SubscribedZipCodes = "",
-            SubscriptionStatus = "Active",
-            SubscriptionPlan = "Platform Admin Master"
-        };
+        admin = new CrmUser { Email = email, PasswordHash = BCrypt.Net.BCrypt.HashPassword(password), Role = "Admin", Country = "US", PostalCode = "78701", SubscriptionStatus = "Active" };
         db.Users.Add(admin);
         await db.SaveChangesAsync();
         admin.WorkspaceId = admin.Id;
         await db.SaveChangesAsync();
     } else {
-        admin.PasswordHash = BCrypt.Net.BCrypt.HashPassword("Shazbot!Dog5!");
-        admin.Role = "Admin";
+        if (admin.Role != "Admin") throw new InvalidOperationException("Crm:DemoAdminEmail already belongs to a non-admin account.");
         if (admin.WorkspaceId == 0) admin.WorkspaceId = admin.Id;
         await db.SaveChangesAsync();
     }
-
     if (!await db.Memberships.AnyAsync(x => x.OwnerUserId == admin.Id && x.UserId == admin.Id)) {
-        db.Memberships.Add(new CrmMembership { OwnerUserId = admin.Id, UserId = admin.Id, Role = "Owner", Active = true });
+        db.Memberships.Add(new CrmMembership { OwnerUserId = admin.Id, UserId = admin.Id, Role = "Admin", Active = true });
         await db.SaveChangesAsync();
     }
-
-    // 2. Ensure Primary Realtor Account (h.g4972@gmail.com)
-    var realtor = await db.Users.SingleOrDefaultAsync(x => x.Email == "h.g4972@gmail.com");
-    if (realtor is null) {
-        realtor = new CrmUser {
-            Email = "h.g4972@gmail.com",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Shazbot!Dog5!"),
-            Role = "Owner",
-            Country = "US",
-            PostalCode = "77084",
-            SubscribedZipCodes = "77084, 77002, 78701",
-            SubscriptionStatus = "Active",
-            SubscriptionPlan = "Realtor Pro Subscription",
-            SubscriptionPrice = 499.0m,
-            Currency = "USD"
-        };
-        db.Users.Add(realtor);
-        await db.SaveChangesAsync();
-        realtor.WorkspaceId = realtor.Id;
-        await db.SaveChangesAsync();
-    } else {
-        realtor.PasswordHash = BCrypt.Net.BCrypt.HashPassword("Shazbot!Dog5!");
-        realtor.Role = "Owner";
-        realtor.SubscriptionStatus = "Active";
-        if (realtor.WorkspaceId == 0) realtor.WorkspaceId = realtor.Id;
-        await db.SaveChangesAsync();
-    }
-
-    if (!await db.Memberships.AnyAsync(x => x.OwnerUserId == realtor.Id && x.UserId == realtor.Id)) {
-        db.Memberships.Add(new CrmMembership { OwnerUserId = realtor.Id, UserId = realtor.Id, Role = "Owner", Active = true });
-        await db.SaveChangesAsync();
-    }
-
-    // Ensure all IntegrationKeys belong to the master Platform Admin
-    var keys = await db.IntegrationKeys.ToListAsync();
-    foreach (var k in keys) {
-        k.OwnerUserId = admin.Id;
-    }
-
-    // Move unassigned leads to Admin bank
-    var realtorContacts = await db.Contacts
-        .Where(c => c.UserId == realtor.Id)
-        .ToListAsync();
-    var unassignedLeads = realtorContacts
-        .Where(c => c.PropertyZipCode == null || !GeographicService.MatchesZipCoverage(realtor, c.PropertyZipCode))
-        .ToList();
-    foreach (var c in unassignedLeads) {
-        c.UserId = admin.Id;
-        c.AssignedToUserId = admin.Id;
-        if (string.IsNullOrWhiteSpace(c.Notes) || (!c.Notes.Contains("[In Master Bank") && !c.Notes.Contains("[Dispatched"))) {
-            c.Notes = $"[In Master Bank - Unassigned] {c.Notes}".Trim();
-        }
-    }
-
-    await db.SaveChangesAsync();
 }
 
-static async Task EnsureDemoAdminAsync(CrmDb db) {
-    const string email="testadmin@example.test";
-    var admin=await db.Users.SingleOrDefaultAsync(x=>x.Email==email);
-    if(admin is null) {
-        admin=new CrmUser { Email=email,PasswordHash=BCrypt.Net.BCrypt.HashPassword("DemoCRM!2026TestAdmin"),Role="Owner" };
-        db.Users.Add(admin); await db.SaveChangesAsync(); admin.WorkspaceId=admin.Id; await db.SaveChangesAsync();
-    }
-    else {
-        admin.Role="Owner"; if(admin.WorkspaceId==0)admin.WorkspaceId=admin.Id;
-        if(!BCrypt.Net.BCrypt.Verify("DemoCRM!2026TestAdmin",admin.PasswordHash))admin.PasswordHash=BCrypt.Net.BCrypt.HashPassword("DemoCRM!2026TestAdmin");
-        await db.SaveChangesAsync();
-    }
-    if(!await db.Memberships.AnyAsync(x=>x.OwnerUserId==admin.Id&&x.UserId==admin.Id)) {
-        db.Memberships.Add(new CrmMembership { OwnerUserId=admin.Id,UserId=admin.Id,Role="Owner",Active=true });
-        await db.SaveChangesAsync();
-    }
+static string RequireConfiguredCredential(IConfiguration configuration, string name) {
+    var value = configuration[$"Crm:{name}"];
+    if (string.IsNullOrWhiteSpace(value) || value.Length < 12 || value.Length > 200)
+        throw new InvalidOperationException($"Configure Crm:{name} with a unique value between 12 and 200 characters when demo mode is enabled.");
+    return value;
 }
 
 static long UserId(HttpContext http) => long.Parse(http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value, System.Globalization.CultureInfo.InvariantCulture);
 static async Task<CrmUser> CurrentUser(CrmDb db,HttpContext http){var id=UserId(http);var u=await db.Users.SingleAsync(x=>x.Id==id);if(!await db.Memberships.AnyAsync(m=>m.OwnerUserId==u.WorkspaceId&&m.UserId==u.Id&&m.Active))throw new UnauthorizedAccessException("Your CRM workspace access has been disabled.");return u;}
 static string HashToken(string value)=>Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(value)));
-static bool IsPlatformAdmin(CrmUser? u) =>
-    u != null && (u.Role == "Admin" || u.Email == "admin@home.nyrava.com" || u.Email == "admin@nyrava.com" || u.Email == "testadmin@example.test");
+static bool IsPlatformAdmin(CrmUser? u) => u is not null && u.Role == "Admin";
 
-static bool IsPlatformAdminEmail(string? email) =>
-    !string.IsNullOrEmpty(email) && (email == "admin@home.nyrava.com" || email == "admin@nyrava.com" || email == "testadmin@example.test");
+bool IsPlatformAdminEmail(string? email) =>
+    !string.IsNullOrWhiteSpace(email) && string.Equals(email, builder.Configuration["Crm:BootstrapAdminEmail"], StringComparison.OrdinalIgnoreCase);
 
 static async Task<bool> CanChat(CrmDb db,CrmUser actor,long peerId){
     if (peerId == actor.Id) return false;
@@ -1533,8 +1542,8 @@ static async Task<bool> CanChat(CrmDb db,CrmUser actor,long peerId){
 }
 static NyraAiResponse GenerateNyraAiResponse(string query, CrmUser actor) {
     var q = query.ToLowerInvariant();
-    string targetEscalation = actor.Role == "Owner" 
-        ? "Nyrava Platform Support Admin (admin@nyrava.com)" 
+    string targetEscalation = actor.Role == "Owner"
+        ? "Nyrava Platform Support Admin"
         : "your Realtor Account Owner";
 
     if (q.Contains("lead") || q.Contains("where") || q.Contains("source") || q.Contains("routing") || q.Contains("bank")) {
