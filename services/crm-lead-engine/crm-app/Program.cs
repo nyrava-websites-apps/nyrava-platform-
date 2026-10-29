@@ -113,6 +113,9 @@ await using (var scope = app.Services.CreateAsyncScope())
     await EnsureColumnAsync(db, "Users", "TermsVersion", "TEXT", "'1.0'");
     await EnsureColumnAsync(db, "Users", "SubscriptionEntitlementVerifiedAt", "TEXT", "NULL");
     await EnsureColumnAsync(db, "Users", "SubscriptionCurrentPeriodEnd", "TEXT", "NULL");
+    await EnsureColumnAsync(db, "Users", "SubscriptionNonBillingAccessGrantedAt", "TEXT", "NULL");
+    await EnsureColumnAsync(db, "Users", "SubscriptionNonBillingAccessGrantedByUserId", "INTEGER", "NULL");
+    await EnsureColumnAsync(db, "Users", "SubscriptionNonBillingAccessReason", "TEXT", "NULL");
     await EnsureColumnAsync(db, "Contacts", "AssignedToUserId", "INTEGER", "NULL");
     await EnsureColumnAsync(db, "Contacts", "ArchivedAt", "TEXT", "NULL");
     await EnsureColumnAsync(db, "Contacts", "Source", "TEXT", "NULL");
@@ -136,11 +139,7 @@ await using (var scope = app.Services.CreateAsyncScope())
     await EnsureColumnAsync(db, "Activities", "ResultHistory", "TEXT", "NULL");
     await EnsureTeamTablesAsync(db);
     await EnsureIntegrationTablesAsync(db);
-    // Preserve existing contacts while translating the previous generic close labels.
-    const string verifiedLeadStage = "Verified Lead";
-    const string lostLeadStage = "Lost Lead";
-    await db.Contacts.Where(c => c.Stage == "Won").ExecuteUpdateAsync(s => s.SetProperty(c => c.Stage, verifiedLeadStage));
-    await db.Contacts.Where(c => c.Stage == "Lost").ExecuteUpdateAsync(s => s.SetProperty(c => c.Stage, lostLeadStage));
+    await EnsureSubscriptionAuditTableAsync(db);
     var existingUsers = await db.Users.ToListAsync();
     foreach (var user in existingUsers) {
         if (user.WorkspaceId == 0) user.WorkspaceId = user.Id;
@@ -518,11 +517,14 @@ app.MapGet("/api/auth/me", handleMe).RequireAuthorization();
 
 app.MapGet("/api/billing/session", async (CrmDb db, HttpContext http) => {
     var user = await CurrentUser(db, http);
-    var billing = BillingStateMapper.FromSubscription(
-        user.SubscriptionStatus,
-        user.SubscriptionEntitlementVerifiedAt,
-        user.SubscriptionCurrentPeriodEnd,
-        DateTimeOffset.UtcNow);
+    var billing = IsPlatformAdmin(user)
+        ? BillingStateMapper.ForPlatformAdmin()
+        : BillingStateMapper.FromSubscription(
+            user.SubscriptionStatus,
+            user.SubscriptionEntitlementVerifiedAt,
+            user.SubscriptionCurrentPeriodEnd,
+            DateTimeOffset.UtcNow,
+            user.SubscriptionNonBillingAccessGrantedAt is not null);
     var role = user.Role switch {
         "Owner" => "RealtorSubscriber",
         "Admin" => "SuperAdmin",
@@ -1264,6 +1266,10 @@ app.MapGet("/api/admin/accounts", async (CrmDb db, HttpContext http) => {
             subscribedZipCodes = u.SubscribedZipCodes ?? "",
             subscriptionPlan = u.SubscriptionPlan ?? (isOwner ? "Realtor Pro Subscription" : "Team Member"),
             subscriptionStatus = u.SubscriptionStatus ?? "Active",
+            entitlementVerifiedAt = u.SubscriptionEntitlementVerifiedAt,
+            nonBillingAccessGrantedAt = u.SubscriptionNonBillingAccessGrantedAt,
+            nonBillingAccessGrantedByUserId = u.SubscriptionNonBillingAccessGrantedByUserId,
+            nonBillingAccessReason = u.SubscriptionNonBillingAccessReason,
             country = u.Country ?? "US",
             postalCode = u.PostalCode ?? "",
             joinedAt = membership?.JoinedAt ?? u.TermsAcceptedAt
@@ -1271,6 +1277,85 @@ app.MapGet("/api/admin/accounts", async (CrmDb db, HttpContext http) => {
     }).ToList();
 
     return Results.Ok(result);
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/subscriptions/{targetUserId:long}/review", async (long targetUserId, SubscriptionReviewInput input, CrmDb db, HttpContext http) => {
+    var actor = await CurrentUser(db, http);
+    if (!IsPlatformAdmin(actor)) return Results.Forbid();
+
+    var action = input.Action?.Trim().ToLowerInvariant();
+    var reason = Clean(input.Reason, 1000);
+    var evidenceReference = Clean(input.EvidenceReference, 200);
+    if (string.IsNullOrWhiteSpace(reason) || reason.Length < 10 || string.IsNullOrWhiteSpace(evidenceReference) || evidenceReference.Length < 3)
+        return Results.BadRequest(new { error = "Provide a review reason (at least 10 characters) and an evidence reference (at least 3 characters)." });
+    if (action is not ("verify-billing" or "grant-nonbilling-access" or "revoke-nonbilling-access"))
+        return Results.BadRequest(new { error = "Unsupported subscription review action." });
+
+    var target = await db.Users.SingleOrDefaultAsync(user => user.Id == targetUserId && user.Role == "Owner");
+    if (target is null) return Results.NotFound();
+    var now = DateTimeOffset.UtcNow;
+    if (action == "verify-billing") {
+        if (target.SubscriptionEntitlementVerifiedAt is not null)
+            return Results.Conflict(new { error = "This account already has a verified subscription entitlement." });
+        var activePlan = string.Equals(target.SubscriptionStatus, "Active", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(target.SubscriptionStatus, "FreeOrTrial", StringComparison.OrdinalIgnoreCase);
+        var canceledWithCurrentPeriod = string.Equals(target.SubscriptionStatus, "Canceled", StringComparison.OrdinalIgnoreCase) &&
+            target.SubscriptionCurrentPeriodEnd is not null && target.SubscriptionCurrentPeriodEnd > now;
+        if ((!activePlan && !canceledWithCurrentPeriod) ||
+            (target.SubscriptionCurrentPeriodEnd is not null && target.SubscriptionCurrentPeriodEnd <= now))
+            return Results.Conflict(new { error = "Billing verification requires an existing active or trial entitlement whose period has not ended." });
+        target.SubscriptionEntitlementVerifiedAt = now;
+    } else if (action == "grant-nonbilling-access") {
+        if (target.SubscriptionEntitlementVerifiedAt is not null)
+            return Results.Conflict(new { error = "This account already has a verified billing entitlement." });
+        if (target.SubscriptionNonBillingAccessGrantedAt is not null)
+            return Results.Conflict(new { error = "Nonbilling access is already granted; use revoke before granting again." });
+        target.SubscriptionNonBillingAccessGrantedAt = now;
+        target.SubscriptionNonBillingAccessGrantedByUserId = actor.Id;
+        target.SubscriptionNonBillingAccessReason = reason;
+    } else {
+        if (target.SubscriptionNonBillingAccessGrantedAt is null)
+            return Results.Conflict(new { error = "This account has no nonbilling access grant to revoke." });
+        target.SubscriptionNonBillingAccessGrantedAt = null;
+        target.SubscriptionNonBillingAccessGrantedByUserId = null;
+        target.SubscriptionNonBillingAccessReason = null;
+    }
+
+    db.SubscriptionAuditEvents.Add(new CrmSubscriptionAuditEvent {
+        ActorUserId = actor.Id,
+        TargetUserId = target.Id,
+        Action = action switch {
+            "verify-billing" => "VerifyBilling",
+            "grant-nonbilling-access" => "GrantNonBillingAccess",
+            _ => "RevokeNonBillingAccess"
+        },
+        Reason = reason,
+        EvidenceReference = evidenceReference,
+        PreviousStatus = target.SubscriptionStatus,
+        NewStatus = target.SubscriptionStatus,
+        CreatedAt = now
+    });
+    await using var transaction = await db.Database.BeginTransactionAsync();
+    await db.SaveChangesAsync();
+    await transaction.CommitAsync();
+    var state = BillingStateMapper.FromSubscription(
+        target.SubscriptionStatus,
+        target.SubscriptionEntitlementVerifiedAt,
+        target.SubscriptionCurrentPeriodEnd,
+        now,
+        target.SubscriptionNonBillingAccessGrantedAt is not null);
+    return Results.Ok(new { action, billingState = state.State, checkoutEnabled = state.CheckoutEnabled });
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/subscriptions/{targetUserId:long}/audit", async (long targetUserId, CrmDb db, HttpContext http) => {
+    var actor = await CurrentUser(db, http);
+    if (!IsPlatformAdmin(actor)) return Results.Forbid();
+    if (!await db.Users.AnyAsync(user => user.Id == targetUserId && user.Role == "Owner")) return Results.NotFound();
+    var events = await db.SubscriptionAuditEvents
+        .Where(entry => entry.TargetUserId == targetUserId)
+        .OrderByDescending(entry => entry.Id)
+        .ToListAsync();
+    return Results.Ok(events);
 }).RequireAuthorization();
 
 app.MapGet("/api/admin/realtors", async (CrmDb db, HttpContext http) => {
@@ -1530,22 +1615,8 @@ static async Task EnsureSystemAdminAsync(CrmDb db, IConfiguration configuration)
         await db.SaveChangesAsync();
     }
 
-    foreach (var key in await db.IntegrationKeys.ToListAsync()) key.OwnerUserId = admin.Id;
-    await db.SaveChangesAsync();
-
-    var configuredRealtorEmail = configuration["Crm:BootstrapRealtorEmail"]?.Trim().ToLowerInvariant();
-    if (string.IsNullOrWhiteSpace(configuredRealtorEmail)) return;
-    var realtor = await db.Users.SingleOrDefaultAsync(x => x.Email == configuredRealtorEmail && x.Role == "Owner");
-    if (realtor is null) return;
-    var unassignedLeads = (await db.Contacts.Where(c => c.UserId == realtor.Id).ToListAsync())
-        .Where(c => c.PropertyZipCode is null || !GeographicService.MatchesZipCoverage(realtor, c.PropertyZipCode));
-    foreach (var contact in unassignedLeads) {
-        contact.UserId = admin.Id;
-        contact.AssignedToUserId = admin.Id;
-        if (string.IsNullOrWhiteSpace(contact.Notes) || (!contact.Notes.Contains("[In Master Bank") && !contact.Notes.Contains("[Dispatched")))
-            contact.Notes = $"[In Master Bank - Unassigned] {contact.Notes}".Trim();
-    }
-    await db.SaveChangesAsync();
+    // Startup must not move another account's contacts or integration keys.
+    // Legacy subscription and ownership decisions are handled by explicit audited admin actions.
 }
 
 static async Task EnsureDemoAdminAsync(CrmDb db, IConfiguration configuration, string password) {
@@ -1685,14 +1756,15 @@ static async Task EnsureColumnAsync(CrmDb db,string table,string column,string s
             var found=Convert.ToInt32(await cmd.ExecuteScalarAsync())==1;
             if(!found){
                 var sqlType=column switch{
-                    "WorkspaceId" or "AssignedToUserId" or "CreatedByUserId"=>"bigint",
-                    "ArchivedAt" or "ContactVerifiedAt" or "IntentVerifiedAt" or "ConsentCapturedAt" or "FsboAdminReviewedAt" or "SubscriptionEntitlementVerifiedAt" or "SubscriptionCurrentPeriodEnd"=>"datetimeoffset",
+                    "WorkspaceId" or "AssignedToUserId" or "CreatedByUserId" or "SubscriptionNonBillingAccessGrantedByUserId"=>"bigint",
+                    "ArchivedAt" or "ContactVerifiedAt" or "IntentVerifiedAt" or "ConsentCapturedAt" or "FsboAdminReviewedAt" or "SubscriptionEntitlementVerifiedAt" or "SubscriptionCurrentPeriodEnd" or "SubscriptionNonBillingAccessGrantedAt"=>"datetimeoffset",
                     "ExternalFsbo"=>"bit",
                     "ConsentRecipient"=>"nvarchar(200)",
                     "ConsentText"=>"nvarchar(max)",
                     "SourceUrl"=>"nvarchar(2000)",
                     "ExternalLeadId"=>"nvarchar(160)",
                     "FsboAdminReviewReference"=>"nvarchar(200)",
+                    "SubscriptionNonBillingAccessReason"=>"nvarchar(1000)",
                     "PropertyZipCode"=>"nvarchar(16)",
                     "Location"=>"nvarchar(300)",
                     "TimeZone"=>"nvarchar(100)",
@@ -1706,14 +1778,15 @@ static async Task EnsureColumnAsync(CrmDb db,string table,string column,string s
             cmd.CommandText="SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=@table AND COLUMN_NAME=@column";var p=cmd.CreateParameter();p.ParameterName="@table";p.Value=table;cmd.Parameters.Add(p);p=cmd.CreateParameter();p.ParameterName="@column";p.Value=column;cmd.Parameters.Add(p);
             if(Convert.ToInt32(await cmd.ExecuteScalarAsync())==0){
                 var sqlType=column switch{
-                    "WorkspaceId" or "AssignedToUserId" or "CreatedByUserId"=>"bigint",
-                    "ArchivedAt" or "ContactVerifiedAt" or "IntentVerifiedAt" or "ConsentCapturedAt" or "FsboAdminReviewedAt" or "SubscriptionEntitlementVerifiedAt" or "SubscriptionCurrentPeriodEnd"=>"datetime(6)",
+                    "WorkspaceId" or "AssignedToUserId" or "CreatedByUserId" or "SubscriptionNonBillingAccessGrantedByUserId"=>"bigint",
+                    "ArchivedAt" or "ContactVerifiedAt" or "IntentVerifiedAt" or "ConsentCapturedAt" or "FsboAdminReviewedAt" or "SubscriptionEntitlementVerifiedAt" or "SubscriptionCurrentPeriodEnd" or "SubscriptionNonBillingAccessGrantedAt"=>"datetime(6)",
                     "ExternalFsbo"=>"bit",
                     "ConsentRecipient"=>"varchar(200)",
                     "ConsentText" or "ResultHistory"=>"longtext",
                     "SourceUrl"=>"varchar(2000)",
                     "ExternalLeadId"=>"varchar(160)",
                     "FsboAdminReviewReference"=>"varchar(200)",
+                    "SubscriptionNonBillingAccessReason"=>"varchar(1000)",
                     "PropertyZipCode"=>"varchar(16)",
                     "Location"=>"varchar(300)",
                     "TimeZone"=>"varchar(100)",
@@ -1767,6 +1840,20 @@ static async Task EnsureIntegrationTablesAsync(CrmDb db){
         if(exists==0)await db.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IX_Contacts_UserId_Source_ExternalLeadId ON Contacts(UserId,Source,ExternalLeadId)");
     }
 }
+static async Task EnsureSubscriptionAuditTableAsync(CrmDb db){
+    string[] sql;
+    if(db.Database.IsSqlite())sql=[
+        "CREATE TABLE IF NOT EXISTS SubscriptionAuditEvents (Id INTEGER PRIMARY KEY AUTOINCREMENT, ActorUserId INTEGER NOT NULL, TargetUserId INTEGER NOT NULL, Action TEXT NOT NULL, Reason TEXT NOT NULL, EvidenceReference TEXT NULL, PreviousStatus TEXT NULL, NewStatus TEXT NULL, CreatedAt TEXT NOT NULL)",
+        "CREATE INDEX IF NOT EXISTS IX_SubscriptionAuditEvents_TargetUserId_CreatedAt ON SubscriptionAuditEvents(TargetUserId,CreatedAt)",
+        "CREATE INDEX IF NOT EXISTS IX_SubscriptionAuditEvents_ActorUserId_CreatedAt ON SubscriptionAuditEvents(ActorUserId,CreatedAt)"];
+    else if(db.Database.IsSqlServer())sql=[
+        "IF OBJECT_ID('SubscriptionAuditEvents','U') IS NULL CREATE TABLE SubscriptionAuditEvents (Id bigint IDENTITY PRIMARY KEY, ActorUserId bigint NOT NULL, TargetUserId bigint NOT NULL, Action nvarchar(40) NOT NULL, Reason nvarchar(1000) NOT NULL, EvidenceReference nvarchar(200) NULL, PreviousStatus nvarchar(32) NULL, NewStatus nvarchar(32) NULL, CreatedAt datetimeoffset NOT NULL)",
+        "IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_SubscriptionAuditEvents_TargetUserId_CreatedAt') CREATE INDEX IX_SubscriptionAuditEvents_TargetUserId_CreatedAt ON SubscriptionAuditEvents(TargetUserId,CreatedAt)",
+        "IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_SubscriptionAuditEvents_ActorUserId_CreatedAt') CREATE INDEX IX_SubscriptionAuditEvents_ActorUserId_CreatedAt ON SubscriptionAuditEvents(ActorUserId,CreatedAt)"];
+    else sql=[
+        "CREATE TABLE IF NOT EXISTS SubscriptionAuditEvents (Id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY, ActorUserId bigint NOT NULL, TargetUserId bigint NOT NULL, Action varchar(40) NOT NULL, Reason varchar(1000) NOT NULL, EvidenceReference varchar(200) NULL, PreviousStatus varchar(32) NULL, NewStatus varchar(32) NULL, CreatedAt datetime(6) NOT NULL, KEY IX_SubscriptionAuditEvents_TargetUserId_CreatedAt (TargetUserId,CreatedAt), KEY IX_SubscriptionAuditEvents_ActorUserId_CreatedAt (ActorUserId,CreatedAt))"];
+    foreach(var statement in sql)await db.Database.ExecuteSqlRawAsync(statement);
+}
 static string? Clean(string? value, int max) => string.IsNullOrWhiteSpace(value) ? null : value.Trim()[..Math.Min(value.Trim().Length, max)];
 static bool ValidEmail(string email) => email.Length <= 320 && System.Net.Mail.MailAddress.TryCreate(email, out var parsed) && parsed.Address == email;
 static Task SignIn(HttpContext http, CrmUser user) {
@@ -1785,6 +1872,7 @@ record ActivityInput(long ContactId, string Kind, string Title, string? Details,
 record ActivityUpdate(long ContactId,string Kind,string Title,string? Details,DateTimeOffset StartsAt,string? Location=null,string? TimeZone=null);
 record InviteInput(string? Email);
 record AssignmentInput(long? UserId);
+record SubscriptionReviewInput(string? Action, string? Reason, string? EvidenceReference);
 record ChatInput(string? Body);
 record SupportAiInput(string? Query);
 record NyraAiResponse(string Answer, string[] SuggestedActions);

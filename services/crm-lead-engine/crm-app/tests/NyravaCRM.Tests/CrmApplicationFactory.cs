@@ -20,9 +20,15 @@ public sealed class CrmApplicationFactory : WebApplicationFactory<Program>
     public bool TeamInvitationsEnabled { get; set; } = true;
     public bool BootstrapAdminEnabled { get; set; }
     public bool SeedExistingAdmin { get; set; }
+    public bool SeedLegacySubscriptionAccounts { get; set; }
     public string BootstrapAdminEmail { get; set; } = "configured-admin@example.test";
+    public string? BootstrapRealtorEmail { get; set; }
     public string BootstrapAdminPassword { get; } = NewCredential();
     public string ExistingAdminPassword { get; } = NewCredential();
+    public string LegacyAdminEmail { get; } = "legacy-admin@example.test";
+    public string LegacyAdminPassword { get; } = NewCredential();
+    public string LegacyRealtorEmail { get; } = "legacy-pro@example.test";
+    public string LegacyRealtorPassword { get; } = NewCredential();
     public string DemoOwnerEmail { get; } = "demo-owner@example.test";
     public string DemoEmployeeEmail { get; } = "demo-employee@example.test";
     public string DemoAdminEmail { get; } = "demo-admin@example.test";
@@ -36,7 +42,8 @@ public sealed class CrmApplicationFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         Directory.CreateDirectory(_databaseDirectory);
-        var contentRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        var contentRoot = Environment.GetEnvironmentVariable("NYRAVA_CRM_TEST_CONTENT_ROOT")
+            ?? Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
         builder.UseContentRoot(contentRoot);
         builder.ConfigureLogging(logging => logging.ClearProviders());
         builder.ConfigureServices(services => services.AddDataProtection().UseEphemeralDataProtectionProvider());
@@ -56,6 +63,7 @@ public sealed class CrmApplicationFactory : WebApplicationFactory<Program>
                 ["Crm:TeamInvitationsEnabled"] = TeamInvitationsEnabled ? "true" : "false",
                 ["Crm:BootstrapAdminEmail"] = BootstrapAdminEnabled ? BootstrapAdminEmail : null,
                 ["Crm:BootstrapAdminPassword"] = BootstrapAdminEnabled ? BootstrapAdminPassword : null,
+                ["Crm:BootstrapRealtorEmail"] = BootstrapRealtorEmail,
                 ["Crm:DemoOwnerEmail"] = DemoOwnerEmail,
                 ["Crm:DemoEmployeeEmail"] = DemoEmployeeEmail,
                 ["Crm:DemoAdminEmail"] = DemoAdminEmail,
@@ -65,6 +73,7 @@ public sealed class CrmApplicationFactory : WebApplicationFactory<Program>
                 ["Crm:DemoInviteCode"] = DemoInviteCode
             }));
         if (SeedExistingAdmin) SeedAdminRecord();
+        if (SeedLegacySubscriptionAccounts) SeedLegacyAccounts();
         return base.CreateHost(builder);
     }
 
@@ -88,6 +97,67 @@ public sealed class CrmApplicationFactory : WebApplicationFactory<Program>
         db.SaveChanges();
         admin.WorkspaceId = admin.Id;
         db.SaveChanges();
+    }
+
+    private void SeedLegacyAccounts()
+    {
+        using var connection = new SqliteConnection($"Data Source={DatabasePath};Mode=ReadWriteCreate;Cache=Private");
+        connection.Open();
+        var options = new DbContextOptionsBuilder<CrmDb>().UseSqlite(connection).Options;
+        using var db = new CrmDb(options);
+        db.Database.EnsureCreated();
+
+        var admin = new CrmUser
+        {
+            Email = LegacyAdminEmail,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(LegacyAdminPassword),
+            Role = "Admin",
+            SubscriptionStatus = "PaymentPending",
+            SubscriptionPlan = "Platform Admin"
+        };
+        var realtor = new CrmUser
+        {
+            Email = LegacyRealtorEmail,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(LegacyRealtorPassword),
+            Role = "Owner",
+            SubscriptionStatus = "Active",
+            SubscriptionPlan = "Realtor PRO",
+            SubscribedZipCodes = "78701"
+        };
+        db.Users.AddRange(admin, realtor);
+        db.SaveChanges();
+        admin.WorkspaceId = admin.Id;
+        realtor.WorkspaceId = realtor.Id;
+        db.Memberships.Add(new CrmMembership { OwnerUserId = realtor.Id, UserId = realtor.Id, Role = "Owner", Active = true });
+        db.Contacts.Add(new CrmContact
+        {
+            UserId = realtor.Id,
+            AssignedToUserId = realtor.Id,
+            Name = "Legacy Historical Contact",
+            Email = "contact@example.test",
+            PropertyZipCode = "78701",
+            Stage = "Won",
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+        db.IntegrationKeys.Add(new CrmIntegrationKey
+        {
+            OwnerUserId = realtor.Id,
+            Name = "Legacy Realtor Integration",
+            TokenHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(Guid.NewGuid().ToString("N")))),
+            TokenPrefix = "nr_test",
+            CreatedAt = DateTimeOffset.UtcNow
+        });
+        db.SaveChanges();
+
+        // Model the live pre-release schema: legacy users have an Active plan,
+        // but no payment-verification columns. Startup must add nullable fields
+        // without rewriting these accounts or moving their CRM records.
+        db.Database.ExecuteSqlRaw("ALTER TABLE Users DROP COLUMN SubscriptionEntitlementVerifiedAt");
+        db.Database.ExecuteSqlRaw("ALTER TABLE Users DROP COLUMN SubscriptionCurrentPeriodEnd");
+        db.Database.ExecuteSqlRaw("ALTER TABLE Users DROP COLUMN SubscriptionNonBillingAccessGrantedAt");
+        db.Database.ExecuteSqlRaw("ALTER TABLE Users DROP COLUMN SubscriptionNonBillingAccessGrantedByUserId");
+        db.Database.ExecuteSqlRaw("ALTER TABLE Users DROP COLUMN SubscriptionNonBillingAccessReason");
+        db.Database.ExecuteSqlRaw("DROP TABLE SubscriptionAuditEvents");
     }
 
     private static string NewCredential() => Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));

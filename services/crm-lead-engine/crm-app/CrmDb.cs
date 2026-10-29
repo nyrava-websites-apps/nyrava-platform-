@@ -11,6 +11,7 @@ public sealed class CrmDb(DbContextOptions<CrmDb> options) : DbContext(options)
     public DbSet<CrmInvitation> Invitations => Set<CrmInvitation>();
     public DbSet<CrmMessage> Messages => Set<CrmMessage>();
     public DbSet<CrmIntegrationKey> IntegrationKeys => Set<CrmIntegrationKey>();
+    public DbSet<CrmSubscriptionAuditEvent> SubscriptionAuditEvents => Set<CrmSubscriptionAuditEvent>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -29,6 +30,13 @@ public sealed class CrmDb(DbContextOptions<CrmDb> options) : DbContext(options)
         model.Entity<CrmIntegrationKey>().Property(x => x.TokenPrefix).HasMaxLength(24);
         model.Entity<CrmIntegrationKey>().HasIndex(x => x.TokenHash).IsUnique();
         model.Entity<CrmIntegrationKey>().HasIndex(x => new { x.OwnerUserId, x.RevokedAt });
+        model.Entity<CrmSubscriptionAuditEvent>().Property(x => x.Action).HasMaxLength(40);
+        model.Entity<CrmSubscriptionAuditEvent>().Property(x => x.Reason).HasMaxLength(1000);
+        model.Entity<CrmSubscriptionAuditEvent>().Property(x => x.EvidenceReference).HasMaxLength(200);
+        model.Entity<CrmSubscriptionAuditEvent>().Property(x => x.PreviousStatus).HasMaxLength(32);
+        model.Entity<CrmSubscriptionAuditEvent>().Property(x => x.NewStatus).HasMaxLength(32);
+        model.Entity<CrmSubscriptionAuditEvent>().HasIndex(x => new { x.TargetUserId, x.CreatedAt });
+        model.Entity<CrmSubscriptionAuditEvent>().HasIndex(x => new { x.ActorUserId, x.CreatedAt });
         model.Entity<CrmActivity>().HasOne(x => x.Contact).WithMany().HasForeignKey(x => x.ContactId).OnDelete(DeleteBehavior.Cascade);
         model.Entity<CrmActivity>().HasIndex(x => new { x.UserId, x.StartsAt });
     }
@@ -50,6 +58,9 @@ public sealed class CrmUser
     public string Currency { get; set; } = "USD";
     public DateTimeOffset? SubscriptionEntitlementVerifiedAt { get; set; }
     public DateTimeOffset? SubscriptionCurrentPeriodEnd { get; set; }
+    public DateTimeOffset? SubscriptionNonBillingAccessGrantedAt { get; set; }
+    public long? SubscriptionNonBillingAccessGrantedByUserId { get; set; }
+    public string? SubscriptionNonBillingAccessReason { get; set; }
     public DateTimeOffset? TermsAcceptedAt { get; set; }
     public string? TermsVersion { get; set; }
 }
@@ -123,6 +134,19 @@ public sealed class CrmIntegrationKey
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? LastUsedAt { get; set; }
     public DateTimeOffset? RevokedAt { get; set; }
+}
+
+public sealed class CrmSubscriptionAuditEvent
+{
+    public long Id { get; set; }
+    public long ActorUserId { get; set; }
+    public long TargetUserId { get; set; }
+    public string Action { get; set; } = "";
+    public string Reason { get; set; } = "";
+    public string? EvidenceReference { get; set; }
+    public string? PreviousStatus { get; set; }
+    public string? NewStatus { get; set; }
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }
 
 public sealed class CrmActivity
