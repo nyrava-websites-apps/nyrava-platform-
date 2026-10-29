@@ -1,6 +1,12 @@
 'use strict';
 const $ = id => document.getElementById(id);
 let busy = false;
+const requestedPlan = new URLSearchParams(location.search).get('plan')?.toUpperCase();
+const selectedPlan = ['BASIC', 'PRO'].includes(requestedPlan) ? requestedPlan : null;
+if (selectedPlan) {
+  const intro = document.querySelector('.auth-shell > p');
+  if (intro) intro.textContent = `Create your account to continue with ${selectedPlan === 'PRO' ? 'Pro' : 'Basic'}. After signup, review the billing terms before secure checkout.`;
+}
 
 $('register').onsubmit = async e => {
   e.preventDefault();
@@ -44,7 +50,9 @@ $('register').onsubmit = async e => {
     $('password').value = '';
     $('register').hidden = true;
     document.querySelector('h1').textContent = 'Account created!';
-    $('status').textContent = d.message || 'Your account is ready. Redirecting to workspace…';
+    $('status').textContent = selectedPlan
+      ? `Account created. Redirecting to ${selectedPlan === 'PRO' ? 'Pro' : 'Basic'} checkout…`
+      : (d.message || 'Your account is ready. Redirecting to workspace…');
 
     // Store user session in localStorage
     if (d.user || d.email) {
@@ -55,7 +63,10 @@ $('register').onsubmit = async e => {
     }
 
     setTimeout(() => {
-      location.assign(d.url || '/dashboard/home');
+      const next = selectedPlan
+        ? `/billing-checkout.html?plan=${selectedPlan}&start=1`
+        : (d.url || '/dashboard/home');
+      location.assign(next);
     }, 1200);
 
   } catch (err) {

@@ -88,35 +88,49 @@ public static class GeographicService
         );
     }
 
-    public static bool IsLeadDeliveryPermitted(string status)
+    public static bool IsLeadDeliveryPermitted(CrmUser realtor, DateTimeOffset? now = null)
     {
-        // Only active or trial subscribers receive real-time homeowner leads
-        return status.Equals("Active", StringComparison.OrdinalIgnoreCase) ||
-               status.Equals("FreeOrTrial", StringComparison.OrdinalIgnoreCase);
+        return IsLeadDeliveryPermitted(
+            realtor.SubscriptionStatus,
+            realtor.SubscriptionEntitlementVerifiedAt,
+            realtor.SubscriptionCurrentPeriodEnd,
+            now);
+    }
+
+    public static bool IsLeadDeliveryPermitted(
+        string? status,
+        DateTimeOffset? entitlementVerifiedAt,
+        DateTimeOffset? currentPeriodEnd,
+        DateTimeOffset? now = null)
+    {
+        var entitlementVerified = entitlementVerifiedAt is not null;
+        var periodOpen = currentPeriodEnd is null || currentPeriodEnd > (now ?? DateTimeOffset.UtcNow);
+        return entitlementVerified && periodOpen &&
+            (string.Equals(status, "Active", StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(status, "FreeOrTrial", StringComparison.OrdinalIgnoreCase));
     }
 
     public static bool MatchesZipCoverage(CrmUser realtor, string propertyZipCode)
     {
-        if (!IsLeadDeliveryPermitted(realtor.SubscriptionStatus)) return false;
+        if (!IsLeadDeliveryPermitted(realtor)) return false;
+
+        return HasSubscribedZip(realtor.SubscribedZipCodes, propertyZipCode);
+    }
+
+    public static bool HasSubscribedZip(string? subscribedZipCodes, string propertyZipCode)
+    {
+        if (string.IsNullOrWhiteSpace(subscribedZipCodes) || string.IsNullOrWhiteSpace(propertyZipCode)) return false;
 
         var cleanTargetZip = propertyZipCode.Trim();
         if (cleanTargetZip.Length > 5) cleanTargetZip = cleanTargetZip[..5];
 
         // Mailing ZIP does not independently grant lead territory coverage.
         // Only explicitly subscribed ZIP codes receive leads.
-        if (!string.IsNullOrWhiteSpace(realtor.SubscribedZipCodes))
-        {
-            var zipTokens = realtor.SubscribedZipCodes
-                .Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(z => z.Trim().Length > 5 ? z.Trim()[..5] : z.Trim());
+        var zipTokens = subscribedZipCodes
+            .Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(z => z.Trim().Length > 5 ? z.Trim()[..5] : z.Trim());
 
-            if (zipTokens.Any(z => string.Equals(z, cleanTargetZip, StringComparison.OrdinalIgnoreCase)))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return zipTokens.Any(z => string.Equals(z, cleanTargetZip, StringComparison.OrdinalIgnoreCase));
     }
 }
 

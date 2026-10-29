@@ -44,10 +44,12 @@ public sealed class CrmUser
     public string Country { get; set; } = "US";
     public string PostalCode { get; set; } = "78701";
     public string SubscribedZipCodes { get; set; } = "";
-    public string SubscriptionStatus { get; set; } = "Active";
+    public string SubscriptionStatus { get; set; } = "PaymentPending";
     public string SubscriptionPlan { get; set; } = "Realtor Standard Monthly";
     public decimal SubscriptionPrice { get; set; } = 299.00m;
     public string Currency { get; set; } = "USD";
+    public DateTimeOffset? SubscriptionEntitlementVerifiedAt { get; set; }
+    public DateTimeOffset? SubscriptionCurrentPeriodEnd { get; set; }
     public DateTimeOffset? TermsAcceptedAt { get; set; }
     public string? TermsVersion { get; set; }
 }

@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace NyravaCRM.Tests;
@@ -53,7 +55,7 @@ public sealed class GeographicSubscriptionAndRoutingTests : IClassFixture<CrmApp
         });
         Assert.Equal(HttpStatusCode.BadRequest, badZipRes.StatusCode);
 
-        // Valid registration sets Active subscription and territory
+        // Valid registration preserves the selected territory but remains unpaid until Stripe confirms entitlement.
         var validEmail = $"realtor-{Guid.NewGuid():N}@example.test";
         var goodRes = await client.PostAsJsonAsync("/api/register", new {
             email = validEmail,
@@ -68,7 +70,7 @@ public sealed class GeographicSubscriptionAndRoutingTests : IClassFixture<CrmApp
         var me = await client.GetFromJsonAsync<JsonElement>("/api/me");
         Assert.Equal("US", me.GetProperty("country").GetString());
         Assert.Equal("78701", me.GetProperty("postalCode").GetString());
-        Assert.Equal("Active", me.GetProperty("subscriptionStatus").GetString());
+        Assert.Equal("PaymentPending", me.GetProperty("subscriptionStatus").GetString());
         Assert.Equal(299.00m, me.GetProperty("subscriptionPrice").GetDecimal());
     }
 
@@ -85,6 +87,7 @@ public sealed class GeographicSubscriptionAndRoutingTests : IClassFixture<CrmApp
             postalCode = "78701",
             subscribedZipCodes = "78701"
         });
+        await GrantVerifiedTrialAsync(austinEmail);
 
         // 2. Create Realtor covering Tampa ZIP 33629
         using var tampaRealtor = _factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
@@ -96,6 +99,7 @@ public sealed class GeographicSubscriptionAndRoutingTests : IClassFixture<CrmApp
             postalCode = "33629",
             subscribedZipCodes = "33629"
         });
+        await GrantVerifiedTrialAsync(tampaEmail);
 
         // 3. Generate Integration Key on Austin Realtor (representing the lead engine connection)
         var keyRes = await austinRealtor.PostAsJsonAsync("/api/integrations/keys", new { name = "Lead Engine Feed" });
@@ -139,5 +143,15 @@ public sealed class GeographicSubscriptionAndRoutingTests : IClassFixture<CrmApp
         var austinContacts = await austinRealtor.GetFromJsonAsync<JsonElement[]>("/api/contacts");
         Assert.NotNull(austinContacts);
         Assert.DoesNotContain(austinContacts, c => c.GetProperty("propertyZipCode").GetString() == "33629");
+    }
+
+    private async Task GrantVerifiedTrialAsync(string email)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CrmDb>();
+        var user = await db.Users.SingleAsync(x => x.Email == email);
+        user.SubscriptionStatus = "FreeOrTrial";
+        user.SubscriptionEntitlementVerifiedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync();
     }
 }

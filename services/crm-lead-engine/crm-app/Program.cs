@@ -111,6 +111,8 @@ await using (var scope = app.Services.CreateAsyncScope())
     await EnsureColumnAsync(db, "Users", "Currency", "TEXT", "'USD'");
     await EnsureColumnAsync(db, "Users", "TermsAcceptedAt", "TEXT", "NULL");
     await EnsureColumnAsync(db, "Users", "TermsVersion", "TEXT", "'1.0'");
+    await EnsureColumnAsync(db, "Users", "SubscriptionEntitlementVerifiedAt", "TEXT", "NULL");
+    await EnsureColumnAsync(db, "Users", "SubscriptionCurrentPeriodEnd", "TEXT", "NULL");
     await EnsureColumnAsync(db, "Contacts", "AssignedToUserId", "INTEGER", "NULL");
     await EnsureColumnAsync(db, "Contacts", "ArchivedAt", "TEXT", "NULL");
     await EnsureColumnAsync(db, "Contacts", "Source", "TEXT", "NULL");
@@ -218,7 +220,7 @@ var handleRegister = async (RegisterRequest request, CrmDb db, HttpContext http)
         Country = country,
         PostalCode = postalCode,
         SubscribedZipCodes = string.IsNullOrWhiteSpace(request.SubscribedZipCodes) ? postalCode : request.SubscribedZipCodes.Trim(),
-        SubscriptionStatus = "Active",
+        SubscriptionStatus = "PaymentPending",
         SubscriptionPlan = request.Plan?.Equals("annual", StringComparison.OrdinalIgnoreCase) == true ? "Realtor Annual" : "Realtor Standard Monthly",
         SubscriptionPrice = pricing.Price,
         Currency = pricing.Currency,
@@ -445,7 +447,7 @@ app.MapPost("/api/auth/google", async (GoogleAuthInput input, CrmDb db, HttpCont
             Country = "US",
             PostalCode = "77084",
             SubscribedZipCodes = "77084, 77002, 78701",
-            SubscriptionStatus = "Active",
+            SubscriptionStatus = IsPlatformAdminEmail(email) ? "Active" : "PaymentPending",
             SubscriptionPlan = "Realtor Pro Subscription",
             SubscriptionPrice = 499.0m,
             Currency = "USD"
@@ -514,6 +516,33 @@ var handleMe = async (CrmDb db, HttpContext http) => {
 app.MapGet("/api/me", handleMe).RequireAuthorization();
 app.MapGet("/api/auth/me", handleMe).RequireAuthorization();
 
+app.MapGet("/api/billing/session", async (CrmDb db, HttpContext http) => {
+    var user = await CurrentUser(db, http);
+    var billing = BillingStateMapper.FromSubscription(
+        user.SubscriptionStatus,
+        user.SubscriptionEntitlementVerifiedAt,
+        user.SubscriptionCurrentPeriodEnd,
+        DateTimeOffset.UtcNow);
+    var role = user.Role switch {
+        "Owner" => "RealtorSubscriber",
+        "Admin" => "SuperAdmin",
+        _ => "BusinessEmployee"
+    };
+    var planCode = (user.SubscriptionPlan ?? "").Contains("PRO", StringComparison.OrdinalIgnoreCase) ? "PRO" : "BASIC";
+    return Results.Ok(new {
+        role,
+        billing = new {
+            state = billing.State,
+            plan = user.SubscriptionPlan,
+            planCode,
+            checkoutEnabled = billing.CheckoutEnabled,
+            error = billing.Error,
+            includedUntil = user.SubscriptionCurrentPeriodEnd,
+            profileCompleted = true
+        }
+    });
+}).RequireAuthorization();
+
 
 var territoryUpdateGate = new SemaphoreSlim(1, 1);
 app.MapPut("/api/subscription/territory", async (TerritoryUpdateInput input, CrmDb db, HttpContext http) => {
@@ -552,22 +581,24 @@ app.MapPut("/api/subscription/territory", async (TerritoryUpdateInput input, Crm
 
     if (additions.Count > 0)
     {
-        if (!new[] { "Active", "FreeOrTrial" }.Contains(
-            actor.SubscriptionStatus, StringComparer.OrdinalIgnoreCase))
+        if (!GeographicService.IsLeadDeliveryPermitted(actor))
             return Results.BadRequest(new {
                 error = "An active subscription is required to add ZIP codes."
             });
 
         var subscribers = await db.Users
             .Where(u => u.Id != actor.Id && u.Role == "Owner" &&
-                (u.SubscriptionStatus == "Active" ||
-                 u.SubscriptionStatus == "FreeOrTrial"))
-            .Select(u => new { u.SubscribedZipCodes })
+                u.SubscriptionEntitlementVerifiedAt != null &&
+                (u.SubscriptionStatus == "Active" || u.SubscriptionStatus == "FreeOrTrial"))
+            .Select(u => new { u.SubscribedZipCodes, u.SubscriptionCurrentPeriodEnd })
             .ToListAsync();
+        var activeSubscribers = subscribers
+            .Where(u => u.SubscriptionCurrentPeriodEnd is null || u.SubscriptionCurrentPeriodEnd > DateTimeOffset.UtcNow)
+            .ToList();
 
         foreach (var zip in additions)
         {
-            var occupied = subscribers.Count(u =>
+            var occupied = activeSubscribers.Count(u =>
                 (u.SubscribedZipCodes ?? "")
                     .Split(new[] { ',', ';', ' ' },
                         StringSplitOptions.RemoveEmptyEntries)
@@ -1085,14 +1116,45 @@ app.MapPost("/api/v1/inbound-leads", async (InboundLeadInput input, CrmDb db, Ht
     return Results.Created($"/api/contacts/{primaryContact.Id}", primaryContact);
 }).AllowAnonymous();
 
+app.MapGet("/api/territories/check/{zip}", async (string zip, CrmDb db) => {
+    var normalized = zip.Trim();
+    if (!GeographicService.ValidatePostalCode("US", normalized))
+        return Results.BadRequest(new { error = "Enter a valid five-digit ZIP code." });
+
+    var subscribers = await db.Users
+        .Where(u => u.Role == "Owner" && u.SubscriptionEntitlementVerifiedAt != null &&
+            (u.SubscriptionStatus == "Active" || u.SubscriptionStatus == "FreeOrTrial"))
+        .Select(u => new {
+            u.SubscriptionStatus,
+            u.SubscriptionEntitlementVerifiedAt,
+            u.SubscriptionCurrentPeriodEnd,
+            u.SubscribedZipCodes
+        })
+        .ToListAsync();
+    var now = DateTimeOffset.UtcNow;
+    var occupied = subscribers.Count(u =>
+        GeographicService.IsLeadDeliveryPermitted(
+            u.SubscriptionStatus,
+            u.SubscriptionEntitlementVerifiedAt,
+            u.SubscriptionCurrentPeriodEnd,
+            now) &&
+        GeographicService.HasSubscribedZip(u.SubscribedZipCodes, normalized));
+    const int maxSlots = 2;
+    var available = Math.Max(0, maxSlots - occupied);
+    var status = occupied > maxSlots ? "OVER_LIMIT" : occupied == maxSlots ? "FULL" : "AVAILABLE";
+    return Results.Ok(new { zip = normalized, maxSlots, occupied, availableSlots = available, status });
+}).AllowAnonymous();
+
 app.MapGet("/api/v1/active-territories", async (CrmDb db) => {
     var rawUsers = await db.Users
-        .Where(u => u.Role == "Owner" && (u.SubscriptionStatus == "Active" || u.SubscriptionStatus == "FreeOrTrial"))
-        .Select(u => new { u.PostalCode, u.SubscribedZipCodes, u.Country })
+        .Where(u => u.Role == "Owner" && u.SubscriptionEntitlementVerifiedAt != null &&
+            (u.SubscriptionStatus == "Active" || u.SubscriptionStatus == "FreeOrTrial"))
+        .Select(u => new { u.PostalCode, u.SubscribedZipCodes, u.Country, u.SubscriptionCurrentPeriodEnd })
         .ToListAsync();
 
     var activeZips = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     foreach (var u in rawUsers) {
+        if (u.SubscriptionCurrentPeriodEnd is not null && u.SubscriptionCurrentPeriodEnd <= DateTimeOffset.UtcNow) continue;
         if (!string.IsNullOrWhiteSpace(u.SubscribedZipCodes)) {
             var tokens = u.SubscribedZipCodes.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries);
             foreach (var t in tokens) {
@@ -1624,7 +1686,7 @@ static async Task EnsureColumnAsync(CrmDb db,string table,string column,string s
             if(!found){
                 var sqlType=column switch{
                     "WorkspaceId" or "AssignedToUserId" or "CreatedByUserId"=>"bigint",
-                    "ArchivedAt" or "ContactVerifiedAt" or "IntentVerifiedAt" or "ConsentCapturedAt" or "FsboAdminReviewedAt"=>"datetimeoffset",
+                    "ArchivedAt" or "ContactVerifiedAt" or "IntentVerifiedAt" or "ConsentCapturedAt" or "FsboAdminReviewedAt" or "SubscriptionEntitlementVerifiedAt" or "SubscriptionCurrentPeriodEnd"=>"datetimeoffset",
                     "ExternalFsbo"=>"bit",
                     "ConsentRecipient"=>"nvarchar(200)",
                     "ConsentText"=>"nvarchar(max)",
@@ -1645,7 +1707,7 @@ static async Task EnsureColumnAsync(CrmDb db,string table,string column,string s
             if(Convert.ToInt32(await cmd.ExecuteScalarAsync())==0){
                 var sqlType=column switch{
                     "WorkspaceId" or "AssignedToUserId" or "CreatedByUserId"=>"bigint",
-                    "ArchivedAt" or "ContactVerifiedAt" or "IntentVerifiedAt" or "ConsentCapturedAt" or "FsboAdminReviewedAt"=>"datetime(6)",
+                    "ArchivedAt" or "ContactVerifiedAt" or "IntentVerifiedAt" or "ConsentCapturedAt" or "FsboAdminReviewedAt" or "SubscriptionEntitlementVerifiedAt" or "SubscriptionCurrentPeriodEnd"=>"datetime(6)",
                     "ExternalFsbo"=>"bit",
                     "ConsentRecipient"=>"varchar(200)",
                     "ConsentText" or "ResultHistory"=>"longtext",

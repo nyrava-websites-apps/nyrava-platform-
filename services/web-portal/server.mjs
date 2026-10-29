@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { fileURLToPath } from 'url';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { NYRA_CONFIG, NYRA_RESPONSES, resolveTopic } from './nyra-sales-engine.mjs';
@@ -17,7 +18,7 @@ const VALUATION_SERVICE_URL = process.env.VALUATION_SERVICE_URL || 'http://local
 const MEET_SERVICE_URL = process.env.MEET_SERVICE_URL || 'http://localhost:5000';
 
 // Stripe & Billing state persistence
-const DATA_DIR = path.join(__dirname, 'data');
+const DATA_DIR = path.resolve(process.env.NYRAVA_DATA_DIR || path.join(__dirname, 'data'));
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
@@ -117,7 +118,12 @@ app.use((req, res, next) => {
 });
 
 // Register comprehensive gateway microservices features BEFORE wildcard CRM proxy
-app.use(express.json({ limit: '50mb' }));
+app.use(express.json({
+  limit: '50mb',
+  verify(req, res, buffer) {
+    if (req.path === '/api/billing/stripe/webhook') req.rawBody = Buffer.from(buffer);
+  }
+}));
 registerGatewayFeatures(app, { CRM_SERVICE_URL, VALUATION_SERVICE_URL, MEET_SERVICE_URL });
 
 // Proxy routes to CRM service
@@ -280,15 +286,25 @@ app.get(['/admin/diagnostics', '/admin/acquisition', '/admin/leads'], (req, res)
   res.redirect('/admin.html');
 });
 
-// Territory ZIP availability check
-app.get('/api/territories/check/:zip', (req, res) => {
-  const zip = req.params.zip || '78701';
-  res.json({
-    zip,
-    maxSlots: 2,
-    availableSlots: 1,
-    status: 'AVAILABLE'
-  });
+// Public ZIP capacity check. The CRM computes this from verified subscription records.
+app.get('/api/territories/check/:zip', async (req, res) => {
+  const zip = String(req.params.zip || '').trim();
+  if (!/^\d{5}$/.test(zip)) return res.status(400).json({ error: 'Enter a valid five-digit ZIP code.' });
+  try {
+    const capacityRes = await fetch(CRM_SERVICE_URL + '/api/territories/check/' + encodeURIComponent(zip), {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(10000)
+    });
+    const body = await capacityRes.text();
+    res.setHeader('Cache-Control', 'no-store');
+    if (body && !capacityRes.headers.get('content-type')?.includes('json'))
+      return res.status(502).json({ error: 'ZIP capacity could not be checked right now.' });
+    res.status(capacityRes.status);
+    if (body) res.type('json');
+    return res.send(body || '{}');
+  } catch (err) {
+    return res.status(502).json({ error: 'ZIP capacity could not be checked right now. Please retry.' });
+  }
 });
 
 // Platform plans and pricing specifications
@@ -497,28 +513,45 @@ app.post('/api/fsbo/listing', async (req, res) => {
 // BILLING & STRIPE INTEGRATION API
 // ===================================================================
 
-app.get('/api/billing/session', (req, res) => {
-  const cookieHeader = req.headers.cookie || '';
-  const isAuth = cookieHeader.includes('NyravaCRM') || cookieHeader.includes('token') || cookieHeader.includes('session');
-  res.json({
-    csrf: 'ny_csrf_' + Date.now().toString(36),
-    role: 'RealtorSubscriber',
-    billing: {
-      state: isAuth ? 'ACTIVE' : 'NOT_ENROLLED',
-      plan: 'PRO',
-      planCode: 'PRO',
-      checkoutEnabled: true,
-      error: null,
-      includedUntil: isAuth ? '2027-10-27T00:00:00Z' : null,
-      profileCompleted: true
+app.get('/api/billing/session', async (req, res) => {
+  try {
+    const crmRes = await fetch(CRM_SERVICE_URL + '/api/billing/session', {
+      headers: {
+        Cookie: req.headers.cookie || '',
+        Authorization: req.headers.authorization || '',
+        Accept: 'application/json'
+      },
+      signal: AbortSignal.timeout(10000)
+    });
+    const data = await crmRes.json().catch(() => ({}));
+    if (!crmRes.ok) return res.status(crmRes.status).json(data);
+
+    const settings = getStripeSettings();
+    const stripeReady = Boolean(
+      (settings.secretKey || '').startsWith('sk_') || (settings.secretKey || '').startsWith('rk_')
+    ) && Boolean(settings.webhookSecret && settings.annualPriceId && settings.basicPriceId && settings.proPriceId);
+    data.csrf = 'ny_csrf_' + Date.now().toString(36);
+    if (data.billing) {
+      data.billing.checkoutEnabled = Boolean(data.billing.checkoutEnabled && stripeReady);
+      if (!stripeReady && ['PENDING', 'NOT_ENROLLED', 'EXPIRED'].includes(data.billing.state))
+        data.billing.error = 'Secure checkout is temporarily unavailable. Please try again later.';
     }
-  });
+    return res.json(data);
+  } catch (err) {
+    return res.status(502).json({ error: 'Billing status is temporarily unavailable. Please try again.' });
+  }
 });
 
 app.post('/api/billing/account/checkout', async (req, res) => {
   const { plan = 'BASIC', licenseTermsAccepted = false } = req.body || {};
+  if (!licenseTermsAccepted) return res.status(400).json({ error: 'Please accept the subscription terms before continuing.' });
+  if (!['BASIC', 'PRO'].includes(String(plan).toUpperCase())) return res.status(400).json({ error: 'Choose a valid subscription plan.' });
   const settings = getStripeSettings();
   const stripeSecret = settings.secretKey;
+  if (!stripeSecret || (!stripeSecret.startsWith('sk_') && !stripeSecret.startsWith('rk_')) ||
+      !settings.webhookSecret || !settings.annualPriceId || !settings.basicPriceId || !settings.proPriceId) {
+    return res.status(503).json({ error: 'Secure checkout is not configured. No payment was started.' });
+  }
 
   if (stripeSecret && (stripeSecret.startsWith('sk_') || stripeSecret.startsWith('rk_'))) {
     try {
@@ -550,14 +583,11 @@ app.post('/api/billing/account/checkout', async (req, res) => {
       }
     } catch (err) {
       console.warn('[Stripe Checkout Live Session]', err.message);
+      return res.status(502).json({ error: 'Secure checkout could not be started. No payment was confirmed.' });
     }
   }
 
-  // Valid Stripe checkout destination
-  const sessionToken = Buffer.from(plan + '_' + Date.now()).toString('hex').slice(0, 24);
-  return res.json({
-    url: 'https://checkout.stripe.com/c/pay/cs_live_' + sessionToken + '#portal'
-  });
+  return res.status(502).json({ error: 'Stripe did not return a checkout session. No payment was started.' });
 });
 
 app.post('/api/billing/account/portal', (req, res) => {
@@ -578,9 +608,37 @@ app.post('/api/billing/account/profile-complete', (req, res) => {
   res.json({ ok: true });
 });
 
+function isValidStripeWebhookSignature(rawBody, signatureHeader, secret, nowSeconds = Math.floor(Date.now() / 1000)) {
+  if (!Buffer.isBuffer(rawBody) || !signatureHeader || !secret) return false;
+  let timestamp = '';
+  const signatures = [];
+  for (const component of signatureHeader.split(',')) {
+    const separator = component.indexOf('=');
+    if (separator < 1) continue;
+    const key = component.slice(0, separator).trim();
+    const value = component.slice(separator + 1).trim();
+    if (key === 't' && !timestamp) timestamp = value;
+    if (key === 'v1' && /^[a-f0-9]{64}$/i.test(value)) signatures.push(value);
+  }
+  if (!/^\d+$/.test(timestamp) || signatures.length === 0) return false;
+  const timestampSeconds = Number(timestamp);
+  if (!Number.isSafeInteger(timestampSeconds) || Math.abs(nowSeconds - timestampSeconds) > 300) return false;
+
+  const expected = createHmac('sha256', secret).update(timestamp + '.').update(rawBody).digest();
+  return signatures.some(value => {
+    const candidate = Buffer.from(value, 'hex');
+    return candidate.length === expected.length && timingSafeEqual(candidate, expected);
+  });
+}
+
 app.post('/api/billing/stripe/webhook', (req, res) => {
+  const settings = getStripeSettings();
+  if (!settings.webhookSecret) return res.status(503).json({ error: 'Stripe webhook verification is not configured.' });
+  if (!isValidStripeWebhookSignature(req.rawBody, req.get('stripe-signature'), settings.webhookSecret))
+    return res.status(400).json({ error: 'Stripe webhook signature is invalid or expired.' });
+
   const event = req.body || {};
-  const eventId = event.id || evt_;
+  const eventId = typeof event.id === 'string' ? event.id : 'unknown';
   const eventType = event.type || 'unknown';
   recordWebhookEvent({
     id: eventId,
