@@ -105,6 +105,9 @@ await using (var scope = app.Services.CreateAsyncScope())
     await EnsureColumnAsync(db, "Users", "Country", "TEXT", "'US'");
     await EnsureColumnAsync(db, "Users", "PostalCode", "TEXT", "'78701'");
     await EnsureColumnAsync(db, "Users", "SubscribedZipCodes", "TEXT", "''");
+    await EnsureColumnAsync(db, "Users", "StripeCustomerId", "TEXT", "NULL");
+    await EnsureColumnAsync(db, "Users", "StripeSubscriptionId", "TEXT", "NULL");
+    await EnsureColumnAsync(db, "Users", "StripeSyncedAt", "TEXT", "NULL");
     await EnsureColumnAsync(db, "Users", "SubscriptionStatus", "TEXT", "'Active'");
     await EnsureColumnAsync(db, "Users", "SubscriptionPlan", "TEXT", "'Realtor Standard Monthly'");
     await EnsureColumnAsync(db, "Users", "SubscriptionPrice", "NUMERIC", "299.00");
@@ -117,6 +120,7 @@ await using (var scope = app.Services.CreateAsyncScope())
     await EnsureColumnAsync(db, "Users", "SubscriptionNonBillingAccessGrantedByUserId", "INTEGER", "NULL");
     await EnsureColumnAsync(db, "Users", "SubscriptionNonBillingAccessReason", "TEXT", "NULL");
     await EnsureColumnAsync(db, "Contacts", "AssignedToUserId", "INTEGER", "NULL");
+    await EnsureColumnAsync(db, "Contacts", "DeliveredAt", "TEXT", "NULL");
     await EnsureColumnAsync(db, "Contacts", "ArchivedAt", "TEXT", "NULL");
     await EnsureColumnAsync(db, "Contacts", "Source", "TEXT", "NULL");
     await EnsureColumnAsync(db, "Contacts", "ExternalLeadId", "TEXT", "NULL");
@@ -155,6 +159,7 @@ await using (var scope = app.Services.CreateAsyncScope())
     }
     await db.SaveChangesAsync();
     await EnsureSystemAdminAsync(db, builder.Configuration);
+    await TestWorkspaceExemption.ProvisionAsync(db, builder.Configuration);
     if (demoMode) await SeedDemoWorkspaceAsync(db, builder.Configuration);
 }
 
@@ -182,9 +187,13 @@ app.UseStaticFiles(new StaticFileOptions
         ctx.Context.Response.Headers.Append("Expires", "0");
     }
 });
+app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
+app.UseMiddleware<WorkspaceAccessMiddleware>();
+app.MapBillingSync();
+app.MapProspectIntake();
 
 app.MapGet("/api/eligibility", (string? country, string? postalCode, string? plan) =>
     Results.Ok(GeographicService.GetPricing(country, postalCode, plan))).AllowAnonymous();
@@ -517,29 +526,30 @@ app.MapGet("/api/auth/me", handleMe).RequireAuthorization();
 
 app.MapGet("/api/billing/session", async (CrmDb db, HttpContext http) => {
     var user = await CurrentUser(db, http);
+    var subscriptionOwner = user.Role is "Owner" or "Admin" ? user : await db.Users.SingleAsync(u => u.Id == user.WorkspaceId);
     var billing = IsPlatformAdmin(user)
         ? BillingStateMapper.ForPlatformAdmin()
         : BillingStateMapper.FromSubscription(
-            user.SubscriptionStatus,
-            user.SubscriptionEntitlementVerifiedAt,
-            user.SubscriptionCurrentPeriodEnd,
+            subscriptionOwner.SubscriptionStatus,
+            subscriptionOwner.SubscriptionEntitlementVerifiedAt,
+            subscriptionOwner.SubscriptionCurrentPeriodEnd,
             DateTimeOffset.UtcNow,
-            user.SubscriptionNonBillingAccessGrantedAt is not null);
+            subscriptionOwner.SubscriptionNonBillingAccessGrantedAt is not null);
     var role = user.Role switch {
         "Owner" => "RealtorSubscriber",
         "Admin" => "SuperAdmin",
         _ => "BusinessEmployee"
     };
-    var planCode = (user.SubscriptionPlan ?? "").Contains("PRO", StringComparison.OrdinalIgnoreCase) ? "PRO" : "BASIC";
+    var planCode = (subscriptionOwner.SubscriptionPlan ?? "").Contains("PRO", StringComparison.OrdinalIgnoreCase) ? "PRO" : "BASIC";
     return Results.Ok(new {
         role,
         billing = new {
             state = billing.State,
-            plan = user.SubscriptionPlan,
+            plan = subscriptionOwner.SubscriptionPlan,
             planCode,
-            checkoutEnabled = billing.CheckoutEnabled,
+            checkoutEnabled = user.Role == "Owner" && billing.CheckoutEnabled,
             error = billing.Error,
-            includedUntil = user.SubscriptionCurrentPeriodEnd,
+            includedUntil = subscriptionOwner.SubscriptionCurrentPeriodEnd,
             profileCompleted = true
         }
     });
@@ -588,15 +598,8 @@ app.MapPut("/api/subscription/territory", async (TerritoryUpdateInput input, Crm
                 error = "An active subscription is required to add ZIP codes."
             });
 
-        var subscribers = await db.Users
-            .Where(u => u.Id != actor.Id && u.Role == "Owner" &&
-                u.SubscriptionEntitlementVerifiedAt != null &&
-                (u.SubscriptionStatus == "Active" || u.SubscriptionStatus == "FreeOrTrial"))
-            .Select(u => new { u.SubscribedZipCodes, u.SubscriptionCurrentPeriodEnd })
-            .ToListAsync();
-        var activeSubscribers = subscribers
-            .Where(u => u.SubscriptionCurrentPeriodEnd is null || u.SubscriptionCurrentPeriodEnd > DateTimeOffset.UtcNow)
-            .ToList();
+        var subscribers = await db.Users.Where(u => u.Id != actor.Id && u.Role == "Owner").ToListAsync();
+        var activeSubscribers = subscribers.Where(u => GeographicService.IsLeadDeliveryPermitted(u)).ToList();
 
         foreach (var zip in additions)
         {
@@ -891,31 +894,12 @@ app.MapGet("/api/contacts", async (CrmDb db, HttpContext http) => {
         : db.Contacts.Where(x => x.UserId == owner && x.ArchivedAt == null && (actor.Role == "Owner" || x.AssignedToUserId == userId));
     var items = await query.ToListAsync();
 
-    if (!isPlatformAdmin) {
-        foreach (var c in items) {
-            c.Source = "Nyrava Verified";
-            c.SourceUrl = null;
-            c.ExternalLeadId = null;
-            c.ExternalFsbo = false;
-            c.FsboAdminReviewReference = null;
-        }
-    }
-
     return items.OrderByDescending(x => x.UpdatedAt).ToList();
 }).RequireAuthorization();
 app.MapGet("/api/contacts/archived",async(CrmDb db,HttpContext http)=>{
     var actor=await CurrentUser(db,http);if(actor.Role!="Owner")return Results.Forbid();
     var isPlatformAdmin = IsPlatformAdmin(actor);
     var rows=await db.Contacts.Where(x=>x.UserId==actor.WorkspaceId&&x.ArchivedAt!=null).ToListAsync();
-    if (!isPlatformAdmin) {
-        foreach (var c in rows) {
-            c.Source = "Nyrava Verified";
-            c.SourceUrl = null;
-            c.ExternalLeadId = null;
-            c.ExternalFsbo = false;
-            c.FsboAdminReviewReference = null;
-        }
-    }
     return Results.Ok(rows.OrderByDescending(x=>x.ArchivedAt).ToList());
 }).RequireAuthorization();
 app.MapPost("/api/contacts", async (ContactInput input, CrmDb db, HttpContext http) => {
@@ -924,6 +908,7 @@ app.MapPost("/api/contacts", async (ContactInput input, CrmDb db, HttpContext ht
     var actor=await CurrentUser(db,http); var item = new CrmContact { UserId = actor.WorkspaceId, AssignedToUserId=actor.Id, Name = input.Name.Trim(), Email = Clean(input.Email, 320), Phone = Clean(input.Phone, 40), Company = Clean(input.Company, 160), LeadType = input.LeadType, Stage = "New", Notes = "", UpdatedAt = DateTimeOffset.UtcNow };
     db.Contacts.Add(item); await db.SaveChangesAsync(); return Results.Created($"/api/contacts/{item.Id}", item);
 }).RequireAuthorization();
+var inboundDeliveryGate = new SemaphoreSlim(1, 1);
 app.MapPost("/api/v1/inbound-leads", async (InboundLeadInput input, CrmDb db, HttpContext http) => {
     if (demoMode) return Results.Unauthorized();
     var authorization = http.Request.Headers["Authorization"].ToString();
@@ -972,6 +957,8 @@ app.MapPost("/api/v1/inbound-leads", async (InboundLeadInput input, CrmDb db, Ht
         sourceUrl?.Length > 2000 || !externalSourceValid || (!input.ExternalFsbo && (reviewReference is not null || input.FsboAdminReviewedAt.HasValue)))
         return Results.BadRequest(new { error = "Lead is missing a valid source ID, name, contact, ZIP code, verified contact and intent, consent evidence, or required external-FSBO Admin review." });
 
+    if (name!.StartsWith("Owner:", StringComparison.OrdinalIgnoreCase) || name.Equals("FSBO Homeowner", StringComparison.OrdinalIgnoreCase))
+        return Results.BadRequest(new { error = "A listing title or placeholder is not a verified contact name. Keep this prospect for review." });
     var externalLeadId = input.ExternalLeadId!.Trim();
     bool isSystemAdmin = IsPlatformAdmin(owner);
 
@@ -997,14 +984,14 @@ app.MapPost("/api/v1/inbound-leads", async (InboundLeadInput input, CrmDb db, Ht
 
     // Check for idempotency on target recipient
     var existingLead = await db.Contacts.SingleOrDefaultAsync(c => c.UserId == targetRecipient.Id && c.Source == source && c.ExternalLeadId == externalLeadId);
-    if (existingLead is not null) {
+    if (existingLead is not null && existingLead.Stage == "Dispatched") {
         integrationKey.LastUsedAt = now;
         await db.SaveChangesAsync();
         return Results.Ok(existingLead);
     }
 
     // 1. Create primary lead for target recipient
-    var primaryContact = new CrmContact {
+    var primaryContact = existingLead ?? new CrmContact {
         UserId = targetRecipient.Id,
         AssignedToUserId = targetRecipient.Id,
         Name = name!,
@@ -1029,7 +1016,7 @@ app.MapPost("/api/v1/inbound-leads", async (InboundLeadInput input, CrmDb db, Ht
         SourceUrl = Clean(sourceUrl, 2000),
         UpdatedAt = now
     };
-    db.Contacts.Add(primaryContact);
+    if (existingLead is null) db.Contacts.Add(primaryContact);
 
     // 2. Automated Distribution Engine (Sections 4, 5, 6, 7 of Nyrava Business Workflow)
     if (matchingRealtors.Count > 0) {
@@ -1038,10 +1025,10 @@ app.MapPost("/api/v1/inbound-leads", async (InboundLeadInput input, CrmDb db, Ht
         // Sort realtors for fair round-robin rotation in shared ZIPs (least leads received today goes first)
         var realtorIds = matchingRealtors.Select(r => r.Id).ToList();
         var zipContacts = await db.Contacts
-            .Where(c => c.PropertyZipCode == zip && c.Source == "Nyrava Verified" && c.ArchivedAt == null)
+            .Where(c => c.Source == "Nyrava Verified")
             .ToListAsync();
         var countsToday = zipContacts
-            .Where(c => realtorIds.Contains(c.UserId) && c.UpdatedAt >= startOfDay)
+            .Where(c => realtorIds.Contains(c.UserId) && (c.DeliveredAt ?? c.UpdatedAt) >= startOfDay)
             .GroupBy(c => c.UserId)
             .ToDictionary(g => g.Key, g => g.Count());
         var sortedRealtors = matchingRealtors.OrderBy(r => countsToday.GetValueOrDefault(r.Id, 0)).ToList();
@@ -1049,6 +1036,7 @@ app.MapPost("/api/v1/inbound-leads", async (InboundLeadInput input, CrmDb db, Ht
         CrmUser? assignedRealtor = null;
 
         foreach (var targetRealtor in sortedRealtors) {
+            if (!string.Equals(consentRecipient, targetRealtor.Email, StringComparison.OrdinalIgnoreCase)) continue;
             // Sole subscriber check in this ZIP
             bool isSoleSubscriber = matchingRealtors.Count == 1;
 
@@ -1056,7 +1044,7 @@ app.MapPost("/api/v1/inbound-leads", async (InboundLeadInput input, CrmDb db, Ht
             bool hasActiveTeam = await db.Memberships.AnyAsync(m => m.OwnerUserId == targetRealtor.Id && m.UserId != targetRealtor.Id && m.Active);
 
             // Special Rule: 4 leads per day for sole realtor with active team; standard rule: 2 leads per day
-            int dailyLimit = (isSoleSubscriber && hasActiveTeam) ? 4 : 2;
+            int dailyLimit = 2; // Higher limits require a separate explicit owner-approved policy.
 
             int realtorZipLeadsToday = countsToday.GetValueOrDefault(targetRealtor.Id, 0);
 
@@ -1065,7 +1053,7 @@ app.MapPost("/api/v1/inbound-leads", async (InboundLeadInput input, CrmDb db, Ht
             }
 
             // Check if lead already dispatched to this Realtor
-            var existing = await db.Contacts.SingleOrDefaultAsync(c => c.UserId == targetRealtor.Id && c.Source == "Nyrava Verified" && c.ExternalLeadId != null && c.ExternalLeadId.Contains(externalLeadId));
+            var existing = await db.Contacts.SingleOrDefaultAsync(c => c.UserId == targetRealtor.Id && c.Source == "Nyrava Verified" && c.ExternalLeadId != null && c.ExternalLeadId == $"nyr-{targetRealtor.Id}-{zip}-{externalLeadId}");
             if (existing is not null) continue;
 
             // Assign lead directly to the subscribing Realtor's CRM
@@ -1080,6 +1068,7 @@ app.MapPost("/api/v1/inbound-leads", async (InboundLeadInput input, CrmDb db, Ht
                 Stage = "New",
                 Notes = $"Verified Lead for ZIP {zip}. Direct Homeowner Inquiry.",
                 Source = "Nyrava Verified",
+                DeliveredAt = now,
                 ExternalLeadId = $"nyr-{targetRealtor.Id}-{zip}-{externalLeadId}",
                 PropertyZipCode = zip!,
                 ContactVerificationMethod = method!,
@@ -1088,10 +1077,10 @@ app.MapPost("/api/v1/inbound-leads", async (InboundLeadInput input, CrmDb db, Ht
                 ConsentCapturedAt = input.ConsentCapturedAt,
                 ConsentRecipient = consentRecipient!,
                 ConsentText = consentText!,
-                ExternalFsbo = false,
-                FsboAdminReviewReference = null,
-                FsboAdminReviewedAt = null,
-                SourceUrl = null,
+                ExternalFsbo = input.ExternalFsbo,
+                FsboAdminReviewReference = reviewReference,
+                FsboAdminReviewedAt = input.FsboAdminReviewedAt,
+                SourceUrl = sourceUrl,
                 UpdatedAt = now
             };
             db.Contacts.Add(realtorLead);
@@ -1115,31 +1104,20 @@ app.MapPost("/api/v1/inbound-leads", async (InboundLeadInput input, CrmDb db, Ht
 
     integrationKey.LastUsedAt = now;
     await db.SaveChangesAsync();
-    return Results.Created($"/api/contacts/{primaryContact.Id}", primaryContact);
-}).AllowAnonymous();
+    return existingLead is null ? Results.Created($"/api/contacts/{primaryContact.Id}", primaryContact) : Results.Ok(primaryContact);
+}).AllowAnonymous().AddEndpointFilter(async (context, next) => {
+    await inboundDeliveryGate.WaitAsync(context.HttpContext.RequestAborted);
+    try { return await next(context); }
+    finally { inboundDeliveryGate.Release(); }
+});
 
 app.MapGet("/api/territories/check/{zip}", async (string zip, CrmDb db) => {
     var normalized = zip.Trim();
     if (!GeographicService.ValidatePostalCode("US", normalized))
         return Results.BadRequest(new { error = "Enter a valid five-digit ZIP code." });
 
-    var subscribers = await db.Users
-        .Where(u => u.Role == "Owner" && u.SubscriptionEntitlementVerifiedAt != null &&
-            (u.SubscriptionStatus == "Active" || u.SubscriptionStatus == "FreeOrTrial"))
-        .Select(u => new {
-            u.SubscriptionStatus,
-            u.SubscriptionEntitlementVerifiedAt,
-            u.SubscriptionCurrentPeriodEnd,
-            u.SubscribedZipCodes
-        })
-        .ToListAsync();
-    var now = DateTimeOffset.UtcNow;
-    var occupied = subscribers.Count(u =>
-        GeographicService.IsLeadDeliveryPermitted(
-            u.SubscriptionStatus,
-            u.SubscriptionEntitlementVerifiedAt,
-            u.SubscriptionCurrentPeriodEnd,
-            now) &&
+    var subscribers = await db.Users.Where(u => u.Role == "Owner").ToListAsync();
+    var occupied = subscribers.Count(u => GeographicService.IsLeadDeliveryPermitted(u) &&
         GeographicService.HasSubscribedZip(u.SubscribedZipCodes, normalized));
     const int maxSlots = 2;
     var available = Math.Max(0, maxSlots - occupied);
@@ -1148,15 +1126,11 @@ app.MapGet("/api/territories/check/{zip}", async (string zip, CrmDb db) => {
 }).AllowAnonymous();
 
 app.MapGet("/api/v1/active-territories", async (CrmDb db) => {
-    var rawUsers = await db.Users
-        .Where(u => u.Role == "Owner" && u.SubscriptionEntitlementVerifiedAt != null &&
-            (u.SubscriptionStatus == "Active" || u.SubscriptionStatus == "FreeOrTrial"))
-        .Select(u => new { u.PostalCode, u.SubscribedZipCodes, u.Country, u.SubscriptionCurrentPeriodEnd })
-        .ToListAsync();
+    var rawUsers = await db.Users.Where(u => u.Role == "Owner").ToListAsync();
 
     var activeZips = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     foreach (var u in rawUsers) {
-        if (u.SubscriptionCurrentPeriodEnd is not null && u.SubscriptionCurrentPeriodEnd <= DateTimeOffset.UtcNow) continue;
+        if (!GeographicService.IsLeadDeliveryPermitted(u)) continue;
         if (!string.IsNullOrWhiteSpace(u.SubscribedZipCodes)) {
             var tokens = u.SubscribedZipCodes.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries);
             foreach (var t in tokens) {
@@ -1757,7 +1731,7 @@ static async Task EnsureColumnAsync(CrmDb db,string table,string column,string s
             if(!found){
                 var sqlType=column switch{
                     "WorkspaceId" or "AssignedToUserId" or "CreatedByUserId" or "SubscriptionNonBillingAccessGrantedByUserId"=>"bigint",
-                    "ArchivedAt" or "ContactVerifiedAt" or "IntentVerifiedAt" or "ConsentCapturedAt" or "FsboAdminReviewedAt" or "SubscriptionEntitlementVerifiedAt" or "SubscriptionCurrentPeriodEnd" or "SubscriptionNonBillingAccessGrantedAt"=>"datetimeoffset",
+                    "DeliveredAt" or "StripeSyncedAt" or "ArchivedAt" or "ContactVerifiedAt" or "IntentVerifiedAt" or "ConsentCapturedAt" or "FsboAdminReviewedAt" or "SubscriptionEntitlementVerifiedAt" or "SubscriptionCurrentPeriodEnd" or "SubscriptionNonBillingAccessGrantedAt"=>"datetimeoffset",
                     "ExternalFsbo"=>"bit",
                     "ConsentRecipient"=>"nvarchar(200)",
                     "ConsentText"=>"nvarchar(max)",
@@ -1779,7 +1753,7 @@ static async Task EnsureColumnAsync(CrmDb db,string table,string column,string s
             if(Convert.ToInt32(await cmd.ExecuteScalarAsync())==0){
                 var sqlType=column switch{
                     "WorkspaceId" or "AssignedToUserId" or "CreatedByUserId" or "SubscriptionNonBillingAccessGrantedByUserId"=>"bigint",
-                    "ArchivedAt" or "ContactVerifiedAt" or "IntentVerifiedAt" or "ConsentCapturedAt" or "FsboAdminReviewedAt" or "SubscriptionEntitlementVerifiedAt" or "SubscriptionCurrentPeriodEnd" or "SubscriptionNonBillingAccessGrantedAt"=>"datetime(6)",
+                    "DeliveredAt" or "StripeSyncedAt" or "ArchivedAt" or "ContactVerifiedAt" or "IntentVerifiedAt" or "ConsentCapturedAt" or "FsboAdminReviewedAt" or "SubscriptionEntitlementVerifiedAt" or "SubscriptionCurrentPeriodEnd" or "SubscriptionNonBillingAccessGrantedAt"=>"datetime(6)",
                     "ExternalFsbo"=>"bit",
                     "ConsentRecipient"=>"varchar(200)",
                     "ConsentText" or "ResultHistory"=>"longtext",

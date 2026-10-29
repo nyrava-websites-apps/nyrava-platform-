@@ -90,6 +90,8 @@ public static class GeographicService
 
     public static bool IsLeadDeliveryPermitted(CrmUser realtor, DateTimeOffset? now = null)
     {
+        if (realtor.Role != "Owner") return false;
+        if (realtor.SubscriptionNonBillingAccessGrantedAt is not null) return true;
         return IsLeadDeliveryPermitted(
             realtor.SubscriptionStatus,
             realtor.SubscriptionEntitlementVerifiedAt,
@@ -107,7 +109,7 @@ public static class GeographicService
         var periodOpen = currentPeriodEnd is null || currentPeriodEnd > (now ?? DateTimeOffset.UtcNow);
         return entitlementVerified && periodOpen &&
             (string.Equals(status, "Active", StringComparison.OrdinalIgnoreCase) ||
-             string.Equals(status, "FreeOrTrial", StringComparison.OrdinalIgnoreCase));
+             (string.Equals(status, "Canceled", StringComparison.OrdinalIgnoreCase) && currentPeriodEnd is not null));
     }
 
     public static bool MatchesZipCoverage(CrmUser realtor, string propertyZipCode)

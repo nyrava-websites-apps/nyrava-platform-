@@ -10,3 +10,14 @@ outbox/
 backups/
 scratch/
 *.tmp
+
+# Private launch configuration and live prospect evidence.
+.env.launch
+ops/launch.env
+services/crm-lead-engine/prospects.jsonl
+services/crm-lead-engine/reviewed-leads.jsonl
+stripe-settings.json
+checkout-sessions.json
+*.db
+*.db-wal
+*.db-shm

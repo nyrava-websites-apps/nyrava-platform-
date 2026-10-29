@@ -7,9 +7,13 @@
 import { readFileSync, existsSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { eventBus } from './event-bus.mjs';
+import { prospectFromListing, reviewedPayload, ingestionResult } from './collector-policy.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const PROSPECTS = join(__dirname, 'prospects.jsonl');
+const REVIEWED = join(__dirname, 'reviewed-leads.jsonl');
+const known = new Set();
+if (existsSync(PROSPECTS)) for (const line of readFileSync(PROSPECTS,'utf8').split('\n')) { try { known.add(JSON.parse(line).externalId); } catch {} }
 const LOG = join(__dirname, 'nyrava-leads.log');
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -23,9 +27,12 @@ const envPath = join(__dirname, '.env');
 if (existsSync(envPath)) {
   for (const line of readFileSync(envPath,'utf8').split('\n')) {
     const [k,...v]=line.split('=');
-    if(k?.trim() && v.length) CFG[k.trim()]=v.join('=').trim();
+    if(k?.trim() && v.length) CFG[k.trim()]=v.join('=').trim().replace(/^(['"])(.*)\1$/, '$2');
   }
 }
+
+for (const key of ['CRM_URL','CRM_API_KEY','INTERVAL_MS']) if (process.env[key]) CFG[key]=process.env[key];
+CFG.INTERVAL_MS=Math.max(60000, Number(CFG.INTERVAL_MS)||300000);
 
 function log(msg) {
   const line = `[${new Date().toISOString()}] ${msg}`;
@@ -80,6 +87,7 @@ const CITY_METRO_MAP = {
   '78703': { city: 'Austin', state: 'TX', craig: 'austin' },
   '78704': { city: 'Austin', state: 'TX', craig: 'austin' },
   '78705': { city: 'Austin', state: 'TX', craig: 'austin' },
+  '75034': { city: 'Frisco', state: 'TX', craig: 'dallas' },
   '75217': { city: 'Dallas', state: 'TX', craig: 'dallas' },
   '30309': { city: 'Atlanta', state: 'GA', craig: 'atlanta' },
   '80206': { city: 'Denver', state: 'CO', craig: 'denver' },
@@ -97,19 +105,20 @@ async function getActiveSources() {
   const coveredZips = new Set();
 
   try {
-    const res = await fetch(`${CFG.CRM_URL}/api/v1/active-territories`);
+    const res = await fetch(`${CFG.CRM_URL}/api/v1/active-territories`, {signal:AbortSignal.timeout(10000)});
     if (res.ok) {
       const data = await res.json();
       const zips = data.activeZips || [];
       for (const zip of zips) {
         coveredZips.add(zip);
-        const meta = CITY_METRO_MAP[zip] || { city: 'Metro', state: 'US', craig: 'houston' };
+        const meta = CITY_METRO_MAP[zip];
+        if (!meta) { log(`Territory ${zip}: source mapping required; no substitute city used.`); continue; }
         dynamicSources.push({
           name: `Craigslist FSBO (${meta.city} ${zip})`,
           city: meta.city,
           state: meta.state,
           zip: zip,
-          url: `https://${meta.craig}.craigslist.org/jsonsearch/rea?query=for+sale+by+owner`
+          url: `https://${meta.craig}.craigslist.org/jsonsearch/reo?query=for+sale+by+owner&postal=${encodeURIComponent(zip)}&search_distance=0`
         });
       }
     }
@@ -144,41 +153,21 @@ async function tryFetchCraigslist(source) {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
     });
     clearTimeout(timeout);
-    if (!res.ok) return [];
+    if (!res.ok) { log(`Source ${source.name}: HTTP ${res.status}`); return []; }
     const data = await res.json();
-    const items = data[0] || [];
+    const items = Array.isArray(data[0]) ? data[0] : Array.isArray(data) ? data : [];
     const leads = [];
     for (const item of items) {
       if (!item.PostingTitle || item.PostingTitle === 'undefined') continue;
       if (isRealtor(item.PostingTitle)) continue;
 
-      const phone = extractPhone(item.PostingTitle);
-      const email = extractEmail(item.PostingTitle);
-      const zip = extractZip(item.PostingTitle) || source.zip;
-      const sourceUrl = item.PostingURL || `https://${source.city.toLowerCase()}.craigslist.org/reo/d/${item.PostingID}.html`;
-
-      // Assign realistic verified direct homeowner contact if not in title
-      const assignedPhone = phone || `404-${Math.floor(100+Math.random()*899)}-${Math.floor(1000+Math.random()*8999)}`;
-      const assignedName = item.PostingTitle.slice(0, 35).replace(/[^\w\s-]/g, '').trim() || 'FSBO Homeowner';
-
-      leads.push({
-        ownerName: `Owner: ${assignedName}`,
-        phone: assignedPhone,
-        email: email || null,
-        address: item.PostingTitle.slice(0, 60),
-        city: source.city,
-        state: source.state,
-        zipCode: zip,
-        price: parseInt(item.price || 0) || 0,
-        description: `Live FSBO: ${item.PostingTitle} (Price: $${item.price || 'Inquire'})`,
-        source: 'Fsbo',
-        sourceUrl,
-        externalId: `live-cl-${item.PostingID || Math.floor(Math.random()*1000000)}`
-      });
+      const prospect = prospectFromListing(item, source);
+      if (prospect) leads.push(prospect);
       if (leads.length >= 6) break; // Take top 6 per metro cycle to pace safely
     }
     return leads;
   } catch (err) {
+    log(`Source fetch failed for ${source.name}: ${err.name}`);
     return [];
   }
 }
@@ -192,71 +181,47 @@ async function collectLeads() {
     log(`  ${src.name}: ${leads.length} live FSBO listings found`);
     all.push(...leads);
   }
-  return all.filter(l => !isRealtor(l.description) && (l.phone || l.email));
+  return all; // Missing contact or ZIP stays in review; never fabricate it.
 }
 
 // ── Push to CRM ───────────────────────────────────────────────────────────────
-async function pushToCRM(lead) {
-  const now = new Date().toISOString();
-  const method = lead.phone ? 'Phone' : 'Email';
-  const zip = (lead.zipCode || '74133').match(/\b\d{5}\b/)?.[0] || '74133';
-  const payload = {
-    ExternalLeadId: lead.externalId,
-    Source: 'Fsbo',
-    Name: lead.ownerName || 'FSBO Homeowner',
-    Email: lead.email || null,
-    Phone: lead.phone || null,
-    Company: 'Direct Homeowner',
-    LeadType: 'Seller',
-    PropertyZipCode: zip,
-    ContactVerificationMethod: method,
-    ContactVerifiedAt: now,
-    IntentVerifiedAt: now,
-    ConsentCapturedAt: now,
-    ConsentRecipient: 'Nyrava Real Estate CRM',
-    ConsentText: 'Homeowner authorized direct realtor outreach for FSBO listing.',
-    SourceUrl: lead.sourceUrl || 'https://nyrava.com/fsbo',
-    ExternalFsbo: true,
-    FsboAdminReviewReference: `VERIFIED-${lead.externalId}`,
-    FsboAdminReviewedAt: now,
-    Notes: `FSBO Direct Homeowner | ${lead.address || ''} ${lead.city || ''} ${lead.state || ''} Price: $${lead.price || 'N/A'} | ${lead.description || ''}`,
-  };
-
-  const res = await fetch(`${CFG.CRM_URL}/api/v1/inbound-leads`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${CFG.CRM_API_KEY}` },
-    body: JSON.stringify(payload),
+async function post(path, payload) {
+  const response = await fetch(`${CFG.CRM_URL}${path}`, {
+    method:'POST', signal:AbortSignal.timeout(15000),
+    headers:{'Content-Type':'application/json',Authorization:`Bearer ${CFG.CRM_API_KEY}`},
+    body:JSON.stringify(payload)
   });
-
-  if (!res.ok) {
-    const t = await res.text();
-    if (res.status === 409 || t.includes('exists')) return 'duplicate';
-    throw new Error(`CRM ${res.status}: ${t}`);
-  }
-  return 'pushed';
+  return ingestionResult(response.status);
 }
 
-// ── Main sync loop ────────────────────────────────────────────────────────────
-let runCycle = 0;
+let runCycle=0;
 async function syncOnce() {
   runCycle++;
-  log(`=== [Cycle #${runCycle}] Live Multi-City FSBO Lead Generator Sync Started ===`);
-  const leads = await collectLeads();
-  log(`Total qualified live leads captured: ${leads.length}`);
-
-  let pushed = 0, dupes = 0, errors = 0;
-  for (const lead of leads) {
-    try {
-      const result = await pushToCRM(lead);
-      if (result === 'duplicate') { dupes++; continue; }
-      log(`  + PUSHED TO CRM: ${lead.ownerName} [ZIP ${lead.zipCode}] (${lead.phone}) | ${lead.city}`);
-      pushed++;
-    } catch(e) {
-      log(`  ! ERROR on ${lead.ownerName}: ${e.message}`);
-      errors++;
+  const leads=await collectLeads();
+  let discoveries=0,banked=0,created=0,existing=0,errors=0;
+  for(const prospect of leads) {
+    // Save before any network request, so CRM outages cannot discard discoveries.
+    if(!known.has(prospect.externalId)) {
+      writeFileSync(PROSPECTS,JSON.stringify(prospect)+'\n',{flag:'a',mode:0o600});
+      known.add(prospect.externalId); discoveries++;
     }
   }
-  log(`=== [Cycle #${runCycle}] Complete: ${pushed} Ingested, ${dupes} Duplicates/Existing, ${errors} Errors ===\n`);
+  // Retry locally saved prospects as well as this cycle's results.
+  if(existsSync(PROSPECTS)) for(const line of readFileSync(PROSPECTS,'utf8').split('\n')) {
+    if(!line.trim()) continue;
+    try { const result=await post('/api/v1/prospects',JSON.parse(line)); if(result==='created') banked++; }
+    catch { errors++; }
+  }
+  if(existsSync(REVIEWED)) for(const line of readFileSync(REVIEWED,'utf8').split('\n')) {
+    if(!line.trim()) continue;
+    try {
+      const payload=reviewedPayload(JSON.parse(line));
+      if(!payload) { errors++; continue; }
+      const result=await post('/api/v1/inbound-leads',payload);
+      if(result==='created') created++; else existing++;
+    } catch { errors++; }
+  }
+  log(`Cycle ${runCycle}: ${discoveries} new prospects saved, ${banked} added to admin review bank, ${created} reviewed leads created, ${existing} existing reviewed leads, ${errors} pending/errors`);
 }
 
 // ── Start Continuous Daemon ───────────────────────────────────────────────────
@@ -276,5 +241,8 @@ if (!CFG.CRM_API_KEY) {
   process.exit(1);
 }
 
-await syncOnce();
-setInterval(syncOnce, CFG.INTERVAL_MS);
+async function tick() {
+  try { await syncOnce(); } catch (error) { log(`Cycle failed: ${error.name}; saved prospects retained.`); }
+  setTimeout(tick, CFG.INTERVAL_MS); // No overlapping cycles.
+}
+await tick();

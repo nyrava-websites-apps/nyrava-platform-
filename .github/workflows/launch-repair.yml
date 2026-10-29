@@ -1,0 +1,30 @@
+name: Launch repair checks
+on:
+  push:
+    branches: [repair/launch-access-leads]
+  pull_request:
+    paths:
+      - 'services/crm-lead-engine/**'
+      - 'services/web-portal/**'
+      - '.github/workflows/launch-repair.yml'
+permissions:
+  contents: read
+jobs:
+  node-policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: node --check services/web-portal/server.mjs
+      - run: node --check services/crm-lead-engine/run.mjs
+      - run: node --test services/crm-lead-engine/tests/collector-policy.test.mjs services/web-portal/tests/billing-integration.test.mjs
+  crm-policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet test services/crm-lead-engine/crm-app/tests/NyravaCRM.Tests/NyravaCRM.Tests.csproj --filter 'FullyQualifiedName~LaunchAccessPolicyTests|FullyQualifiedName~BootstrapSecurityTests|FullyQualifiedName~BillingStateMapperTests' --logger 'console;verbosity=normal'
