@@ -7,7 +7,7 @@
 import { readFileSync, existsSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { prospectFromListing, reviewedPayload, ingestionResult } from './collector-policy.mjs';
+import { prospectFromListing, reviewedPayload, ingestionResult, upfrontContact } from './collector-policy.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROSPECTS = join(__dirname, 'prospects.jsonl');
@@ -209,13 +209,19 @@ async function syncOnce() {
   // Retry locally saved prospects as well as this cycle's results.
   if(existsSync(PROSPECTS)) for(const line of readFileSync(PROSPECTS,'utf8').split('\n')) {
     if(!line.trim()) continue;
-    try { const result=await post('/api/v1/prospects',JSON.parse(line)); if(result==='created') banked++; }
+    try {
+      const prospect=JSON.parse(line);
+      if (!upfrontContact(prospect.title).eligible) continue; // Reject old saved contactless records too.
+      const result=await post('/api/v1/prospects',prospect); if(result==='created') banked++;
+    }
     catch { errors++; }
   }
   if(existsSync(REVIEWED)) for(const line of readFileSync(REVIEWED,'utf8').split('\n')) {
     if(!line.trim()) continue;
     try {
-      const payload=reviewedPayload(JSON.parse(line));
+      const reviewed=JSON.parse(line);
+      if (!upfrontContact(reviewed.title).eligible) continue;
+      const payload=reviewedPayload(reviewed);
       if(!payload) { errors++; continue; }
       const result=await post('/api/v1/inbound-leads',payload);
       if(result==='created') created++; else existing++;
