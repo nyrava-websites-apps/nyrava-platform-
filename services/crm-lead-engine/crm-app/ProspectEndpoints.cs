@@ -23,18 +23,18 @@ public static class ProspectEndpoints
                 !Uri.TryCreate(input.SourceUrl, UriKind.Absolute, out var url) || url.Scheme != "https" || input.SourceUrl.Length > 2000)
                 return Results.BadRequest();
             var existing = await db.Contacts.SingleOrDefaultAsync(c => c.UserId == owner.Id && c.Source == "Fsbo Prospect" && c.ExternalLeadId == input.ExternalId);
-            if (existing is not null) return Results.Ok(new { id = existing.Id, existing = true });
+            if (existing is not null) return Results.Ok(new { id = existing.Id, existing = true, status = existing.Stage });
             var item = new CrmContact {
-                UserId = owner.Id, AssignedToUserId = owner.Id, Name = input.Title[..Math.Min(160, input.Title.Length)],
+                UserId = owner.Id, AssignedToUserId = owner.Id, Name = "Name not provided",
                 Phone = input.Phone, Email = input.Email, PropertyZipCode = input.ZipCode, LeadType = "Seller", Stage = "Review",
                 Source = "Fsbo Prospect", ExternalLeadId = input.ExternalId, SourceUrl = input.SourceUrl, ExternalFsbo = true,
-                Notes = "UNVERIFIED LISTING — contact name, ZIP, intent and recipient permission require review. " + (input.DoNotContact ? "DO NOT CONTACT: listing rejects agent outreach. " : "") + input.Title,
+                Notes = "MASTER BANK — Listing title: " + input.Title + ". Source search territory is not a verified property ZIP. Contact verification, seller intent and recipient authorization required before any distribution. " + (input.DoNotContact ? "DO NOT CONTACT: listing rejects agent outreach. " : "") + "Status: " + (string.IsNullOrWhiteSpace(input.Phone) && string.IsNullOrWhiteSpace(input.Email) ? "BONUS CANDIDATE — contact unavailable. " : "CONTACT CANDIDATE — unverified. "),
                 UpdatedAt = DateTimeOffset.UtcNow
             };
             db.Contacts.Add(item);
             key.LastUsedAt = DateTimeOffset.UtcNow;
             await db.SaveChangesAsync();
-            return Results.Created($"/api/contacts/{item.Id}", new { id = item.Id, reviewRequired = true });
+            return Results.Created($"/api/contacts/{item.Id}", new { id = item.Id, reviewRequired = true, status = item.Stage, classification = string.IsNullOrWhiteSpace(input.Phone) && string.IsNullOrWhiteSpace(input.Email) ? "BonusCandidate" : "ContactCandidate" });
         }).AllowAnonymous();
     }
 }
