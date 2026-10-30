@@ -22,8 +22,11 @@ export function prospectFromListing(item, source) {
     if(url.protocol!=='https:'||!url.hostname.endsWith('.craigslist.org')||(!supplied&&!id)) return null;
   } catch {return null;}
   const {phone, email} = contact;
+  // Explicitly labeled fields only: never mistake a street or headline for an owner name.
+  const ownerName = title.match(/\b(?:owner|seller|contact)\s*(?:name)?\s*:\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})(?=\s*[,|;]|$)/)?.[1] || null;
+  const propertyAddress = title.match(/\b(?:property\s+)?address\s*:\s*(\d{1,6}\s+[\w .'-]+?)(?=\s*[,|;]|$)/i)?.[1]?.trim() || null;
   const zip=String(item.PostalCode||item.postalCode||'').match(/^\d{5}$/)?.[0]||null;
-  return {externalId:'cl-'+createHash('sha256').update(url.href).digest('hex').slice(0,40),title,ownerName:null,phone,email,zipCode:zip,sourceUrl:url.href,source:'Craigslist',searchZip:source.zip,discoveredAt:new Date().toISOString(),doNotContact:/no\s*(realtors?|agents?|brokers?)\b/i.test(title)};
+  return {externalId:'cl-'+createHash('sha256').update(url.href).digest('hex').slice(0,40),title,ownerName,propertyAddress,phone,email,zipCode:zip,sourceUrl:url.href,source:'Craigslist',searchZip:source.zip,discoveredAt:new Date().toISOString(),doNotContact:/no\s*(realtors?|agents?|brokers?)\b/i.test(title)};
 }
 
 export function reviewedPayload(lead, now=Date.now()) {
