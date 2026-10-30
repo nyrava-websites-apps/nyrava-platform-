@@ -34,6 +34,13 @@ public static class ProspectEndpoints
             var zip = verifiedZipFormat ? input.ZipCode!.Trim() : null;
             var activeSubscribers = await db.Users.Where(u => u.Role == "Owner" && u.WorkspaceId == u.Id).ToListAsync();
             var hasEligibleTerritory = zip is not null && activeSubscribers.Any(u => GeographicService.MatchesZipCoverage(u, zip));
+            // Reject before lookup, network enrichment, or the admin bank when neither
+            // contact method is visibly present in the original listing title.
+            var listedPhone = System.Text.RegularExpressions.Regex.IsMatch(input.Title,
+                @"(?<!\d)(?:\+1[ .-]?)?\(?[2-9]\d{2}\)?[ .-]?[2-9]\d{2}[ .-]?\d{4}(?!\d)");
+            var listedEmail = System.Text.RegularExpressions.Regex.IsMatch(input.Title,
+                @"[\w.+-]+@[\w-]+\.[a-z]{2,}", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (!listedPhone && !listedEmail) return Results.BadRequest(new { error = "Listing contact must be visible upfront." });
             // Search-result feeds can contain unrelated classifieds even in a real-estate search.
             // Retain those records for audit, but never classify them as property prospects.
             var nonPropertyTitle = System.Text.RegularExpressions.Regex.IsMatch(input.Title,
