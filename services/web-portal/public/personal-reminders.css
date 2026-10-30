@@ -1,3 +1,85 @@
 .reminder-workspace body{max-width:none;margin:0;padding:0;font-family:Inter,system-ui,sans-serif;color:#101B35;background:#F4F7FC}.reminder-workspace [hidden]{display:none!important}.reminder-workspace header{gap:24px;padding:22px 0 32px;border-bottom:1px solid #DFE6F0;flex-wrap:wrap}.reminder-workspace h1{font-size:clamp(30px,4vw,44px);margin:12px 0;line-height:1.15}.reminder-workspace h2{margin:0 0 10px}.reminder-workspace .schedule-heading{display:flex;justify-content:space-between;gap:20px;align-items:center;padding:30px 0 10px;flex-wrap:wrap}.reminder-workspace .schedule-layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:24px;align-items:start}.reminder-workspace article,.reminder-workspace section{padding:24px;border-radius:16px;box-shadow:0 3px 12px #081A3A04;overflow-wrap:anywhere}.reminder-workspace .notification-panel{min-width:0}.reminder-workspace .panel-heading{padding:24px 24px 0}.reminder-workspace #notifications article{margin:12px 0}.reminder-workspace #notifications button{margin:12px 8px 0 0}.reminder-workspace .reminder-setup{margin:24px 0;border:1px solid #DFE6F0;border-radius:14px;background:#fff}.reminder-workspace summary{cursor:pointer;padding:22px;font-weight:650}.reminder-workspace summary span{display:block;font-size:13px;font-weight:400;margin-top:6px}.reminder-workspace .reminder-setup section{border:0;margin:0;box-shadow:none}.reminder-workspace #destinations>div{background:#F4F7FC;padding:20px;border-radius:12px;min-width:0}.reminder-workspace #destinations button{margin:12px 0}.reminder-workspace input,.reminder-workspace select{min-height:44px;max-width:100%;min-width:0}.reminder-workspace button{min-height:44px;font-weight:600}.reminder-workspace .row{gap:12px}.reminder-workspace article>.row{margin:14px 0}.reminder-workspace label.row{display:flex;font-size:14px}.reminder-workspace input[type=checkbox]{min-height:20px;width:18px}.reminder-workspace dialog{padding:28px;box-sizing:border-box;max-height:90vh;overflow:auto}.reminder-workspace #editorError{padding:14px;background:#FFF1F1;color:#9C2020;border-radius:8px}.reminder-workspace :focus-visible{outline:3px solid #0866FF;outline-offset:3px}.reminder-workspace #message{z-index:2;overflow-wrap:anywhere}@media(max-width:850px){.reminder-workspace .schedule-layout{grid-template-columns:1fr}.reminder-workspace body{padding:0 16px}.reminder-workspace article,.reminder-workspace section{padding:20px}.reminder-workspace .schedule-heading .row{width:100%}.reminder-workspace .grid{grid-template-columns:1fr}.reminder-workspace header{align-items:flex-start}.reminder-workspace article>.row>input{flex:1;min-width:150px}}
 
 .reminder-workspace h1,.reminder-workspace h2,.reminder-workspace h3,.reminder-workspace summary,.reminder-workspace label{font-family:system-ui,sans-serif}
+
+
+/* Appointment editor — compact, centered, readable at desktop and mobile widths. */
+.reminder-workspace #editor {
+  position:fixed;
+  inset:0;
+  width:min(760px, calc(100vw - 32px));
+  max-width:min(760px, calc(100vw - 32px));
+  max-height:min(88dvh, 740px);
+  margin:auto;
+  padding:0;
+  overflow-y:auto;
+  overflow-x:hidden;
+  border:1px solid #d7e3f2;
+  border-radius:16px;
+  background:#fff;
+  color:#102b4c;
+  box-shadow:0 24px 80px rgba(4,24,53,.28);
+}
+.reminder-workspace #editor::backdrop{background:rgba(4,22,49,.65);backdrop-filter:blur(3px)}
+.reminder-workspace #editor #form{display:block;min-width:0;padding:25px 28px 24px}
+.reminder-workspace #editor #heading{font-size:22px;line-height:1.3;font-weight:800;margin:0 0 20px;color:#0b2c54}
+.reminder-workspace #editor #form>.grid {
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:17px 18px!important;
+  align-items:start!important;
+  width:100%;
+}
+.reminder-workspace #editor #form>.grid>label{
+  display:flex!important;
+  flex-direction:column!important;
+  gap:7px!important;
+  min-width:0!important;
+  width:100%!important;
+  margin:0!important;
+  font-size:12px;
+  line-height:1.35;
+  color:#375573;
+  font-weight:700;
+}
+.reminder-workspace #editor #form>.grid>label>input,
+.reminder-workspace #editor #form>.grid>label>select {
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
+  box-sizing:border-box!important;
+  height:40px!important;
+  min-height:40px!important;
+  margin:0!important;
+  border:1px solid #c7d8eb;
+  border-radius:8px;
+  padding:8px 11px;
+  font:inherit;
+  font-size:13px;
+  color:#143354;
+  background:white;
+}
+.reminder-workspace #editor #form>.grid>label>input:focus,
+.reminder-workspace #editor #form>.grid>label>select:focus{
+  outline:2px solid #0866ff;
+  outline-offset:1px;
+}
+.reminder-workspace #editor #form>p.muted{font-size:12px;line-height:1.5;color:#607893;margin:17px 0 18px}
+.reminder-workspace #editor #form>.row{display:flex!important;align-items:center;gap:10px;margin:0;flex-wrap:wrap}
+.reminder-workspace #editor #form>.row>button{
+  min-height:39px!important;
+  height:39px!important;
+  border-radius:8px;
+  padding:0 17px!important;
+  font-size:13px;
+  white-space:nowrap;
+}
+.reminder-workspace #editor #form>.row>button:first-child{background:#0866ff;color:#fff;border:1px solid #0866ff}
+.reminder-workspace #editor #form>.row>button.secondary{background:#fff;color:#174875;border:1px solid #c5d7eb}
+.reminder-workspace #editor #editorError:not([hidden]){margin-bottom:14px}
+@media(max-width:620px) {
+  .reminder-workspace #editor {width:calc(100vw - 20px);max-width:calc(100vw - 20px);max-height:calc(100dvh - 24px);border-radius:12px}
+  .reminder-workspace #editor #form{padding:20px 16px}
+  .reminder-workspace #editor #heading{font-size:19px;margin-bottom:16px}
+  .reminder-workspace #editor #form>.grid{grid-template-columns:1fr!important;gap:12px!important}
+}
