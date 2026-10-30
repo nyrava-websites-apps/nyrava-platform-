@@ -49,15 +49,15 @@ public static class ProspectEndpoints
                         if (html.Length < 512000)
                         {
                             var body = System.Text.RegularExpressions.Regex.Match(html,
-                                "<section[^>]*id=[\\\"']postingbody[\\\"'][^>]*>(.*?)</section>",
+                                @"<section[^>]*id=.postingbody.[^>]*>(.*?)</section>",
                                 System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Singleline);
                             var raw = body.Success ? body.Groups[1].Value : "";
                             raw = System.Text.RegularExpressions.Regex.Replace(raw, "<[^>]+>", " ");
                             raw = System.Net.WebUtility.HtmlDecode(raw);
-                            raw = System.Text.RegularExpressions.Regex.Replace(raw, @"\\s+", " ").Trim();
+                            raw = System.Text.RegularExpressions.Regex.Replace(raw, @"\s+", " ").Trim();
                             if (raw.Length > 0) publishedDescription = raw[..Math.Min(raw.Length, 3000)];
                             var phoneMatch = System.Text.RegularExpressions.Regex.Match(raw,
-                                @"(?<!\\d)(?:\\+1[ .-]?)?\\(?\\d{3}\\)?[ .-]?\\d{3}[ .-]?\\d{4}(?!\\d)");
+                                @"(?<!\d)(?:\+1[ .-]?)?\(?\d{3}\)?[ .-]?\d{3}[ .-]?\d{4}(?!\d)");
                             if (phoneMatch.Success) publishedPhone = phoneMatch.Value;
                         }
                     }
