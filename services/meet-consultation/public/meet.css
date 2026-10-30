@@ -1197,3 +1197,66 @@ body.embed-mode .meet-header {
     scroll-snap-align:none;
   }
 }
+
+/* Desktop: Jitsi-style gallery tiles retain their 16:9 geometry and fit above controls.
+   Layout uses the current participant-count grid, not forced full-height video cards. */
+@media (min-width: 769px) {
+  .meet-app { height:100dvh; min-height:0; overflow:hidden; }
+  .meet-header { flex:0 0 56px; min-height:0; }
+  .meet-header.embed-header { flex-basis:42px; }
+  body.embed-mode .meet-header { flex-basis:0; }
+  .meet-workspace, .video-container { min-height:0; min-width:0; }
+  .video-container { padding:12px; }
+  .video-grid {
+    --gallery-rows:1;
+    flex:1 1 0;
+    min-height:0;
+    height:auto;
+    max-height:none;
+    width:100%;
+    box-sizing:border-box;
+    align-content:center;
+    align-items:center;
+    justify-items:center;
+    overflow-y:auto;
+    overflow-x:hidden;
+    grid-auto-rows:minmax(0,1fr);
+    gap:10px;
+  }
+  .video-grid[data-count="3"],.video-grid[data-count="4"],
+  .video-grid[data-count="5"],.video-grid[data-count="6"] { --gallery-rows:2; }
+  .video-grid[data-count="7"],.video-grid[data-count="8"],.video-grid[data-count="9"],
+  .video-grid[data-count="10"],.video-grid[data-count="11"],.video-grid[data-count="12"] { --gallery-rows:3; }
+  .video-grid[data-count="13"],.video-grid[data-count="14"],.video-grid[data-count="15"],
+  .video-grid[data-count="16"] { --gallery-rows:4; }
+  .video-grid[data-count="17"],.video-grid[data-count="18"],.video-grid[data-count="19"],
+  .video-grid[data-count="20"],.video-grid[data-count="21"],.video-grid[data-count="22"],
+  .video-grid[data-count="23"],.video-grid[data-count="24"],.video-grid[data-count="25"] { --gallery-rows:5; }
+  .video-grid .video-card {
+    box-sizing:border-box;
+    width:min(100%, calc(((100dvh - 190px) / var(--gallery-rows)) * 16 / 9));
+    height:auto;
+    max-height:100%;
+    aspect-ratio:16/9;
+    align-self:center;
+    justify-self:center;
+    min-width:0;
+    min-height:0;
+  }
+  .video-grid[data-count="1"] .video-card {
+    width:min(100%, 880px, calc((100dvh - 190px) * 16 / 9));
+  }
+  .video-grid .video-card video,.video-grid .video-card canvas {
+    width:100%;
+    height:100%;
+    object-fit:contain;
+  }
+  .controls-toolbar {
+    height:64px;
+    min-height:64px;
+    flex:0 0 64px;
+    display:flex;
+    visibility:visible;
+    overflow:visible;
+  }
+}
