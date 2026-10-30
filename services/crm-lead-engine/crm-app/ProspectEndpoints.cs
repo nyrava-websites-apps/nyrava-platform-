@@ -20,6 +20,7 @@ public static class ProspectEndpoints
             if (owner is null) return Results.Forbid();
             if (string.IsNullOrWhiteSpace(input.ExternalId) || input.ExternalId.Length > 160 || string.IsNullOrWhiteSpace(input.Title) || input.Title.Length > 1000 ||
                 input.Phone?.Length > 40 || input.Email?.Length > 320 ||
+                input.OwnerName?.Length > 160 || input.PropertyAddress?.Length > 400 ||
                 !Uri.TryCreate(input.SourceUrl, UriKind.Absolute, out var url) || url.Scheme != "https" || input.SourceUrl.Length > 2000)
                 return Results.BadRequest();
             // Contact must already be present in the collector's initial payload.
@@ -115,10 +116,10 @@ public static class ProspectEndpoints
                 return Results.Ok(new { id = existing.Id, existing = true, status = existing.Stage, enriched = !string.IsNullOrWhiteSpace(publishedDescription) });
             }
             var item = new CrmContact {
-                UserId = owner.Id, AssignedToUserId = owner.Id, Name = "Name not provided",
+                UserId = owner.Id, AssignedToUserId = owner.Id, Name = string.IsNullOrWhiteSpace(input.OwnerName) ? "Name not provided" : input.OwnerName,
                 Phone = input.Phone, Email = input.Email, PropertyZipCode = zip, LeadType = "Seller", Stage = hasEligibleTerritory ? "Review" : "Banked",
                 Source = "Fsbo Prospect", ExternalLeadId = input.ExternalId, SourceUrl = input.SourceUrl, ExternalFsbo = true,
-                Notes = (nonPropertyTitle ? "EXCLUDED — Classified is not a residential property listing. " : "") + (publishedDescription is null ? "" : "PUBLIC LISTING DESCRIPTION (unverified): " + publishedDescription + " | ") + (publishedPhone is null ? "" : "PUBLIC PHONE (unverified): " + publishedPhone + " | ") + "MASTER BANK — Listing title: " + input.Title + ". Source search territory is not a verified property ZIP. Contact verification, seller intent and recipient authorization required before any distribution. " + (input.DoNotContact ? "DO NOT CONTACT: listing rejects agent outreach. " : "") + "Status: " + (string.IsNullOrWhiteSpace(input.Phone ?? publishedPhone) && string.IsNullOrWhiteSpace(input.Email) ? "BONUS CANDIDATE — contact unavailable. " : "CONTACT CANDIDATE — unverified. "),
+                Notes = (!string.IsNullOrWhiteSpace(input.OwnerName) && !string.IsNullOrWhiteSpace(input.PropertyAddress) ? "BEST LEAD — published name, property address, and contact. " : "") + (string.IsNullOrWhiteSpace(input.PropertyAddress) ? "" : "PROPERTY ADDRESS (published): " + input.PropertyAddress + " | ") + (nonPropertyTitle ? "EXCLUDED — Classified is not a residential property listing. " : "") + (publishedDescription is null ? "" : "PUBLIC LISTING DESCRIPTION (unverified): " + publishedDescription + " | ") + (publishedPhone is null ? "" : "PUBLIC PHONE (unverified): " + publishedPhone + " | ") + "MASTER BANK — Listing title: " + input.Title + ". Source search territory is not a verified property ZIP. Contact verification, seller intent and recipient authorization required before any distribution. " + (input.DoNotContact ? "DO NOT CONTACT: listing rejects agent outreach. " : "") + "Status: " + (string.IsNullOrWhiteSpace(input.Phone ?? publishedPhone) && string.IsNullOrWhiteSpace(input.Email) ? "BONUS CANDIDATE — contact unavailable. " : "CONTACT CANDIDATE — unverified. "),
                 UpdatedAt = DateTimeOffset.UtcNow
             };
             db.Contacts.Add(item);
@@ -128,4 +129,4 @@ public static class ProspectEndpoints
         }).AllowAnonymous();
     }
 }
-public sealed record ProspectInput(string ExternalId, string Title, string? Phone, string? Email, string? ZipCode, string SourceUrl, bool DoNotContact);
+public sealed record ProspectInput(string ExternalId, string Title, string? Phone, string? Email, string? ZipCode, string SourceUrl, bool DoNotContact, string? OwnerName = null, string? PropertyAddress = null);
