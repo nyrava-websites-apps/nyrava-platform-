@@ -28,7 +28,7 @@ public static class ProspectEndpoints
                 return Results.Ok(new { rejected = true, reason = "No upfront phone or email; not imported or reviewed." });
 
             var verifiedZipFormat = !string.IsNullOrWhiteSpace(input.ZipCode) &&
-                System.Text.RegularExpressions.Regex.IsMatch(input.ZipCode.Trim(), @"^\\d{5}$");
+                System.Text.RegularExpressions.Regex.IsMatch(input.ZipCode.Trim(), @"^\d{5}$");
             // A search territory is not proof of the property's ZIP. If the ZIP is
             // missing/unconfirmed, hold the contact in Admin's bank, not review.
             var zip = verifiedZipFormat ? input.ZipCode!.Trim() : null;
@@ -49,14 +49,6 @@ public static class ProspectEndpoints
             if (nonPropertyTitle)
                 return Results.Ok(new { rejected = true, reason = "Non-property classified; not imported or reviewed." });
             var existing = await db.Contacts.SingleOrDefaultAsync(c => c.UserId == owner.Id && c.Source == "Fsbo Prospect" && c.ExternalLeadId == input.ExternalId);
-            if (existing is not null && nonPropertyTitle) {
-                if (existing.Stage != "Excluded") {
-                    existing.Stage = "Excluded";
-                    existing.Notes = "EXCLUDED — Unrelated classified advertisement. " + (existing.Notes ?? "");
-                    await db.SaveChangesAsync();
-                }
-                return Results.Ok(new { id = existing.Id, existing = true, status = existing.Stage });
-            }
             // Do not repeatedly request the same public page during every collector cycle.
             var enrichmentDue = existing is null ||
                 ((existing.Notes is null || !existing.Notes.Contains("[Source page checked", StringComparison.Ordinal)) &&
