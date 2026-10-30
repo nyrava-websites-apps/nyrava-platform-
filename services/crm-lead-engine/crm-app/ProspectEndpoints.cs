@@ -25,7 +25,7 @@ public static class ProspectEndpoints
             // Search-result feeds can contain unrelated classifieds even in a real-estate search.
             // Retain those records for audit, but never classify them as property prospects.
             var nonPropertyTitle = System.Text.RegularExpressions.Regex.IsMatch(input.Title,
-                @"\\b(tires?|wheels?|rims?|auto parts?|car parts?|truck parts?|boats?|motorcycles?|furniture|appliances?|tools?|lawnmowers?)\\b",
+                @"\b(tires?|wheels?|rims?|auto parts?|car parts?|truck parts?|boats?|motorcycles?|furniture|appliances?|tools?|lawnmowers?)\b",
                 System.Text.RegularExpressions.RegexOptions.IgnoreCase);
             var existing = await db.Contacts.SingleOrDefaultAsync(c => c.UserId == owner.Id && c.Source == "Fsbo Prospect" && c.ExternalLeadId == input.ExternalId);
             if (existing is not null) return Results.Ok(new { id = existing.Id, existing = true, status = existing.Stage });
