@@ -1103,3 +1103,73 @@ body.embed-mode .meet-header {
   100% { transform: translate(-50%, -50%) scale(1); }
 }
 
+
+
+/* Responsive meeting layout based on Jitsi's adaptive tiles and persistent mobile call controls.
+   Keep video in a natural 16:9 frame rather than stretching it to the viewport height. */
+.video-grid { min-height:0; grid-auto-rows:minmax(0,1fr); align-content:center; }
+.video-card { aspect-ratio:16/9; height:auto; max-height:100%; min-height:0; }
+.video-card video, .video-card canvas { object-fit:contain; }
+
+@media (max-width: 768px) {
+  html, body, .meet-app { height:100%; height:100dvh; min-height:0; overflow:hidden; }
+  .meet-header { flex:0 0 auto; }
+  .meet-header .brand { min-width:0; flex-wrap:wrap; }
+  .meet-header .room-pill { max-width:48vw; overflow-wrap:anywhere; }
+  .meet-workspace { flex:1 1 0; min-height:0; overflow:hidden; }
+  .video-container { display:flex; flex-direction:column; min-height:0; min-width:0; padding:8px 8px 0; }
+  .video-grid, .video-grid[data-count] {
+    display:grid;
+    flex:1 1 0;
+    min-height:0;
+    height:auto;
+    max-height:none;
+    width:100%;
+    grid-template-columns:minmax(0,1fr);
+    grid-template-rows:none;
+    grid-auto-rows:max-content;
+    align-content:start;
+    justify-items:center;
+    gap:10px;
+    overflow-y:auto;
+    overflow-x:hidden;
+    padding:6px 0 12px;
+    overscroll-behavior:contain;
+  }
+  .video-grid .video-card {
+    width:100%;
+    height:auto;
+    min-width:0;
+    max-width:100%;
+    max-height:none;
+    aspect-ratio:16/9;
+  }
+  .video-card video, .video-card canvas { width:100%; height:100%; object-fit:contain; }
+  .controls-toolbar {
+    position:relative;
+    flex:0 0 auto;
+    height:62px;
+    min-height:62px;
+    width:100%;
+    max-width:100%;
+    padding:8px 4px max(8px, env(safe-area-inset-bottom));
+    display:flex;
+    justify-content:flex-start;
+    align-items:center;
+    gap:8px;
+    overflow-x:auto;
+    overflow-y:hidden;
+    scroll-snap-type:x proximity;
+    scrollbar-width:none;
+    background:#0e244d;
+    border-top:1px solid rgba(255,255,255,.12);
+    z-index:20;
+  }
+  .controls-toolbar .tool-btn { flex:0 0 42px; width:42px; height:42px; scroll-snap-align:start; }
+  .participant-label { max-width:calc(100% - 16px); font-size:11px; }
+}
+@media (max-width: 400px) {
+  .video-grid, .video-grid[data-count] { gap:8px; }
+  .controls-toolbar { gap:6px; }
+  .controls-toolbar .tool-btn { width:40px; height:40px; flex-basis:40px; }
+}
