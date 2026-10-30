@@ -1,8 +1,19 @@
 import {createHash} from 'node:crypto';
 
+// Only contact information visibly printed in the original listing title qualifies.
+// Do not enrich, click Reply, or infer a contact from the source page or elsewhere.
+export function upfrontContact(title) {
+  const text = String(title || '');
+  const phone = text.match(/(?<!\d)(?:\+1[ .-]?)?\(?[2-9]\d{2}\)?[ .-]?[2-9]\d{2}[ .-]?\d{4}(?!\d)/)?.[0] || null;
+  const email = text.match(/[\w.+-]+@[\w-]+\.[a-z]{2,}/i)?.[0] || null;
+  return { phone, email, eligible: Boolean(phone || email) };
+}
+
 export function prospectFromListing(item, source) {
   const title=String(item.PostingTitle||'').trim();
   if(!title||title==='undefined') return null;
+  const contact = upfrontContact(title);
+  if (!contact.eligible) return null;
   const supplied=item.PostingURL;
   const id=item.PostingID;
   let url;
@@ -10,8 +21,7 @@ export function prospectFromListing(item, source) {
     url=new URL(supplied||`https://${new URL(source.url).hostname}/reo/d/${id}.html`);
     if(url.protocol!=='https:'||!url.hostname.endsWith('.craigslist.org')||(!supplied&&!id)) return null;
   } catch {return null;}
-  const phone=title.match(/\b[2-9]\d{2}[-.\s]?[2-9]\d{2}[-.\s]?\d{4}\b/)?.[0]||null;
-  const email=title.match(/[\w.+-]+@[\w-]+\.[a-z]{2,}/i)?.[0]||null;
+  const {phone, email} = contact;
   const zip=String(item.PostalCode||item.postalCode||'').match(/^\d{5}$/)?.[0]||null;
   return {externalId:'cl-'+createHash('sha256').update(url.href).digest('hex').slice(0,40),title,ownerName:null,phone,email,zipCode:zip,sourceUrl:url.href,source:'Craigslist',searchZip:source.zip,discoveredAt:new Date().toISOString(),doNotContact:/no\s*(realtors?|agents?|brokers?)\b/i.test(title)};
 }
