@@ -22,11 +22,25 @@ public static class ProspectEndpoints
                 input.Phone?.Length > 40 || input.Email?.Length > 320 ||
                 !Uri.TryCreate(input.SourceUrl, UriKind.Absolute, out var url) || url.Scheme != "https" || input.SourceUrl.Length > 2000)
                 return Results.BadRequest();
+            // Contact must already be present in the collector's initial payload.
+            // A public page lookup must never rescue a no-contact listing.
+            if (string.IsNullOrWhiteSpace(input.Phone) && string.IsNullOrWhiteSpace(input.Email))
+                return Results.Ok(new { rejected = true, reason = "No upfront phone or email; not imported or reviewed." });
+
+            var verifiedZipFormat = !string.IsNullOrWhiteSpace(input.ZipCode) &&
+                System.Text.RegularExpressions.Regex.IsMatch(input.ZipCode.Trim(), @"^\\d{5}$");
+            // A search territory is not proof of the property's ZIP. If the ZIP is
+            // missing/unconfirmed, hold the contact in Admin's bank, not review.
+            var zip = verifiedZipFormat ? input.ZipCode!.Trim() : null;
+            var activeSubscribers = await db.Users.Where(u => u.Role == "Owner" && u.WorkspaceId == u.Id).ToListAsync();
+            var hasEligibleTerritory = zip is not null && activeSubscribers.Any(u => GeographicService.MatchesZipCoverage(u, zip));
             // Search-result feeds can contain unrelated classifieds even in a real-estate search.
             // Retain those records for audit, but never classify them as property prospects.
             var nonPropertyTitle = System.Text.RegularExpressions.Regex.IsMatch(input.Title,
                 @"\b(tires?|wheels?|rims?|auto parts?|car parts?|truck parts?|boats?|motorcycles?|furniture|appliances?|tools?|lawnmowers?)\b",
                 System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (nonPropertyTitle)
+                return Results.Ok(new { rejected = true, reason = "Non-property classified; not imported or reviewed." });
             var existing = await db.Contacts.SingleOrDefaultAsync(c => c.UserId == owner.Id && c.Source == "Fsbo Prospect" && c.ExternalLeadId == input.ExternalId);
             if (existing is not null && nonPropertyTitle) {
                 if (existing.Stage != "Excluded") {
@@ -80,6 +94,14 @@ public static class ProspectEndpoints
                 catch (Exception) { /* Source unavailable: keep existing link for manual review. */ }
             }
             if (existing is not null) {
+                // Historic records remain intact; old unverified/no-contact records
+                // must not be enriched or advanced by repeated submissions.
+                if (existing.Stage == "Excluded" || (string.IsNullOrWhiteSpace(existing.Phone) && string.IsNullOrWhiteSpace(existing.Email)))
+                    return Results.Ok(new { id = existing.Id, existing = true, ignored = true, status = existing.Stage });
+                if (!hasEligibleTerritory && existing.Stage == "Review") {
+                    existing.Stage = "Banked";
+                    await db.SaveChangesAsync();
+                }
                 if (enrichmentDue) {
                     if (!string.IsNullOrWhiteSpace(publishedDescription) && !(existing.Notes ?? "").Contains("PUBLIC LISTING DESCRIPTION")) {
                         existing.Notes = "PUBLIC LISTING DESCRIPTION (unverified): " + publishedDescription + " | " + (existing.Notes ?? "");
@@ -95,7 +117,7 @@ public static class ProspectEndpoints
             }
             var item = new CrmContact {
                 UserId = owner.Id, AssignedToUserId = owner.Id, Name = "Name not provided",
-                Phone = input.Phone ?? publishedPhone, Email = input.Email, PropertyZipCode = input.ZipCode, LeadType = "Seller", Stage = nonPropertyTitle ? "Excluded" : "Review",
+                Phone = input.Phone, Email = input.Email, PropertyZipCode = zip, LeadType = "Seller", Stage = hasEligibleTerritory ? "Review" : "Banked",
                 Source = "Fsbo Prospect", ExternalLeadId = input.ExternalId, SourceUrl = input.SourceUrl, ExternalFsbo = true,
                 Notes = (nonPropertyTitle ? "EXCLUDED — Classified is not a residential property listing. " : "") + (publishedDescription is null ? "" : "PUBLIC LISTING DESCRIPTION (unverified): " + publishedDescription + " | ") + (publishedPhone is null ? "" : "PUBLIC PHONE (unverified): " + publishedPhone + " | ") + "MASTER BANK — Listing title: " + input.Title + ". Source search territory is not a verified property ZIP. Contact verification, seller intent and recipient authorization required before any distribution. " + (input.DoNotContact ? "DO NOT CONTACT: listing rejects agent outreach. " : "") + "Status: " + (string.IsNullOrWhiteSpace(input.Phone ?? publishedPhone) && string.IsNullOrWhiteSpace(input.Email) ? "BONUS CANDIDATE — contact unavailable. " : "CONTACT CANDIDATE — unverified. "),
                 UpdatedAt = DateTimeOffset.UtcNow
@@ -103,7 +125,7 @@ public static class ProspectEndpoints
             db.Contacts.Add(item);
             key.LastUsedAt = DateTimeOffset.UtcNow;
             await db.SaveChangesAsync();
-            return Results.Created($"/api/contacts/{item.Id}", new { id = item.Id, reviewRequired = true, status = item.Stage, classification = nonPropertyTitle ? "NonProperty" : (string.IsNullOrWhiteSpace(input.Phone) && string.IsNullOrWhiteSpace(input.Email) ? "BonusCandidate" : "ContactCandidate") });
+            return Results.Created($"/api/contacts/{item.Id}", new { id = item.Id, reviewRequired = hasEligibleTerritory, banked = !hasEligibleTerritory, status = item.Stage, classification = "ContactCandidate" });
         }).AllowAnonymous();
     }
 }
