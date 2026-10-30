@@ -27,14 +27,29 @@ public static class ProspectEndpoints
             var nonPropertyTitle = System.Text.RegularExpressions.Regex.IsMatch(input.Title,
                 @"\b(tires?|wheels?|rims?|auto parts?|car parts?|truck parts?|boats?|motorcycles?|furniture|appliances?|tools?|lawnmowers?)\b",
                 System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            var existing = await db.Contacts.SingleOrDefaultAsync(c => c.UserId == owner.Id && c.Source == "Fsbo Prospect" && c.ExternalLeadId == input.ExternalId);
+            if (existing is not null && nonPropertyTitle) {
+                if (existing.Stage != "Excluded") {
+                    existing.Stage = "Excluded";
+                    existing.Notes = "EXCLUDED — Unrelated classified advertisement. " + (existing.Notes ?? "");
+                    await db.SaveChangesAsync();
+                }
+                return Results.Ok(new { id = existing.Id, existing = true, status = existing.Stage });
+            }
+            // Do not repeatedly request the same public page during every collector cycle.
+            var enrichmentDue = existing is null ||
+                ((existing.Notes is null || !existing.Notes.Contains("[Source page checked", StringComparison.Ordinal)) &&
+                 existing.UpdatedAt < DateTimeOffset.UtcNow.AddHours(-1)) ||
+                (existing.Notes is not null && existing.Notes.Contains("[Source page checked", StringComparison.Ordinal) &&
+                 existing.UpdatedAt < DateTimeOffset.UtcNow.AddDays(-1));
             // Read only the public individual listing page. Never click Reply, bypass access
             // controls, or infer permission to contact from a published telephone number.
             string? publishedDescription = null;
             string? publishedPhone = null;
-            if (!nonPropertyTitle &&
+            if (!nonPropertyTitle && enrichmentDue &&
                 (url.Host.EndsWith(".craigslist.org", StringComparison.OrdinalIgnoreCase) ||
                  url.Host.Equals("craigslist.org", StringComparison.OrdinalIgnoreCase)) &&
-                url.AbsolutePath.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
+                (url.AbsolutePath.EndsWith(".html", StringComparison.OrdinalIgnoreCase) || url.AbsolutePath.StartsWith("/view/d/", StringComparison.OrdinalIgnoreCase)))
             {
                 try
                 {
@@ -64,8 +79,20 @@ public static class ProspectEndpoints
                 }
                 catch (Exception) { /* Source unavailable: keep existing link for manual review. */ }
             }
-            var existing = await db.Contacts.SingleOrDefaultAsync(c => c.UserId == owner.Id && c.Source == "Fsbo Prospect" && c.ExternalLeadId == input.ExternalId);
-            if (existing is not null) return Results.Ok(new { id = existing.Id, existing = true, status = existing.Stage });
+            if (existing is not null) {
+                if (enrichmentDue) {
+                    if (!string.IsNullOrWhiteSpace(publishedDescription) && !(existing.Notes ?? "").Contains("PUBLIC LISTING DESCRIPTION")) {
+                        existing.Notes = "PUBLIC LISTING DESCRIPTION (unverified): " + publishedDescription + " | " + (existing.Notes ?? "");
+                    }
+                    if (!string.IsNullOrWhiteSpace(publishedPhone) && string.IsNullOrWhiteSpace(existing.Phone)) {
+                        existing.Phone = publishedPhone;
+                    }
+                    existing.Notes = "[Source page checked " + DateTimeOffset.UtcNow.ToString("yyyy-MM-dd") + "] " + (existing.Notes ?? "");
+                    existing.UpdatedAt = DateTimeOffset.UtcNow;
+                    await db.SaveChangesAsync();
+                }
+                return Results.Ok(new { id = existing.Id, existing = true, status = existing.Stage, enriched = !string.IsNullOrWhiteSpace(publishedDescription) });
+            }
             var item = new CrmContact {
                 UserId = owner.Id, AssignedToUserId = owner.Id, Name = "Name not provided",
                 Phone = input.Phone ?? publishedPhone, Email = input.Email, PropertyZipCode = input.ZipCode, LeadType = "Seller", Stage = nonPropertyTitle ? "Excluded" : "Review",
