@@ -823,16 +823,40 @@ export function registerGatewayFeatures(app, { CRM_SERVICE_URL, VALUATION_SERVIC
   });
 
   app.get('/api/admin/operations/records/:id', async (req, res) => {
-    res.json({
-      id: req.params.id,
-      fullName: 'Verified Prospect',
-      email: 'fictional-contact@example.test',
-      phone: '+1-202-555-0101',
-      zipCode: '78701',
-      assessment: {
-        fingerprint: 'fp_' + req.params.id
-      }
-    });
+    if (!req.platformAdminUser) return res.status(401).json({error:'Administrator login required.'});
+    const id = Number(req.params.id);
+    if (!Number.isSafeInteger(id) || id <= 0) return res.status(400).json({error:'Invalid record ID.'});
+    try {
+      const upstream = await fetch(CRM_SERVICE_URL + '/api/v1/internal/contacts');
+      if (!upstream.ok) return res.status(502).json({error:'CRM record lookup unavailable.'});
+      const contacts = await upstream.json();
+      const c = Array.isArray(contacts) ? contacts.find(x => Number(x.id) === id) : null;
+      if (!c) return res.status(404).json({error:'Lead record not found.'});
+      const contactExists = Boolean(c.phone || c.email);
+      const verified = contactExists && Boolean(c.contactVerifiedAt && c.intentVerifiedAt && c.consentCapturedAt && c.consentRecipient) && !/^Owner:|^Name not provided$/i.test(String(c.name || '')) && c.source !== 'Fsbo Prospect';
+      return res.json({
+        record: {
+          id: String(c.id), fullName: c.name || 'Name not provided', email: c.email || '',
+          phone: c.phone || '', zipCode: c.propertyZipCode || '', propertyAddress: '',
+          source: c.source || '', sourceUrl: c.sourceUrl || '',
+          externalLeadId: c.externalLeadId || '', receivedAt: c.updatedAt || null,
+          leadType: c.leadType || '', statement: c.notes || '', stage: c.stage || '',
+          status: c.stage || '', assignedAgentId: c.deliveredAt ? String(c.userId) : null,
+          deliveredAt: c.deliveredAt || null, contactVerificationMethod: c.contactVerificationMethod || '',
+          contactVerifiedAt: c.contactVerifiedAt || null, intentVerifiedAt: c.intentVerifiedAt || null,
+          consentCapturedAt: c.consentCapturedAt || null, consentRecipient: c.consentRecipient || '',
+          consentText: c.consentText || '', fsboAdminReviewReference: c.fsboAdminReviewReference || '',
+          fsboAdminReviewedAt: c.fsboAdminReviewedAt || null, externalFsbo: !!c.externalFsbo,
+          bankOnly: c.source === 'Fsbo Prospect' || !verified, score: null
+        },
+        assessment: {recommendation: 'NEEDS_REVIEW', allowed: false, reason: verified ? 'Stored verification fields exist; named recipient and provenance must be checked before release.' : 'Contact, intent, property ZIP, or named-recipient authorization is missing or unverified.'},
+        qualification: {qualified: false, stage: 'MANUAL_REVIEW', reason: 'This record is read-only in the inspection panel. Never dispatch without independent verification.'},
+        reviews: [], history: [], matching: [], followUp: {configured: false}
+      });
+    } catch (e) {
+      console.warn('[Admin lead detail lookup]', e.message);
+      return res.status(502).json({error:'Unable to retrieve lead details from CRM.'});
+    }
   });
 
   app.post('/api/admin/operations/records/:id/decision', (req, res) => {
