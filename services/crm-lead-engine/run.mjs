@@ -7,7 +7,7 @@
 import { readFileSync, existsSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { prospectFromListing, reviewedPayload, ingestionResult, upfrontContact } from './collector-policy.mjs';
+import { prospectFromListing, reviewedPayload, ingestionResult, upfrontContact, publicPostingText, listingUrl } from './collector-policy.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROSPECTS = join(__dirname, 'prospects.jsonl');
@@ -157,14 +157,32 @@ async function tryFetchCraigslist(source) {
     const data = await res.json();
     const items = Array.isArray(data[0]) ? data[0] : Array.isArray(data) ? data : [];
     const leads = [];
+    let grouped=0, missingContact=0, inspected=0, inspectErrors=0;
     for (const item of items) {
+      if (item.GeoCluster || !item.PostingURL) { grouped++; continue; }
       if (!item.PostingTitle || item.PostingTitle === 'undefined') continue;
       if (isRealtor(item.PostingTitle)) continue;
 
-      const prospect = prospectFromListing(item, source);
+      const sourceUrl=listingUrl(item,source);
+      if (!sourceUrl) continue;
+      const titleContact=upfrontContact(item.PostingTitle);
+      let publicDescription='';
+      if(!titleContact.eligible) {
+        if(inspected>=12) continue; // Bounded public-page reads per source and cycle.
+        inspected++;
+        try {
+          const response=await fetch(sourceUrl,{signal:AbortSignal.timeout(8000),headers:{'User-Agent':'NyravaHome-PublicListingAudit/1.0'},redirect:'error'});
+          if(!response.ok || !String(response.headers.get('content-type')||'').includes('text/html')) { inspectErrors++; continue; }
+          const html=await response.text();
+          publicDescription=publicPostingText(html.slice(0,300000));
+        } catch { inspectErrors++; continue; }
+      }
+      const prospect=prospectFromListing({...item,publicDescription},source);
       if (prospect) leads.push(prospect);
+      else missingContact++;
       if (leads.length >= 6) break; // Take top 6 per metro cycle to pace safely
     }
+    log(`  ${source.name}: ${items.length} raw records, ${grouped} groups, ${inspected} public pages checked, ${missingContact} rejected, ${leads.length} candidates, ${inspectErrors} page errors`);
     return leads;
   } catch (err) {
     log(`Source fetch failed for ${source.name}: ${err.name}`);
@@ -211,7 +229,7 @@ async function syncOnce() {
     if(!line.trim()) continue;
     try {
       const prospect=JSON.parse(line);
-      if (!upfrontContact(prospect.title).eligible) continue; // Reject old saved contactless records too.
+      if (!upfrontContact(prospect.title+' '+String(prospect.publicDescription||'')).eligible) continue; // Reject old saved contactless records too.
       const result=await post('/api/v1/prospects',prospect); if(result==='created') banked++;
     }
     catch { errors++; }
@@ -220,7 +238,7 @@ async function syncOnce() {
     if(!line.trim()) continue;
     try {
       const reviewed=JSON.parse(line);
-      if (!upfrontContact(reviewed.title).eligible) continue;
+      if (!upfrontContact(reviewed.title+' '+String(reviewed.publicDescription||'')).eligible) continue;
       const payload=reviewedPayload(reviewed);
       if(!payload) { errors++; continue; }
       const result=await post('/api/v1/inbound-leads',payload);
