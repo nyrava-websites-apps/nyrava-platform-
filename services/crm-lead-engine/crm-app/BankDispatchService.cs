@@ -28,8 +28,11 @@ public static class BankDispatchService
                 c.ArchivedAt == null && c.DeliveredAt == null &&
                 c.ConsentCapturedAt != null && c.ContactVerifiedAt != null &&
                 c.IntentVerifiedAt != null && (!c.ExternalFsbo || c.FsboAdminReviewedAt != null) &&
-                c.PropertyZipCode != null && c.DiscoveredAt != null && c.DiscoveredAt > cutoff && c.DiscoveredAt <= now &&
-                (c.Stage == "New" || c.Stage == "Queued")).OrderBy(c => c.DiscoveredAt).ToListAsync(token);
+                c.PropertyZipCode != null && c.DiscoveredAt != null &&
+                (c.Stage == "New" || c.Stage == "Queued")).ToListAsync(token);
+            // SQLite/EF Core cannot translate DateTimeOffset ordering/comparison. Evaluate ages after filtering.
+            bank = bank.Where(c => c.DiscoveredAt > cutoff && c.DiscoveredAt <= now)
+                .OrderBy(c => c.DiscoveredAt).ToList();
 
             var delivered = 0;
             foreach (var lead in bank)
