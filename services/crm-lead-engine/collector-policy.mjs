@@ -26,7 +26,7 @@ export function listingUrl(item,source) {
     if(base.protocol!=='https:'||!base.hostname.endsWith('.craigslist.org')) return null;
     if(!item?.PostingURL&&!item?.PostingID) return null;
     const url=new URL(item.PostingURL||('/reo/d/'+item.PostingID+'.html'),base);
-    return url.protocol==='https:'&&url.hostname.endsWith('.craigslist.org')?sourceUrl:null;
+    return url.protocol==='https:'&&url.hostname.endsWith('.craigslist.org')?url.href:null;
   } catch { return null; }
 }
 
