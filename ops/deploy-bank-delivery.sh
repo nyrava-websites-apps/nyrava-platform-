@@ -17,7 +17,12 @@ mkdir -p "$base/tests/NyravaCRM.Tests"
 git show "FETCH_HEAD:$base/tests/NyravaCRM.Tests/BankBonusTests.cs" > "$base/tests/NyravaCRM.Tests/BankBonusTests.cs"
 echo "=== Building CRM image (live service unaffected) ==="
 old_image="$(docker inspect nyrava-platform-crm-lead-engine-1 --format '{{.Image}}')"
-docker tag "$old_image" "nyrava-platform-crm-lead-engine:before-bank-delivery-$stamp"
+if docker image inspect "$old_image" >/dev/null 2>&1; then
+  docker tag "$old_image" "nyrava-platform-crm-lead-engine:before-bank-delivery-$stamp"
+else
+  echo "Running container image is absent from local image store; preserving the container filesystem as a rollback image."
+  docker commit nyrava-platform-crm-lead-engine-1 "nyrava-platform-crm-lead-engine:before-bank-delivery-$stamp" >/dev/null
+fi
 docker compose build crm-lead-engine
 echo "=== Running isolated bank-bonus tests ==="
 docker run --rm -v "$PWD/$base:/src" -w /src/tests/NyravaCRM.Tests mcr.microsoft.com/dotnet/sdk:8.0 dotnet test -c Release --filter FullyQualifiedName~BankBonusTests --verbosity minimal
