@@ -20,11 +20,11 @@ public static class ProspectEndpoints
             if (owner is null) return Results.Forbid();
             if (string.IsNullOrWhiteSpace(input.ExternalId) || input.ExternalId.Length > 160 || string.IsNullOrWhiteSpace(input.Title) || input.Title.Length > 1000 ||
                 input.Phone?.Length > 40 || input.Email?.Length > 320 ||
-                input.OwnerName?.Length > 160 || input.PropertyAddress?.Length > 400 ||
+                input.OwnerName?.Length > 160 || input.PropertyAddress?.Length > 400 || input.PublicDescription?.Length > 10000 ||
                 !Uri.TryCreate(input.SourceUrl, UriKind.Absolute, out var url) || url.Scheme != "https" || input.SourceUrl.Length > 2000)
                 return Results.BadRequest();
             // Contact must already be present in the collector's initial payload.
-            // A public page lookup must never rescue a no-contact listing.
+            // Contact must be explicitly published in the listing title or body, never from a hidden reply flow.
             if (string.IsNullOrWhiteSpace(input.Phone) && string.IsNullOrWhiteSpace(input.Email))
                 return Results.Ok(new { rejected = true, reason = "No upfront phone or email; not imported or reviewed." });
 
@@ -36,10 +36,11 @@ public static class ProspectEndpoints
             var activeSubscribers = await db.Users.Where(u => u.Role == "Owner" && u.WorkspaceId == u.Id).ToListAsync();
             var hasEligibleTerritory = zip is not null && activeSubscribers.Any(u => GeographicService.MatchesZipCoverage(u, zip));
             // Reject before lookup, network enrichment, or the admin bank when neither
-            // contact method is visibly present in the original listing title.
-            var listedPhone = System.Text.RegularExpressions.Regex.IsMatch(input.Title,
+            // contact method is visibly present in the original listing title or public description.
+            var listingPublicText = input.Title + " " + (input.PublicDescription ?? "");
+            var listedPhone = System.Text.RegularExpressions.Regex.IsMatch(listingPublicText,
                 @"(?<!\d)(?:\+1[ .-]?)?\(?[2-9]\d{2}\)?[ .-]?[2-9]\d{2}[ .-]?\d{4}(?!\d)");
-            var listedEmail = System.Text.RegularExpressions.Regex.IsMatch(input.Title,
+            var listedEmail = System.Text.RegularExpressions.Regex.IsMatch(listingPublicText,
                 @"[\w.+-]+@[\w-]+\.[a-z]{2,}", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
             if (!listedPhone && !listedEmail) return Results.BadRequest(new { error = "Listing contact must be visible upfront." });
             // Search-result feeds can contain unrelated classifieds even in a real-estate search.
@@ -129,4 +130,4 @@ public static class ProspectEndpoints
         }).AllowAnonymous();
     }
 }
-public sealed record ProspectInput(string ExternalId, string Title, string? Phone, string? Email, string? ZipCode, string SourceUrl, bool DoNotContact, string? OwnerName = null, string? PropertyAddress = null);
+public sealed record ProspectInput(string ExternalId, string Title, string? Phone, string? Email, string? ZipCode, string SourceUrl, bool DoNotContact, string? OwnerName = null, string? PropertyAddress = null, string? PublicDescription = null);
