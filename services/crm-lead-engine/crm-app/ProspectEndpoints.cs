@@ -158,6 +158,36 @@ public static class ProspectEndpoints
             await db.SaveChangesAsync();
             return Results.Created($"/api/contacts/{item.Id}", new { id = item.Id, reviewRequired = hasEligibleTerritory, banked = !hasEligibleTerritory, status = item.Stage, classification = "ContactCandidate" });
         }).AllowAnonymous();
+
+        // Admin-only review queue: incomplete identities never go to a subscriber.
+        app.MapGet("/api/admin/prospect-review", async (HttpContext http, CrmDb db) => {
+            if (!long.TryParse(http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var userId))
+                return Results.Unauthorized();
+            if (!await db.Users.AnyAsync(u => u.Id == userId && u.Role == "Admin")) return Results.Forbid();
+            var review = await db.Contacts.Where(c => c.Source == "Fsbo Prospect" &&
+                    c.ArchivedAt == null && (c.Stage == "Review" || c.Stage == "Banked"))
+                .OrderByDescending(c => c.DiscoveredAt ?? c.UpdatedAt)
+                .Select(c => new { c.Id, c.Stage, c.Name, c.Phone, c.Email, c.PropertyZipCode,
+                    c.SourceUrl, c.DiscoveredAt, c.Notes }).Take(250).ToListAsync();
+            return Results.Ok(review);
+        }).RequireAuthorization();
+
+        // Soft-delete keeps exclusion evidence so repeated collection cannot resurrect a rejected prospect.
+        app.MapDelete("/api/admin/prospect-review/{id:long}", async (long id, HttpContext http, CrmDb db) => {
+            if (!long.TryParse(http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var userId))
+                return Results.Unauthorized();
+            if (!await db.Users.AnyAsync(u => u.Id == userId && u.Role == "Admin")) return Results.Forbid();
+            var candidate = await db.Contacts.SingleOrDefaultAsync(c => c.Id == id && c.Source == "Fsbo Prospect");
+            if (candidate is null) return Results.NotFound();
+            if (candidate.Stage == "Dispatched" || candidate.DeliveredAt != null)
+                return Results.Conflict(new { error = "Already delivered; retain audit history." });
+            candidate.Stage = "Excluded";
+            candidate.ArchivedAt = DateTimeOffset.UtcNow;
+            candidate.Notes = "[Admin excluded] " + (candidate.Notes ?? "");
+            candidate.UpdatedAt = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync();
+            return Results.NoContent();
+        }).RequireAuthorization();
     }
 }
 public sealed record ProspectInput(string ExternalId, string Title, string? Phone, string? Email, string? ZipCode, string SourceUrl, bool DoNotContact, string? OwnerName = null, string? PropertyAddress = null, string? PublicDescription = null);
