@@ -123,6 +123,7 @@ public sealed class CrmContact
     public string? FsboAdminReviewReference { get; set; }
     public DateTimeOffset? FsboAdminReviewedAt { get; set; }
     public string? SourceUrl { get; set; }
+    public DateTimeOffset? DiscoveredAt { get; set; } // Immutable original intake date; legacy records remain null.
     public DateTimeOffset? DeliveredAt { get; set; }
     public DateTimeOffset? ArchivedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
