@@ -120,6 +120,7 @@ await using (var scope = app.Services.CreateAsyncScope())
     await EnsureColumnAsync(db, "Users", "SubscriptionNonBillingAccessGrantedByUserId", "INTEGER", "NULL");
     await EnsureColumnAsync(db, "Users", "SubscriptionNonBillingAccessReason", "TEXT", "NULL");
     await EnsureColumnAsync(db, "Contacts", "AssignedToUserId", "INTEGER", "NULL");
+    await EnsureColumnAsync(db, "Contacts", "DiscoveredAt", "TEXT", "NULL");
     await EnsureColumnAsync(db, "Contacts", "DeliveredAt", "TEXT", "NULL");
     await EnsureColumnAsync(db, "Contacts", "ArchivedAt", "TEXT", "NULL");
     await EnsureColumnAsync(db, "Contacts", "Source", "TEXT", "NULL");
@@ -1007,6 +1008,7 @@ app.MapPost("/api/v1/inbound-leads", async (InboundLeadInput input, CrmDb db, Ht
         Notes = isSystemAdmin ? $"[In Master Bank - Unassigned] FSBO Lead for ZIP {zip}. Verified direct homeowner." : $"FSBO Lead for ZIP {zip}. Verified direct homeowner.",
         Source = source!,
         ExternalLeadId = externalLeadId,
+        DiscoveredAt = now,
         PropertyZipCode = zip!,
         ContactVerificationMethod = method!,
         ContactVerifiedAt = input.ContactVerifiedAt,
