@@ -1004,6 +1004,16 @@ app.MapPost("/api/v1/inbound-leads", async (InboundLeadInput input, CrmDb db, Ht
         return Results.Ok(existingLead);
     }
 
+    // Preserve the public prospect's original discovery timestamp across verification.
+    // Legacy prospect records with unknown discovery dates stay unknown, never refreshed.
+    var originalProspect = await db.Contacts
+        .Where(c => c.Source == "Fsbo Prospect" && c.ExternalLeadId == externalLeadId)
+        .OrderBy(c => c.Id).FirstOrDefaultAsync();
+    var discoveryDate = originalProspect is null ? now : originalProspect.DiscoveredAt;
+    if (originalProspect?.Notes?.Contains("DO NOT CONTACT", StringComparison.OrdinalIgnoreCase) == true ||
+        originalProspect?.Stage == "Excluded")
+        return Results.BadRequest(new { error = "This listing is excluded or Do Not Contact." });
+
     // 1. Create primary lead for target recipient
     var primaryContact = existingLead ?? new CrmContact {
         UserId = targetRecipient.Id,
@@ -1017,7 +1027,7 @@ app.MapPost("/api/v1/inbound-leads", async (InboundLeadInput input, CrmDb db, Ht
         Notes = isSystemAdmin ? $"[In Master Bank - Unassigned] FSBO Lead for ZIP {zip}. Verified direct homeowner." : $"FSBO Lead for ZIP {zip}. Verified direct homeowner.",
         Source = source!,
         ExternalLeadId = externalLeadId,
-        DiscoveredAt = now,
+        DiscoveredAt = discoveryDate,
         PropertyZipCode = zip!,
         ContactVerificationMethod = method!,
         ContactVerifiedAt = input.ContactVerifiedAt,
