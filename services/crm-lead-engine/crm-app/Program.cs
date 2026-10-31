@@ -75,6 +75,7 @@ builder.Services.AddAuthentication("crm-cookie").AddCookie("crm-cookie", options
     };
 });
 builder.Services.AddAuthorization();
+builder.Services.AddHostedService<BankDeliveryReconciler>();
 builder.Services.AddAntiforgery();
 var app = builder.Build();
 var inboundLeadSources = new HashSet<string>(StringComparer.Ordinal) { "Fsbo", "Zillow", "Facebook", "Craigslist", "FsboCom", "HomeEvaluation", "LeadGenerator", "RealtorAssistance" };
