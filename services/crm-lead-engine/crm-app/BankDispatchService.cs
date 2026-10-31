@@ -24,11 +24,12 @@ public static class BankDispatchService
             var cutoff = now.AddDays(-30);
             var bank = await db.Contacts.Where(c =>
                 c.ExternalLeadId != null && c.Source != "Nyrava Verified" &&
+                db.Users.Any(u => u.Id == c.UserId && u.Role == "Admin") &&
                 c.ArchivedAt == null && c.DeliveredAt == null &&
                 c.ConsentCapturedAt != null && c.ContactVerifiedAt != null &&
                 c.IntentVerifiedAt != null && c.FsboAdminReviewedAt != null &&
                 c.PropertyZipCode != null && c.DiscoveredAt != null && c.DiscoveredAt > cutoff && c.DiscoveredAt <= now &&
-                c.Stage != "Dispatched" && c.Stage != "Rejected").OrderBy(c => c.DiscoveredAt).ToListAsync(token);
+                (c.Stage == "New" || c.Stage == "Queued")).OrderBy(c => c.DiscoveredAt).ToListAsync(token);
 
             var delivered = 0;
             foreach (var lead in bank)
