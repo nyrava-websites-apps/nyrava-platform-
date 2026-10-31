@@ -2,11 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {prospectFromListing, reviewedPayload, ingestionResult} from '../collector-policy.mjs';
 const source={url:'https://dallas.craigslist.org/jsonsearch/reo',zip:'75034'};
-test('listing without contact remains unverified and never receives a fabricated phone, name or ZIP',()=>{
-  const a=prospectFromListing({PostingID:123,PostingTitle:'House by owner'},source);
-  assert.equal(a.phone,null);assert.equal(a.ownerName,null);assert.equal(a.zipCode,null);
-  assert.equal(reviewedPayload(a),null);
-  assert.equal(a.externalId,prospectFromListing({PostingID:123,PostingTitle:'House by owner'},source).externalId);
+test('listing without upfront contact is rejected before collection',()=>{
+  assert.equal(prospectFromListing({PostingID:123,PostingTitle:'House by owner'},source),null);
+  assert.equal(prospectFromListing({PostingID:123,PostingTitle:'House by owner',PostingBody:'Call 214-222-3333'},source),null);
 });
 test('a real visible contact is preserved without being labeled verified',()=>{
   const p=prospectFromListing({PostingID:123,PostingTitle:'Call 214-222-3333 or owner@example.test',PostalCode:'75034'},source);
@@ -14,7 +12,7 @@ test('a real visible contact is preserved without being labeled verified',()=>{
   assert.equal(reviewedPayload(p),null);
 });
 test('no-agent preference is retained and blocks reviewed delivery',()=>{
-  const p=prospectFromListing({PostingID:123,PostingTitle:'No agents please'},source);
+  const p=prospectFromListing({PostingID:123,PostingTitle:'No agents please — call 214-222-3333'},source);
   assert.equal(p.doNotContact,true);assert.equal(reviewedPayload(p),null);
 });
 test('no source identifier or malicious source URL is not synthesized',()=>{
