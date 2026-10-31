@@ -61,7 +61,10 @@ public static class BillingSyncEndpoints
             await transaction.CommitAsync();
             // Synchronization has committed; a failure in optional backlog delivery must not roll back payment.
             if (GeographicService.IsLeadDeliveryPermitted(owner))
-                await BankDispatchService.DeliverEligibleBankBonus(db, owner.Id);
+            {
+                try { await BankDispatchService.DeliverEligibleBankBonus(db, owner.Id); }
+                catch (Exception e) { app.Logger.LogError(e, "Bank bonus delivery retry required after billing sync for owner {OwnerId}", owner.Id); }
+            }
             return Results.Ok(new { synchronized = true });
         }).AllowAnonymous();
     }
