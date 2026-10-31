@@ -100,7 +100,7 @@ public sealed class WorkbenchTests : IClassFixture<CrmApplicationFactory>
         using(var scope = factory.Services.CreateScope()) {
             var db = scope.ServiceProvider.GetRequiredService<CrmDb>(); var membership = await db.Memberships.SingleAsync(m => m.OwnerUserId == ownerId && m.UserId == employeeId); membership.Active = false; await db.SaveChangesAsync();
         }
-        Assert.Equal(HttpStatusCode.Unauthorized, (await employee.GetAsync("/api/workbench/workspace")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await employee.GetAsync("/api/workbench/workspace")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await owner.GetAsync("/api/workbench/workspace?staffId="+employeeId)).StatusCode);
     }
 }
