@@ -44,3 +44,13 @@ test('public description qualifies only visible contact without fabricating veri
 test('group result or unsafe listing URL does not qualify as a prospect',()=>{
   assert.equal(listingUrl({PostingURL:'https://evil.example.test/123'},source),null);
 });
+
+test('seller phone spelled as words and digits is recognized only when visible and contextual',()=>{
+  const example='By appt. only. Call Chuck at 9seven2-77five-zero2one2.';
+  const p=prospectFromListing({PostingID:123,PostingTitle:'Duplex by owner',publicDescription:example},source);
+  assert.equal(p.phone,'972-775-0212');
+  assert.equal(p.publicDescription,example);
+  assert.equal(reviewedPayload(p),null);
+  assert.equal(prospectFromListing({PostingID:124,PostingTitle:'Duplex by owner',publicDescription:'House 9seven2-77five-zero2one2'},source),null);
+  assert.equal(prospectFromListing({PostingID:125,PostingTitle:'Duplex by owner',publicDescription:'Call Chuck at 9seven2-77five-zero2one'},source),null);
+});
