@@ -35,6 +35,12 @@ public static class ProspectEndpoints
             var zip = verifiedZipFormat ? input.ZipCode!.Trim() : null;
             var activeSubscribers = await db.Users.Where(u => u.Role == "Owner" && u.WorkspaceId == u.Id).ToListAsync();
             var hasEligibleTerritory = zip is not null && activeSubscribers.Any(u => GeographicService.MatchesZipCoverage(u, zip));
+            // Admin reviews missing/suspect names, not every contact-complete listing.
+            var publishedName = input.OwnerName?.Trim();
+            var nameComplete = !string.IsNullOrWhiteSpace(publishedName) &&
+                !System.Text.RegularExpressions.Regex.IsMatch(publishedName,
+                    @"^(name not provided|unknown|owner|homeowner|fsbo homeowner|owner:.*|seller)$",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase);
             // Reject before lookup, network enrichment, or the admin bank when neither
             // contact method is visibly present in the original listing title or public description.
             var listingPublicText = input.Title + " " + (input.PublicDescription ?? "");
@@ -147,7 +153,7 @@ public static class ProspectEndpoints
             }
             var item = new CrmContact {
                 UserId = owner.Id, AssignedToUserId = owner.Id, Name = string.IsNullOrWhiteSpace(input.OwnerName) ? "Name not provided" : input.OwnerName,
-                Phone = input.Phone, Email = input.Email, PropertyZipCode = zip, LeadType = "Seller", Stage = hasEligibleTerritory ? "Review" : "Banked",
+                Phone = input.Phone, Email = input.Email, PropertyZipCode = zip, LeadType = "Seller", Stage = nameComplete ? "Banked" : "Review",
                 Source = "Fsbo Prospect", ExternalLeadId = input.ExternalId, SourceUrl = input.SourceUrl, ExternalFsbo = true,
                 Notes = (!string.IsNullOrWhiteSpace(input.OwnerName) && !string.IsNullOrWhiteSpace(input.PropertyAddress) ? "BEST LEAD — published name, property address, and contact. " : "") + (string.IsNullOrWhiteSpace(input.PropertyAddress) ? "" : "PROPERTY ADDRESS (published): " + input.PropertyAddress + " | ") + (nonPropertyTitle ? "EXCLUDED — Classified is not a residential property listing. " : "") + (publishedDescription is null ? "" : "PUBLIC LISTING DESCRIPTION (unverified): " + publishedDescription + " | ") + (publishedPhone is null ? "" : "PUBLIC PHONE (unverified): " + publishedPhone + " | ") + "MASTER BANK — Listing title: " + input.Title + ". Source search territory is not a verified property ZIP. Contact verification, seller intent and recipient authorization required before any distribution. " + (input.DoNotContact ? "DO NOT CONTACT: listing rejects agent outreach. " : "") + "Status: " + (string.IsNullOrWhiteSpace(input.Phone ?? publishedPhone) && string.IsNullOrWhiteSpace(input.Email) ? "BONUS CANDIDATE — contact unavailable. " : "CONTACT CANDIDATE — unverified. "),
                 DiscoveredAt = DateTimeOffset.UtcNow,
@@ -156,7 +162,7 @@ public static class ProspectEndpoints
             db.Contacts.Add(item);
             key.LastUsedAt = DateTimeOffset.UtcNow;
             await db.SaveChangesAsync();
-            return Results.Created($"/api/contacts/{item.Id}", new { id = item.Id, reviewRequired = hasEligibleTerritory, banked = !hasEligibleTerritory, status = item.Stage, classification = "ContactCandidate" });
+            return Results.Created($"/api/contacts/{item.Id}", new { id = item.Id, reviewRequired = !nameComplete, banked = nameComplete, status = item.Stage, classification = "ContactCandidate" });
         }).AllowAnonymous();
 
         // Admin-only review queue: incomplete identities never go to a subscriber.
