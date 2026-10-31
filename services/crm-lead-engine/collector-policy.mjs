@@ -2,9 +2,25 @@ import {createHash} from 'node:crypto';
 
 // Only contact information printed publicly in the title or the original listing body qualifies.
 // Never click Reply, use hidden contact details, or infer a contact.
+function mixedWordPhone(text) {
+  // Sellers may deliberately spell digits, e.g. "9seven2-77five-zero2one2".
+  // Only consider such patterns near an explicit call/text instruction.
+  const digits = {zero:'0',one:'1',two:'2',three:'3',four:'4',five:'5',six:'6',seven:'7',eight:'8',nine:'9'};
+  const unit = '(?:zero|one|two|three|four|five|six|seven|eight|nine|[0-9])';
+  const pattern = new RegExp('(?<![a-z0-9])' + unit + '(?:[ .()-]*' + unit + '){9}(?![a-z0-9])', 'gi');
+  for (const match of String(text).matchAll(pattern)) {
+    if (!/[a-z]/i.test(match[0])) continue;
+    const prior = text.slice(Math.max(0, match.index - 90), match.index);
+    if (!/\b(call|text|phone|contact|reach|telephone|tel)\b/i.test(prior)) continue;
+    const phone = match[0].replace(/zero|one|two|three|four|five|six|seven|eight|nine|[0-9]/gi, x => digits[x.toLowerCase()] || x).replace(/[^0-9]/g,'');
+    if (/^[2-9]\d{2}[2-9]\d{6}$/.test(phone)) return phone.replace(/(\d{3})(\d{3})(\d{4})/,'$1-$2-$3');
+  }
+  return null;
+}
+
 export function upfrontContact(title) {
   const text = String(title || '');
-  const phone = text.match(/(?<!\d)(?:\+1[ .-]?)?\(?[2-9]\d{2}\)?[ .-]?[2-9]\d{2}[ .-]?\d{4}(?!\d)/)?.[0] || null;
+  const phone = mixedWordPhone(text) || text.match(/(?<!\d)(?:\+1[ .-]?)?\(?[2-9]\d{2}\)?[ .-]?[2-9]\d{2}[ .-]?\d{4}(?!\d)/)?.[0] || null;
   const email = text.match(/[\w.+-]+@[\w-]+\.[a-z]{2,}/i)?.[0] || null;
   return { phone, email, eligible: Boolean(phone || email) };
 }
@@ -42,7 +58,7 @@ export function prospectFromListing(item, source) {
   const ownerName = title.match(/\b(?:owner|seller|contact)\s*(?:name)?\s*:\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})(?=\s*[,|;]|$)/)?.[1] || null;
   const propertyAddress = title.match(/\b(?:property\s+)?address\s*:\s*(\d{1,6}\s+[\w .'-]+?)(?=\s*[,|;]|$)/i)?.[1]?.trim() || null;
   const zip=String(item.PostalCode||item.postalCode||'').match(/^\d{5}$/)?.[0]||null;
-  return {externalId:'cl-'+createHash('sha256').update(sourceUrl).digest('hex').slice(0,40),title,ownerName,propertyAddress,phone,email,zipCode:zip,sourceUrl:sourceUrl,source:'Craigslist',searchZip:source.zip,discoveredAt:new Date().toISOString(),doNotContact:/no\s*(realtors?|agents?|brokers?)\b/i.test(title+' '+String(item.publicDescription||''))};
+  return {publicDescription:String(item.publicDescription||''),externalId:'cl-'+createHash('sha256').update(sourceUrl).digest('hex').slice(0,40),title,ownerName,propertyAddress,phone,email,zipCode:zip,sourceUrl:sourceUrl,source:'Craigslist',searchZip:source.zip,discoveredAt:new Date().toISOString(),doNotContact:/no\s*(realtors?|agents?|brokers?)\b/i.test(title+' '+String(item.publicDescription||''))};
 }
 
 export function reviewedPayload(lead, now=Date.now()) {
