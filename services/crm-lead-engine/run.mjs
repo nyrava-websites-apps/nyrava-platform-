@@ -8,6 +8,7 @@ import { readFileSync, existsSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { prospectFromListing, reviewedPayload, ingestionResult, upfrontContact, publicPostingText, listingUrl } from './collector-policy.mjs';
+import {collectTrellistate} from './trellistate-source.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROSPECTS = join(__dirname, 'prospects.jsonl');
@@ -199,6 +200,11 @@ async function collectLeads() {
     log(`  ${src.name}: ${leads.length} live FSBO listings found`);
     all.push(...leads);
   }
+  try {
+    const external = await collectTrellistate();
+    log(`  Trellistate: ${external.length} public contact-qualified FSBO candidates`);
+    all.push(...external);
+  } catch (error) { log(`Trellistate source unavailable: ${error.message}`); }
   return all; // Missing contact or ZIP stays in review; never fabricate it.
 }
 
