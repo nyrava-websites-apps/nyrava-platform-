@@ -20,8 +20,11 @@ old_image="$(docker inspect nyrava-platform-crm-lead-engine-1 --format '{{.Image
 if docker image inspect "$old_image" >/dev/null 2>&1; then
   docker tag "$old_image" "nyrava-platform-crm-lead-engine:before-bank-delivery-$stamp"
 else
-  echo "Running container image is absent from local image store; preserving the container filesystem as a rollback image."
-  docker commit nyrava-platform-crm-lead-engine-1 "nyrava-platform-crm-lead-engine:before-bank-delivery-$stamp" >/dev/null
+  echo "STOP: running CRM container image is missing from Docker's image store."
+  echo "The current source has already been replaced in the working tree."
+  echo "Do not risk a live recreation until a known-good rollback image is rebuilt and verified."
+  echo "Current live container left untouched; original source files backed up at: $backup/sources"
+  exit 2
 fi
 docker compose build crm-lead-engine
 echo "=== Running isolated bank-bonus tests ==="
