@@ -86,7 +86,8 @@ public sealed class LegacySubscriptionMigrationTests
         Assert.Equal("Won", historicalContact.Stage);
         Assert.False(realtorBilling.GetProperty("billing").GetProperty("checkoutEnabled").GetBoolean());
         var territories = await realtor.GetFromJsonAsync<JsonElement>("/api/v1/active-territories");
-        Assert.DoesNotContain(territories.GetProperty("activeZips").EnumerateArray(), zip => zip.GetString() == "78701");
+        // Audited nonbilling entitlement explicitly activates the legacy workspace and its ZIP under current policy.
+        Assert.Contains(territories.GetProperty("activeZips").EnumerateArray(), zip => zip.GetString() == "78701");
 
         using (var scope = factory.Services.CreateScope())
         {
