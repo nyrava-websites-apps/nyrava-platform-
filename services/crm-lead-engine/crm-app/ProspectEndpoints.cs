@@ -40,6 +40,35 @@ public static class ProspectEndpoints
             var listingPublicText = input.Title + " " + (input.PublicDescription ?? "");
             var listedPhone = System.Text.RegularExpressions.Regex.IsMatch(listingPublicText,
                 @"(?<!\d)(?:\+1[ .-]?)?\(?[2-9]\d{2}\)?[ .-]?[2-9]\d{2}[ .-]?\d{4}(?!\d)");
+            // Match the collector's explicitly published word/digit phone handling.
+            // Only a visible number near a call/text instruction may qualify.
+            if (!listedPhone && !string.IsNullOrWhiteSpace(input.Phone))
+            {
+                var tokenPart = @"(?:zero|one|two|three|four|five|six|seven|eight|nine|[0-9])";
+                var mixedPattern = @"(?<![a-z0-9])" + tokenPart + @"(?:[ .()-]*" + tokenPart + @"){9}(?![a-z0-9])";
+                var words = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
+                    ["zero"]="0", ["one"]="1", ["two"]="2", ["three"]="3", ["four"]="4",
+                    ["five"]="5", ["six"]="6", ["seven"]="7", ["eight"]="8", ["nine"]="9"
+                };
+                var submitted = System.Text.RegularExpressions.Regex.Replace(input.Phone, @"\D", "");
+                foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(
+                    listingPublicText, mixedPattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                {
+                    if (!System.Text.RegularExpressions.Regex.IsMatch(match.Value, @"[a-z]", System.Text.RegularExpressions.RegexOptions.IgnoreCase)) continue;
+                    var preceding = listingPublicText.Substring(Math.Max(0, match.Index - 90), Math.Min(90, match.Index));
+                    if (!System.Text.RegularExpressions.Regex.IsMatch(preceding, @"\b(call|text|phone|contact|reach|telephone|tel)\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase)) continue;
+                    var converted = System.Text.RegularExpressions.Regex.Replace(match.Value,
+                        @"zero|one|two|three|four|five|six|seven|eight|nine|[0-9]",
+                        m => words.TryGetValue(m.Value, out var digit) ? digit : m.Value,
+                        System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                    var digits = System.Text.RegularExpressions.Regex.Replace(converted, @"\D", "");
+                    if (digits == submitted && System.Text.RegularExpressions.Regex.IsMatch(digits, @"^[2-9]\d{2}[2-9]\d{6}$"))
+                    {
+                        listedPhone = true;
+                        break;
+                    }
+                }
+            }
             var listedEmail = System.Text.RegularExpressions.Regex.IsMatch(listingPublicText,
                 @"[\w.+-]+@[\w-]+\.[a-z]{2,}", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
             if (!listedPhone && !listedEmail) return Results.BadRequest(new { error = "Listing contact must be visible upfront." });
