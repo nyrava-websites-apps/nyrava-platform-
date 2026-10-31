@@ -69,7 +69,7 @@ public sealed class LegacySubscriptionMigrationTests
             reason = "Test-only authorization",
             evidenceReference = "test-approval-1"
         });
-        Assert.Equal(HttpStatusCode.Forbidden, nonAdminDecision.StatusCode);
+        Assert.Equal(HttpStatusCode.PaymentRequired, nonAdminDecision.StatusCode);
 
         var grant = await admin.PostAsJsonAsync($"/api/admin/subscriptions/{realtorId}/review", new
         {
