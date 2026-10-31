@@ -618,6 +618,10 @@ app.MapPut("/api/subscription/territory", async (TerritoryUpdateInput input, Crm
 
     actor.SubscribedZipCodes = string.Join(", ", zips);
     await db.SaveChangesAsync();
+    // Deliver verified bank bonus after a paid Realtor activates additional ZIPs.
+    if (additions.Count > 0 && GeographicService.IsLeadDeliveryPermitted(actor))
+        await BankDispatchService.DeliverEligibleBankBonus(db, actor.Id);
+
 
     return Results.Ok(new {
         subscribedZipCodes = actor.SubscribedZipCodes,
@@ -1028,7 +1032,7 @@ app.MapPost("/api/v1/inbound-leads", async (InboundLeadInput input, CrmDb db, Ht
             .Where(c => c.Source == "Nyrava Verified")
             .ToListAsync();
         var countsToday = zipContacts
-            .Where(c => realtorIds.Contains(c.UserId) && (c.DeliveredAt ?? c.UpdatedAt) >= startOfDay)
+            .Where(c => realtorIds.Contains(c.UserId) && (c.DeliveredAt ?? c.UpdatedAt) >= startOfDay && (c.Notes == null || !c.Notes.Contains("[Bank Bonus]")))
             .GroupBy(c => c.UserId)
             .ToDictionary(g => g.Key, g => g.Count());
         var sortedRealtors = matchingRealtors.OrderBy(r => countsToday.GetValueOrDefault(r.Id, 0)).ToList();
