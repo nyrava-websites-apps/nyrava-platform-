@@ -49,7 +49,9 @@ public static class BankDispatchService
                     lead.Stage == "Excluded" || lead.Stage == "Review" || lead.Stage == "Banked") continue;
 
                 var externalId = $"bonus-{realtor.Id}-{lead.Id}";
-                if (await db.Contacts.AnyAsync(c => c.UserId == realtor.Id && c.Source == "Nyrava Verified" && c.ExternalLeadId == externalId, token)) continue;
+                if (await db.Contacts.AnyAsync(c => c.UserId == realtor.Id && c.Source == "Nyrava Verified" &&
+                    (c.ExternalLeadId == externalId ||
+                     (lead.SourceUrl != null && c.SourceUrl == lead.SourceUrl)), token)) continue;
 
                 db.Contacts.Add(new CrmContact {
                     UserId = realtor.Id, AssignedToUserId = realtor.Id,
