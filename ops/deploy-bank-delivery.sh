@@ -10,6 +10,9 @@ for file in CrmDb.cs Program.cs ProspectEndpoints.cs BankDispatchService.cs Bank
   if [[ -f "$base/$file" ]]; then cp -a "$base/$file" "$backup/sources/$file"; fi
   git show "FETCH_HEAD:$base/$file" > "$base/$file"
 done
+mkdir -p "$backup/sources/wwwroot"
+if [[ -f "$base/wwwroot/app.js" ]]; then cp -a "$base/wwwroot/app.js" "$backup/sources/wwwroot/app.js"; fi
+git show "FETCH_HEAD:$base/wwwroot/app.js" > "$base/wwwroot/app.js"
 mkdir -p "$base/tests/NyravaCRM.Tests"
 git show "FETCH_HEAD:$base/tests/NyravaCRM.Tests/BankBonusTests.cs" > "$base/tests/NyravaCRM.Tests/BankBonusTests.cs"
 echo "=== Building CRM image (live service unaffected) ==="
