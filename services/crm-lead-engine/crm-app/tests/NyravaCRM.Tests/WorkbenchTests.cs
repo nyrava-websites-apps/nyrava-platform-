@@ -16,7 +16,9 @@ public sealed class WorkbenchTests : IClassFixture<CrmApplicationFactory>
     {
         var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         var generatedTestPassword = $"Nyrava-{Guid.NewGuid():N}!Aa1";
-        (await client.PostAsJsonAsync("/api/register", new { email = $"audit-{Guid.NewGuid():N}@example.test", password = generatedTestPassword })).EnsureSuccessStatusCode();
+        var email = $"audit-{Guid.NewGuid():N}@example.test";
+        (await client.PostAsJsonAsync("/api/register", new { email, password = generatedTestPassword })).EnsureSuccessStatusCode();
+        await factory.GrantAuthorizedTestAccessAsync(email);
         return client;
     }
     [Fact]
