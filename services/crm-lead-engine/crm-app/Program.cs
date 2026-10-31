@@ -136,6 +136,11 @@ await using (var scope = app.Services.CreateAsyncScope())
     await EnsureColumnAsync(db, "Contacts", "FsboAdminReviewReference", "TEXT", "NULL");
     await EnsureColumnAsync(db, "Contacts", "FsboAdminReviewedAt", "TEXT", "NULL");
     await EnsureColumnAsync(db, "Contacts", "SourceUrl", "TEXT", "NULL");
+    // Unique welcome-bonus idempotency even if requests reach multiple CRM workers.
+    if (db.Database.IsSqlite())
+        await db.Database.ExecuteSqlRawAsync(
+            "CREATE UNIQUE INDEX IF NOT EXISTS IX_Contacts_BankBonusRecipient ON Contacts(UserId, ExternalLeadId) WHERE Source = 'Nyrava Verified' AND ExternalLeadId LIKE 'bonus-%'");
+
     await EnsureColumnAsync(db, "Activities", "CreatedByUserId", "INTEGER", "0");
     await EnsureColumnAsync(db, "Activities", "AssignedToUserId", "INTEGER", "NULL");
     await EnsureColumnAsync(db, "Activities", "Result", "TEXT", "NULL");
@@ -621,7 +626,10 @@ app.MapPut("/api/subscription/territory", async (TerritoryUpdateInput input, Crm
     await db.SaveChangesAsync();
     // Deliver verified bank bonus after a paid Realtor activates additional ZIPs.
     if (additions.Count > 0 && GeographicService.IsLeadDeliveryPermitted(actor))
-        await BankDispatchService.DeliverEligibleBankBonus(db, actor.Id);
+    {
+        try { await BankDispatchService.DeliverEligibleBankBonus(db, actor.Id); }
+        catch (Exception e) { app.Logger.LogError(e, "Bank bonus delivery retry required after territory activation for owner {OwnerId}", actor.Id); }
+    }
 
 
     return Results.Ok(new {
