@@ -19,19 +19,16 @@ public static class BankDispatchService
             var activeZips = (realtor.SubscribedZipCodes ?? "").Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries);
             if (activeZips.Length == 0) return 0;
 
-            // Historical contacts have UpdatedAt, not a trustworthy immutable collected timestamp.
-            // Fail CLOSED for old records until a collected-at migration is implemented: a later
-            // admin edit must never refresh an expired prospect into the 30-day welcome bonus.
-            // Only bank records never modified since initial verification (evidence timestamps
-            // tightly consistent with UpdatedAt) are considered here.
+            // An original discovery timestamp is mandatory. Historical records remain null
+            // until independently proven; edits cannot reset the 30-day age.
             var cutoff = now.AddDays(-30);
             var bank = await db.Contacts.Where(c =>
                 c.ExternalLeadId != null && c.Source != "Nyrava Verified" &&
                 c.ArchivedAt == null && c.DeliveredAt == null &&
                 c.ConsentCapturedAt != null && c.ContactVerifiedAt != null &&
                 c.IntentVerifiedAt != null && c.FsboAdminReviewedAt != null &&
-                c.PropertyZipCode != null && c.UpdatedAt >= cutoff &&
-                c.Stage != "Dispatched" && c.Stage != "Rejected").OrderBy(c => c.UpdatedAt).ToListAsync(token);
+                c.PropertyZipCode != null && c.DiscoveredAt != null && c.DiscoveredAt > cutoff && c.DiscoveredAt <= now &&
+                c.Stage != "Dispatched" && c.Stage != "Rejected").OrderBy(c => c.DiscoveredAt).ToListAsync(token);
 
             var delivered = 0;
             foreach (var lead in bank)
@@ -45,10 +42,9 @@ public static class BankDispatchService
                 if (lead.ConsentText is null || lead.FsboAdminReviewReference is null ||
                     lead.ContactVerifiedAt > now || lead.IntentVerifiedAt > now ||
                     lead.ConsentCapturedAt > now || lead.FsboAdminReviewedAt > now) continue;
-                // Without an immutable discovery date, require verified/reviewed timestamps
-                // to be near the stored intake timestamp; no blanket approval of older records.
-                if (Math.Abs((lead.UpdatedAt - lead.FsboAdminReviewedAt!.Value).TotalHours) > 24) continue;
-                if (lead.Notes?.Contains("Do Not Contact", StringComparison.OrdinalIgnoreCase) == true) continue;
+                if (lead.Notes?.Contains("Do Not Contact", StringComparison.OrdinalIgnoreCase) == true ||
+                    lead.Notes?.Contains("DO NOT CONTACT", StringComparison.OrdinalIgnoreCase) == true ||
+                    lead.Stage == "Excluded" || lead.Stage == "Review" || lead.Stage == "Banked") continue;
 
                 var externalId = $"bonus-{realtor.Id}-{lead.Id}";
                 if (await db.Contacts.AnyAsync(c => c.UserId == realtor.Id && c.Source == "Nyrava Verified" && c.ExternalLeadId == externalId, token)) continue;
@@ -60,7 +56,7 @@ public static class BankDispatchService
                     Source = "Nyrava Verified", Stage = "New",
                     ExternalLeadId = externalId, PropertyZipCode = lead.PropertyZipCode,
                     Notes = "[Bank Bonus] Verified bank lead delivered on subscription/ZIP activation.",
-                    DeliveredAt = now, UpdatedAt = now,
+                    DeliveredAt = now, DiscoveredAt = lead.DiscoveredAt, UpdatedAt = now,
                     ContactVerificationMethod = lead.ContactVerificationMethod,
                     ContactVerifiedAt = lead.ContactVerifiedAt, IntentVerifiedAt = lead.IntentVerifiedAt,
                     ConsentCapturedAt = lead.ConsentCapturedAt, ConsentRecipient = lead.ConsentRecipient,
