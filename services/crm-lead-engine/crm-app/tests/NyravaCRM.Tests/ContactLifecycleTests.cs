@@ -18,6 +18,7 @@ public sealed class ContactLifecycleTests : IClassFixture<CrmApplicationFactory>
         using var owner = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         var ownerEmail = $"owner-{Guid.NewGuid():N}@example.test";
         Assert.Equal(HttpStatusCode.OK, (await owner.PostAsJsonAsync("/api/register", new { email = ownerEmail, password = "AuditCRM!2026Pass" })).StatusCode);
+        await _factory.GrantAuthorizedTestAccessAsync(ownerEmail);
 
         var malformedContact = await owner.PostAsJsonAsync("/api/contacts", new
         {
@@ -86,6 +87,7 @@ public sealed class ContactLifecycleTests : IClassFixture<CrmApplicationFactory>
         using var otherWorkspace = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         var otherEmail = $"other-{Guid.NewGuid():N}@example.test";
         Assert.Equal(HttpStatusCode.OK, (await otherWorkspace.PostAsJsonAsync("/api/register", new { email = otherEmail, password = "AuditCRM!2026Pass" })).StatusCode);
+        await _factory.GrantAuthorizedTestAccessAsync(otherEmail);
         var otherContacts = await otherWorkspace.GetFromJsonAsync<JsonElement[]>("/api/contacts");
         Assert.NotNull(otherContacts);
         Assert.Empty(otherContacts);

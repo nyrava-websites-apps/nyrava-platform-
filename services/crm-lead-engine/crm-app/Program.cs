@@ -75,6 +75,7 @@ builder.Services.AddAuthentication("crm-cookie").AddCookie("crm-cookie", options
     };
 });
 builder.Services.AddAuthorization();
+builder.Services.AddHostedService<BankDeliveryReconciler>();
 builder.Services.AddAntiforgery();
 var app = builder.Build();
 var inboundLeadSources = new HashSet<string>(StringComparer.Ordinal) { "Fsbo", "Zillow", "Facebook", "Craigslist", "FsboCom", "HomeEvaluation", "LeadGenerator", "RealtorAssistance" };
@@ -120,6 +121,7 @@ await using (var scope = app.Services.CreateAsyncScope())
     await EnsureColumnAsync(db, "Users", "SubscriptionNonBillingAccessGrantedByUserId", "INTEGER", "NULL");
     await EnsureColumnAsync(db, "Users", "SubscriptionNonBillingAccessReason", "TEXT", "NULL");
     await EnsureColumnAsync(db, "Contacts", "AssignedToUserId", "INTEGER", "NULL");
+    await EnsureColumnAsync(db, "Contacts", "DiscoveredAt", "TEXT", "NULL");
     await EnsureColumnAsync(db, "Contacts", "DeliveredAt", "TEXT", "NULL");
     await EnsureColumnAsync(db, "Contacts", "ArchivedAt", "TEXT", "NULL");
     await EnsureColumnAsync(db, "Contacts", "Source", "TEXT", "NULL");
@@ -135,6 +137,11 @@ await using (var scope = app.Services.CreateAsyncScope())
     await EnsureColumnAsync(db, "Contacts", "FsboAdminReviewReference", "TEXT", "NULL");
     await EnsureColumnAsync(db, "Contacts", "FsboAdminReviewedAt", "TEXT", "NULL");
     await EnsureColumnAsync(db, "Contacts", "SourceUrl", "TEXT", "NULL");
+    // Unique welcome-bonus idempotency even if requests reach multiple CRM workers.
+    if (db.Database.IsSqlite())
+        await db.Database.ExecuteSqlRawAsync(
+            "CREATE UNIQUE INDEX IF NOT EXISTS IX_Contacts_BankBonusRecipient ON Contacts(UserId, ExternalLeadId) WHERE Source = 'Nyrava Verified' AND ExternalLeadId LIKE 'bonus-%'");
+
     await EnsureColumnAsync(db, "Activities", "CreatedByUserId", "INTEGER", "0");
     await EnsureColumnAsync(db, "Activities", "AssignedToUserId", "INTEGER", "NULL");
     await EnsureColumnAsync(db, "Activities", "Result", "TEXT", "NULL");
@@ -618,6 +625,13 @@ app.MapPut("/api/subscription/territory", async (TerritoryUpdateInput input, Crm
 
     actor.SubscribedZipCodes = string.Join(", ", zips);
     await db.SaveChangesAsync();
+    // Deliver verified bank bonus after a paid Realtor activates additional ZIPs.
+    if (additions.Count > 0 && GeographicService.IsLeadDeliveryPermitted(actor))
+    {
+        try { await BankDispatchService.DeliverEligibleBankBonus(db, actor.Id); }
+        catch (Exception e) { app.Logger.LogError(e, "Bank bonus delivery retry required after territory activation for owner {OwnerId}", actor.Id); }
+    }
+
 
     return Results.Ok(new {
         subscribedZipCodes = actor.SubscribedZipCodes,
@@ -990,6 +1004,16 @@ app.MapPost("/api/v1/inbound-leads", async (InboundLeadInput input, CrmDb db, Ht
         return Results.Ok(existingLead);
     }
 
+    // Preserve the public prospect's original discovery timestamp across verification.
+    // Legacy prospect records with unknown discovery dates stay unknown, never refreshed.
+    var originalProspect = await db.Contacts
+        .Where(c => c.Source == "Fsbo Prospect" && c.ExternalLeadId == externalLeadId)
+        .OrderBy(c => c.Id).FirstOrDefaultAsync();
+    var discoveryDate = originalProspect is null ? now : originalProspect.DiscoveredAt;
+    if (originalProspect?.Notes?.Contains("DO NOT CONTACT", StringComparison.OrdinalIgnoreCase) == true ||
+        originalProspect?.Stage == "Excluded")
+        return Results.BadRequest(new { error = "This listing is excluded or Do Not Contact." });
+
     // 1. Create primary lead for target recipient
     var primaryContact = existingLead ?? new CrmContact {
         UserId = targetRecipient.Id,
@@ -1003,6 +1027,7 @@ app.MapPost("/api/v1/inbound-leads", async (InboundLeadInput input, CrmDb db, Ht
         Notes = isSystemAdmin ? $"[In Master Bank - Unassigned] FSBO Lead for ZIP {zip}. Verified direct homeowner." : $"FSBO Lead for ZIP {zip}. Verified direct homeowner.",
         Source = source!,
         ExternalLeadId = externalLeadId,
+        DiscoveredAt = discoveryDate,
         PropertyZipCode = zip!,
         ContactVerificationMethod = method!,
         ContactVerifiedAt = input.ContactVerifiedAt,
@@ -1028,7 +1053,7 @@ app.MapPost("/api/v1/inbound-leads", async (InboundLeadInput input, CrmDb db, Ht
             .Where(c => c.Source == "Nyrava Verified")
             .ToListAsync();
         var countsToday = zipContacts
-            .Where(c => realtorIds.Contains(c.UserId) && (c.DeliveredAt ?? c.UpdatedAt) >= startOfDay)
+            .Where(c => realtorIds.Contains(c.UserId) && (c.DeliveredAt ?? c.UpdatedAt) >= startOfDay && (c.Notes == null || !c.Notes.Contains("[Bank Bonus]")))
             .GroupBy(c => c.UserId)
             .ToDictionary(g => g.Key, g => g.Count());
         var sortedRealtors = matchingRealtors.OrderBy(r => countsToday.GetValueOrDefault(r.Id, 0)).ToList();

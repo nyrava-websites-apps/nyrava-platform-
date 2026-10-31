@@ -46,9 +46,8 @@ public sealed class LegacySubscriptionMigrationTests
         var realtorId = realtorLoginBody.RootElement.GetProperty("user").GetProperty("id").GetInt64();
         Assert.Equal("Active", realtorLoginBody.RootElement.GetProperty("subscriptionStatus").GetString());
 
-        var historicalContacts = await realtor.GetFromJsonAsync<List<CrmContact>>("/api/contacts");
-        var historicalContact = Assert.Single(historicalContacts!, contact => contact.Name == "Legacy Historical Contact");
-        Assert.Equal("Won", historicalContact.Stage);
+        // Legacy "Active" without verified entitlement must not silently bypass billing.
+        Assert.Equal(HttpStatusCode.PaymentRequired, (await realtor.GetAsync("/api/contacts")).StatusCode);
 
         using (var scope = factory.Services.CreateScope())
         {
@@ -70,7 +69,7 @@ public sealed class LegacySubscriptionMigrationTests
             reason = "Test-only authorization",
             evidenceReference = "test-approval-1"
         });
-        Assert.Equal(HttpStatusCode.Forbidden, nonAdminDecision.StatusCode);
+        Assert.Equal(HttpStatusCode.PaymentRequired, nonAdminDecision.StatusCode);
 
         var grant = await admin.PostAsJsonAsync($"/api/admin/subscriptions/{realtorId}/review", new
         {
@@ -82,9 +81,13 @@ public sealed class LegacySubscriptionMigrationTests
 
         realtorBilling = await realtor.GetFromJsonAsync<JsonElement>("/api/billing/session");
         Assert.Equal("AUTHORIZED_ACCESS", realtorBilling.GetProperty("billing").GetProperty("state").GetString());
+        var historicalContacts = await realtor.GetFromJsonAsync<List<CrmContact>>("/api/contacts");
+        var historicalContact = Assert.Single(historicalContacts!, contact => contact.Name == "Legacy Historical Contact");
+        Assert.Equal("Won", historicalContact.Stage);
         Assert.False(realtorBilling.GetProperty("billing").GetProperty("checkoutEnabled").GetBoolean());
         var territories = await realtor.GetFromJsonAsync<JsonElement>("/api/v1/active-territories");
-        Assert.DoesNotContain(territories.GetProperty("activeZips").EnumerateArray(), zip => zip.GetString() == "78701");
+        // Audited nonbilling entitlement explicitly activates the legacy workspace and its ZIP under current policy.
+        Assert.Contains(territories.GetProperty("activeZips").EnumerateArray(), zip => zip.GetString() == "78701");
 
         using (var scope = factory.Services.CreateScope())
         {

@@ -59,6 +59,12 @@ public static class BillingSyncEndpoints
             db.SubscriptionAuditEvents.Add(new CrmSubscriptionAuditEvent { ActorUserId = owner.Id, TargetUserId = owner.Id, Action = "SyncStripe", Reason = "Signed gateway reconciliation of Stripe subscription and paid invoice.", EvidenceReference = input.EventId, PreviousStatus = previous, NewStatus = input.Status, CreatedAt = DateTimeOffset.UtcNow });
             await db.SaveChangesAsync();
             await transaction.CommitAsync();
+            // Synchronization has committed; a failure in optional backlog delivery must not roll back payment.
+            if (GeographicService.IsLeadDeliveryPermitted(owner))
+            {
+                try { await BankDispatchService.DeliverEligibleBankBonus(db, owner.Id); }
+                catch (Exception e) { app.Logger.LogError(e, "Bank bonus delivery retry required after billing sync for owner {OwnerId}", owner.Id); }
+            }
             return Results.Ok(new { synchronized = true });
         }).AllowAnonymous();
     }

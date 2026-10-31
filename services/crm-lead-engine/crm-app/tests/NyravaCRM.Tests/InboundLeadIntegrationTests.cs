@@ -110,6 +110,7 @@ public sealed class InboundLeadIntegrationTests : IClassFixture<CrmApplicationFa
         var email = $"inbound-{Guid.NewGuid():N}@example.test";
         var result = await client.PostAsJsonAsync("/api/register", new { email, password = "AuditCRM!2026Pass" });
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        await _factory.GrantAuthorizedTestAccessAsync(email);
         return client;
     }
 
