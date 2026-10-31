@@ -150,8 +150,8 @@ public sealed class GeographicSubscriptionAndRoutingTests : IClassFixture<CrmApp
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CrmDb>();
         var user = await db.Users.SingleAsync(x => x.Email == email);
-        user.SubscriptionStatus = "FreeOrTrial";
-        user.SubscriptionEntitlementVerifiedAt = DateTimeOffset.UtcNow;
+        user.SubscriptionStatus = "Active";
+        user.SubscriptionNonBillingAccessGrantedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync();
     }
 }
