@@ -134,7 +134,10 @@ public static class ProspectEndpoints
                 // must not be enriched or advanced by repeated submissions.
                 if (existing.Stage == "Excluded" || (string.IsNullOrWhiteSpace(existing.Phone) && string.IsNullOrWhiteSpace(existing.Email)))
                     return Results.Ok(new { id = existing.Id, existing = true, ignored = true, status = existing.Stage });
-                if (!hasEligibleTerritory && existing.Stage == "Review") {
+                // The absence of paying Realtors never promotes an incomplete identity.
+                // Only newly supplied genuine visible owner identity can move it to the bank.
+                if (nameComplete && existing.Stage == "Review") {
+                    existing.Name = publishedName!;
                     existing.Stage = "Banked";
                     await db.SaveChangesAsync();
                 }
