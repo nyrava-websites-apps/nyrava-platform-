@@ -27,7 +27,7 @@ public static class BankDispatchService
                 db.Users.Any(u => u.Id == c.UserId && u.Role == "Admin") &&
                 c.ArchivedAt == null && c.DeliveredAt == null &&
                 c.ConsentCapturedAt != null && c.ContactVerifiedAt != null &&
-                c.IntentVerifiedAt != null && c.FsboAdminReviewedAt != null &&
+                c.IntentVerifiedAt != null && (!c.ExternalFsbo || c.FsboAdminReviewedAt != null) &&
                 c.PropertyZipCode != null && c.DiscoveredAt != null && c.DiscoveredAt > cutoff && c.DiscoveredAt <= now &&
                 (c.Stage == "New" || c.Stage == "Queued")).OrderBy(c => c.DiscoveredAt).ToListAsync(token);
 
@@ -40,7 +40,8 @@ public static class BankDispatchService
                     string.IsNullOrWhiteSpace(lead.Phone) && string.IsNullOrWhiteSpace(lead.Email) ||
                     lead.Name.StartsWith("Owner:", StringComparison.OrdinalIgnoreCase) ||
                     lead.Name.Equals("FSBO Homeowner", StringComparison.OrdinalIgnoreCase)) continue;
-                if (lead.ConsentText is null || lead.FsboAdminReviewReference is null ||
+                if (string.IsNullOrWhiteSpace(lead.ConsentText) ||
+                    (lead.ExternalFsbo && (string.IsNullOrWhiteSpace(lead.FsboAdminReviewReference) || lead.FsboAdminReviewedAt is null)) ||
                     lead.ContactVerifiedAt > now || lead.IntentVerifiedAt > now ||
                     lead.ConsentCapturedAt > now || lead.FsboAdminReviewedAt > now) continue;
                 if (lead.Notes?.Contains("Do Not Contact", StringComparison.OrdinalIgnoreCase) == true ||
