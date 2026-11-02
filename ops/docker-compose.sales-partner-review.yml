@@ -1,0 +1,42 @@
+name: nyrava-sales-review
+services:
+  crm:
+    build: ../services/crm-lead-engine
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://0.0.0.0:5180
+      Database__Provider: Sqlite
+      ConnectionStrings__Crm: Data Source=/app/data/sales-review.db
+      SalesPartners__Enabled: 'true'
+      SalesPartners__MeetingBaseUrl: http://127.0.0.1:15000
+      Crm__CookieSecure: 'false'
+      Crm__PublicBaseUrl: http://127.0.0.1:13000
+      Crm__BootstrapAdminEmail: sales-admin@example.test
+      Crm__BootstrapAdminPassword: ${SALES_REVIEW_ADMIN_PASSWORD:?Set a unique review-only password}
+      Crm__BillingSyncSecret: ${SALES_REVIEW_SIGNING_SECRET:?Set a review-only secret with at least 32 characters}
+      Crm__Email__Password: ''
+      SMTP_PASS: ''
+    ports: ['127.0.0.1:15180:5180']
+    volumes: ['review_crm:/app/data']
+  portal:
+    build: ../services/web-portal
+    environment:
+      PORT: '3000'
+      CRM_SERVICE_URL: http://crm:5180
+      MEET_SERVICE_URL: http://meet:5000
+      NYRAVA_DATA_DIR: /app/data
+      SALES_PARTNERS_ENABLED: 'true'
+      Crm__BillingSyncSecret: ${SALES_REVIEW_SIGNING_SECRET:?Set a review-only secret}
+      STRIPE_SECRET_KEY: ''
+      STRIPE_WEBHOOK_SECRET: ''
+    ports: ['127.0.0.1:13000:3000']
+    volumes: ['review_portal:/app/data']
+    depends_on: [crm, meet]
+  meet:
+    build: ../services/meet-consultation
+    environment:
+      PORT: '5000'
+    ports: ['127.0.0.1:15000:5000']
+volumes:
+  review_crm:
+  review_portal:

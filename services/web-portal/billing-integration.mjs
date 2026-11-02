@@ -1,3 +1,4 @@
+import {partnerFinancialEvent} from './sales-partner-billing.mjs';
 import {createHmac, randomUUID} from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -135,12 +136,29 @@ export function registerBillingIntegration(app, {CRM_SERVICE_URL, getStripeSetti
     if(!settings.webhookSecret) return res.status(503).json({error:'Stripe webhook verification is not configured.'});
     if(!isValidStripeWebhookSignature(req.rawBody,req.get('stripe-signature'),settings.webhookSecret)) return res.status(400).json({error:'Stripe webhook signature is invalid or expired.'});
     const event=req.body;
-    const types=['checkout.session.completed','customer.subscription.created','customer.subscription.updated','customer.subscription.deleted','invoice.paid','invoice.payment_failed'];
+    const types=['checkout.session.completed','customer.subscription.created','customer.subscription.updated','customer.subscription.deleted','invoice.paid','invoice.payment_failed',...(process.env.SALES_PARTNERS_ENABLED==='true'?['refund.created','refund.updated','charge.dispute.created','charge.dispute.updated','charge.dispute.closed','charge.dispute.funds_withdrawn','charge.dispute.funds_reinstated']:[])];
     if(!types.includes(event.type)) return res.json({received:true,ignored:true});
-    const obj=event.data?.object;
-    const id=event.type.startsWith('customer.subscription.')?obj?.id:obj?.subscription||obj?.parent?.subscription_details?.subscription;
+    let obj=event.data?.object,partnerEvent=event;
+    let refundSubscription;
+    if(event.type.startsWith('refund.')||event.type.startsWith('charge.dispute.')) {
+      const charge=await stripe('charges/'+encodeURIComponent(typeof obj.charge==='string'?obj.charge:obj.charge?.id));
+      const invoiceId=typeof charge.invoice==='string'?charge.invoice:charge.invoice?.id;
+      if(!invoiceId)throw Error('Refund requires an originating invoice for accounting review.');
+      const invoice=await stripe('invoices/'+encodeURIComponent(invoiceId));
+      refundSubscription=invoice.subscription||invoice.parent?.subscription_details?.subscription;
+      partnerEvent={...event,data:{object:{...obj,invoice:invoiceId}}};
+    }
+    const id=refundSubscription||(event.type.startsWith('customer.subscription.')?obj?.id:obj?.subscription||obj?.parent?.subscription_details?.subscription);
     if(!event.id||typeof id!=='string'||!id.startsWith('sub_')) return res.status(400).json({error:'A subscription and event ID are required.'});
     await sync(id,event.id);
+    if(process.env.SALES_PARTNERS_ENABLED==='true') {
+      const subscription=await stripe('subscriptions/'+encodeURIComponent(id));
+      const financial=partnerFinancialEvent(partnerEvent,subscription,settings);
+      const raw=JSON.stringify(financial),stamp=String(Math.floor(Date.now()/1000));
+      const signature=createHmac('sha256',secret).update(stamp+'.'+raw).digest('hex');
+      const result=await fetchImpl(CRM_SERVICE_URL+'/api/internal/sales-partners/billing',{method:'POST',headers:{'Content-Type':'application/json','X-Nyrava-Timestamp':stamp,'X-Nyrava-Signature':signature},body:raw,signal:AbortSignal.timeout(15000)});
+      if(!result.ok)throw Error('Sales Partner financial reconciliation failed ('+result.status+').');
+    }
     recordWebhookEvent({id:event.id,type:event.type,receivedAt:new Date().toISOString(),state:'SYNCHRONIZED'});
     res.json({received:true});
   }));

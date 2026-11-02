@@ -1,0 +1,2 @@
+// Do not expose an unavailable module when the feature is disabled.
+(async()=>{try{const r=await fetch('/api/sales-partners/session',{credentials:'same-origin'});if(!r.ok)return;const session=await r.json();const link=document.createElement('a');link.href='/sales-partners';link.textContent=session.admin?'Sales Partner Center':'My Nyrava Account Representative';Object.assign(link.style,{position:'fixed',bottom:'12px',left:'16px',zIndex:'9999',background:'#073772',color:'white',padding:'10px',borderRadius:'8px'});document.body.append(link)}catch{}})();

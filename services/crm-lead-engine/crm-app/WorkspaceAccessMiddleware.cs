@@ -10,7 +10,7 @@ public sealed class WorkspaceAccessMiddleware(RequestDelegate next)
     {
         var path = http.Request.Path.Value ?? "";
         var endpoint = http.GetEndpoint();
-        if (!path.StartsWith("/api/") || http.User.Identity?.IsAuthenticated != true ||
+        if (path.StartsWith("/api/sales-partners/") || !path.StartsWith("/api/") || http.User.Identity?.IsAuthenticated != true ||
             endpoint?.Metadata.GetMetadata<Microsoft.AspNetCore.Authorization.IAllowAnonymous>() is not null ||
             path is "/api/me" or "/api/auth/me" or "/api/logout" or "/api/auth/logout" ||
             path.StartsWith("/api/billing/") || path.StartsWith("/api/account/") || path.StartsWith("/api/auth/"))

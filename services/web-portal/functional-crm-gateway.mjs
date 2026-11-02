@@ -21,6 +21,7 @@ export function registerFunctionalCrmGateway(app,{CRM_SERVICE_URL}) {
       res.status(upstream.status);if(content)res.type('json');return res.send(content);
     }catch(e){return res.status(502).json({error:'The CRM service is unavailable. Your operation was not confirmed. Refresh before retrying.'});}
   }
+  app.all('/api/sales-partners/*',express.json(),(req,res)=>forward(req,res,req.originalUrl));
   app.all('/api/workbench/*',express.json(),(req,res)=>forward(req,res,req.originalUrl));
   app.get('/api/crm/workspace',(req,res)=>forward(req,res,'/api/workbench/dashboard'));
   app.get(['/api/auth/me','/api/me'],async(req,res)=>{

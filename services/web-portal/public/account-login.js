@@ -53,6 +53,7 @@ $('login').onsubmit = async e => {
       localStorage.setItem('hsi_auth_token', d.authToken);
     }
 
+    if (userRole === 'SalesRepresentative') { location.assign('/sales-partners'); return; }
     if (userRole === 'SuperAdmin' || userRole === 'Admin') {
       location.assign('/admin.html');
       return;

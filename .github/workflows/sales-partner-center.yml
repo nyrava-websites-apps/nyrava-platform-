@@ -1,0 +1,27 @@
+name: Sales Partner Center checks
+on:
+  pull_request:
+    paths: ['services/**', 'ops/run-sales-partner-demo.py', '.github/workflows/sales-partner-center.yml']
+  push:
+    branches: [feature/sales-partner-center]
+permissions:
+  contents: read
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: npm ci --prefix services/web-portal --ignore-scripts --no-audit --no-fund
+      - run: node --test services/web-portal/tests/*.test.mjs services/crm-lead-engine/tests/*.test.mjs
+      - run: dotnet test services/crm-lead-engine/crm-app/tests/NyravaCRM.Tests/NyravaCRM.Tests.csproj -c Release --logger 'trx;LogFileName=sales-partner-ci.trx'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sales-partner-test-results
+          path: '**/TestResults/*.trx'

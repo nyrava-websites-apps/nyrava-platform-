@@ -309,6 +309,7 @@ app.get('/find-a-realtor', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'intake.html'));
 });
 
+app.get('/sales-partners', (req,res)=>res.sendFile(path.join(__dirname,'public','sales-partners.html')));
 app.get('/subscriber-login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'subscriber-login.html'));
 });
