@@ -18,6 +18,7 @@ public sealed class ActivityLifecycleTests : IClassFixture<CrmApplicationFactory
         using var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         var email = $"calendar-{Guid.NewGuid():N}@example.test";
         Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/register", new { email, password = "AuditCRM!2026Pass" })).StatusCode);
+        await _factory.GrantAuthorizedTestAccessAsync(email);
 
         var contactResponse = await client.PostAsJsonAsync("/api/contacts", new
         {

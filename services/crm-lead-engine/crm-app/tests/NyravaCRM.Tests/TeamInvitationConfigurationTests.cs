@@ -21,6 +21,7 @@ public sealed class TeamInvitationConfigurationTests : IClassFixture<CrmApplicat
         using var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         var email = $"no-invites-{Guid.NewGuid():N}@example.test";
         Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/register", new { email, password = "AuditCRM!2026Pass" })).StatusCode);
+        await _factory.GrantAuthorizedTestAccessAsync(email);
 
         var team = await client.GetFromJsonAsync<TeamResponse>("/api/team");
         Assert.NotNull(team);

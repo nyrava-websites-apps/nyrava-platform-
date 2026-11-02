@@ -7,7 +7,7 @@
 import { readFileSync, existsSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { prospectFromListing, reviewedPayload, ingestionResult, upfrontContact, publicPostingText, listingUrl } from './collector-policy.mjs';
+import { prospectFromListing, reviewedPayload, ingestionResult, upfrontContact, publicPostingText, listingUrl, extractContactName } from './collector-policy.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROSPECTS = join(__dirname, 'prospects.jsonl');
@@ -141,7 +141,27 @@ const SOURCES = [
   { name: 'Craigslist FSBO (Dallas)', city: 'Dallas', state: 'TX', zip: '75217', url: 'https://dallas.craigslist.org/jsonsearch/rea?query=for+sale+by+owner' },
   { name: 'Craigslist FSBO (Austin)', city: 'Austin', state: 'TX', zip: '78701', url: 'https://austin.craigslist.org/jsonsearch/rea?query=for+sale+by+owner' },
   { name: 'Craigslist FSBO (Denver)', city: 'Denver', state: 'CO', zip: '80206', url: 'https://denver.craigslist.org/jsonsearch/rea?query=for+sale+by+owner' },
-  { name: 'Craigslist FSBO (Tampa)', city: 'Tampa', state: 'FL', zip: '33611', url: 'https://tampa.craigslist.org/jsonsearch/rea?query=for+sale+by+owner' }
+  { name: 'Craigslist FSBO (Tampa)', city: 'Tampa', state: 'FL', zip: '33611', url: 'https://tampa.craigslist.org/jsonsearch/rea?query=for+sale+by+owner' },
+  { name: 'Expanded FSBO (dallas 75201)', city: 'dallas', zip: '75201', url: 'https://dallas.craigslist.org/jsonsearch/reo?query=for+sale+by+owner&postal=75201&search_distance=0' },
+  { name: 'Expanded FSBO (dallas 75204)', city: 'dallas', zip: '75204', url: 'https://dallas.craigslist.org/jsonsearch/reo?query=for+sale+by+owner&postal=75204&search_distance=0' },
+  { name: 'Expanded FSBO (dallas 75206)', city: 'dallas', zip: '75206', url: 'https://dallas.craigslist.org/jsonsearch/reo?query=for+sale+by+owner&postal=75206&search_distance=0' },
+  { name: 'Expanded FSBO (dallas 75208)', city: 'dallas', zip: '75208', url: 'https://dallas.craigslist.org/jsonsearch/reo?query=for+sale+by+owner&postal=75208&search_distance=0' },
+  { name: 'Expanded FSBO (houston 77002)', city: 'houston', zip: '77002', url: 'https://houston.craigslist.org/jsonsearch/reo?query=for+sale+by+owner&postal=77002&search_distance=0' },
+  { name: 'Expanded FSBO (houston 77007)', city: 'houston', zip: '77007', url: 'https://houston.craigslist.org/jsonsearch/reo?query=for+sale+by+owner&postal=77007&search_distance=0' },
+  { name: 'Expanded FSBO (houston 77019)', city: 'houston', zip: '77019', url: 'https://houston.craigslist.org/jsonsearch/reo?query=for+sale+by+owner&postal=77019&search_distance=0' },
+  { name: 'Expanded FSBO (houston 77024)', city: 'houston', zip: '77024', url: 'https://houston.craigslist.org/jsonsearch/reo?query=for+sale+by+owner&postal=77024&search_distance=0' },
+  { name: 'Expanded FSBO (atlanta 30303)', city: 'atlanta', zip: '30303', url: 'https://atlanta.craigslist.org/jsonsearch/reo?query=for+sale+by+owner&postal=30303&search_distance=0' },
+  { name: 'Expanded FSBO (atlanta 30308)', city: 'atlanta', zip: '30308', url: 'https://atlanta.craigslist.org/jsonsearch/reo?query=for+sale+by+owner&postal=30308&search_distance=0' },
+  { name: 'Expanded FSBO (atlanta 30318)', city: 'atlanta', zip: '30318', url: 'https://atlanta.craigslist.org/jsonsearch/reo?query=for+sale+by+owner&postal=30318&search_distance=0' },
+  { name: 'Expanded FSBO (denver 80202)', city: 'denver', zip: '80202', url: 'https://denver.craigslist.org/jsonsearch/reo?query=for+sale+by+owner&postal=80202&search_distance=0' },
+  { name: 'Expanded FSBO (denver 80205)', city: 'denver', zip: '80205', url: 'https://denver.craigslist.org/jsonsearch/reo?query=for+sale+by+owner&postal=80205&search_distance=0' },
+  { name: 'Expanded FSBO (denver 80211)', city: 'denver', zip: '80211', url: 'https://denver.craigslist.org/jsonsearch/reo?query=for+sale+by+owner&postal=80211&search_distance=0' },
+  { name: 'Expanded FSBO (tampa 33602)', city: 'tampa', zip: '33602', url: 'https://tampa.craigslist.org/jsonsearch/reo?query=for+sale+by+owner&postal=33602&search_distance=0' },
+  { name: 'Expanded FSBO (tampa 33606)', city: 'tampa', zip: '33606', url: 'https://tampa.craigslist.org/jsonsearch/reo?query=for+sale+by+owner&postal=33606&search_distance=0' },
+  { name: 'Expanded FSBO (tampa 33609)', city: 'tampa', zip: '33609', url: 'https://tampa.craigslist.org/jsonsearch/reo?query=for+sale+by+owner&postal=33609&search_distance=0' },
+  { name: 'Expanded FSBO (austin 78704)', city: 'austin', zip: '78704', url: 'https://austin.craigslist.org/jsonsearch/reo?query=for+sale+by+owner&postal=78704&search_distance=0' },
+  { name: 'Expanded FSBO (austin 78705)', city: 'austin', zip: '78705', url: 'https://austin.craigslist.org/jsonsearch/reo?query=for+sale+by+owner&postal=78705&search_distance=0' },
+  { name: 'Expanded FSBO (austin 78745)', city: 'austin', zip: '78745', url: 'https://austin.craigslist.org/jsonsearch/reo?query=for+sale+by+owner&postal=78745&search_distance=0' }
 ];
 
 async function tryFetchCraigslist(source) {
@@ -209,6 +229,15 @@ async function post(path, payload) {
     headers:{'Content-Type':'application/json',Authorization:`Bearer ${CFG.CRM_API_KEY}`},
     body:JSON.stringify(payload)
   });
+  if (path === '/api/v1/prospects') {
+    if (response.status === 201) return 'created';
+    if (response.status === 200) {
+      const body = await response.json();
+      if (body?.rejected === true) return 'rejected';
+      if (body?.existing === true) return 'existing';
+      throw new Error('Unrecognized prospect response');
+    }
+  }
   return ingestionResult(response.status);
 }
 
@@ -216,7 +245,7 @@ let runCycle=0;
 async function syncOnce() {
   runCycle++;
   const leads=await collectLeads();
-  let discoveries=0,banked=0,created=0,existing=0,errors=0;
+  let discoveries=0,banked=0,created=0,existing=0,rejected=0,duplicates=0,errors=0;
   for(const prospect of leads) {
     // Save before any network request, so CRM outages cannot discard discoveries.
     if(!known.has(prospect.externalId)) {
@@ -229,8 +258,15 @@ async function syncOnce() {
     if(!line.trim()) continue;
     try {
       const prospect=JSON.parse(line);
-      if (!upfrontContact(prospect.title+' '+String(prospect.publicDescription||'')).eligible) continue; // Reject old saved contactless records too.
-      const result=await post('/api/v1/prospects',prospect); if(result==='created') banked++;
+      const listingText = String(prospect.title||'') + ' ' + String(prospect.publicDescription||'');
+      if (!upfrontContact(listingText).eligible) continue;
+      if (!extractContactName(listingText)) continue;
+      if (!/^\d{5}$/.test(String(prospect.zipCode||''))) continue;
+      if (prospect.doNotContact) continue; // Reject old saved contactless records too.
+      const result=await post('/api/v1/prospects',prospect);
+      if(result==='created') banked++;
+      else if(result==='rejected') rejected++;
+      else if(result==='existing') duplicates++;
     }
     catch { errors++; }
   }
@@ -245,7 +281,7 @@ async function syncOnce() {
       if(result==='created') created++; else existing++;
     } catch { errors++; }
   }
-  log(`Cycle ${runCycle}: ${discoveries} new prospects saved, ${banked} added to admin review bank, ${created} reviewed leads created, ${existing} existing reviewed leads, ${errors} pending/errors`);
+  log(`Cycle ${runCycle}: ${discoveries} newly discovered, ${banked} newly banked, ${duplicates} existing prospects, ${rejected} API rejections, ${created} reviewed leads created, ${existing} existing reviewed leads, ${errors} pending/errors`);
 }
 
 // ── Start Continuous Daemon ───────────────────────────────────────────────────

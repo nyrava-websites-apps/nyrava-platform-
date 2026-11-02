@@ -27,6 +27,7 @@ public sealed class TeamAndChatTests : IClassFixture<CrmApplicationFactory>
         Assert.True(demoInfo.GetProperty("enabled").GetBoolean());
         var subscriberLogin = await subscriber.PostAsJsonAsync("/api/login", new { email = _factory.DemoOwnerEmail, password = _factory.DemoOwnerPassword });
         Assert.True(subscriberLogin.StatusCode == HttpStatusCode.OK, await subscriberLogin.Content.ReadAsStringAsync());
+        await _factory.GrantAuthorizedTestAccessAsync(_factory.DemoOwnerEmail);
         var employeeLogin = await employee.PostAsJsonAsync("/api/login", new { email = _factory.DemoEmployeeEmail, password = _factory.DemoEmployeePassword });
         Assert.True(employeeLogin.StatusCode == HttpStatusCode.OK, await employeeLogin.Content.ReadAsStringAsync());
 

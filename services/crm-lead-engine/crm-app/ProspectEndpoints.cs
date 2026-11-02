@@ -35,11 +35,46 @@ public static class ProspectEndpoints
             var zip = verifiedZipFormat ? input.ZipCode!.Trim() : null;
             var activeSubscribers = await db.Users.Where(u => u.Role == "Owner" && u.WorkspaceId == u.Id).ToListAsync();
             var hasEligibleTerritory = zip is not null && activeSubscribers.Any(u => GeographicService.MatchesZipCoverage(u, zip));
+            // Admin reviews missing/suspect names, not every contact-complete listing.
+            var publishedName = input.OwnerName?.Trim();
+            var nameComplete = !string.IsNullOrWhiteSpace(publishedName) &&
+                !System.Text.RegularExpressions.Regex.IsMatch(publishedName,
+                    @"^(name not provided|unknown|owner|homeowner|fsbo homeowner|owner:.*|seller)$",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase);
             // Reject before lookup, network enrichment, or the admin bank when neither
             // contact method is visibly present in the original listing title or public description.
             var listingPublicText = input.Title + " " + (input.PublicDescription ?? "");
             var listedPhone = System.Text.RegularExpressions.Regex.IsMatch(listingPublicText,
                 @"(?<!\d)(?:\+1[ .-]?)?\(?[2-9]\d{2}\)?[ .-]?[2-9]\d{2}[ .-]?\d{4}(?!\d)");
+            // Match the collector's explicitly published word/digit phone handling.
+            // Only a visible number near a call/text instruction may qualify.
+            if (!listedPhone && !string.IsNullOrWhiteSpace(input.Phone))
+            {
+                var tokenPart = @"(?:zero|one|two|three|four|five|six|seven|eight|nine|[0-9])";
+                var mixedPattern = @"(?<![a-z0-9])" + tokenPart + @"(?:[ .()-]*" + tokenPart + @"){9}(?![a-z0-9])";
+                var words = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
+                    ["zero"]="0", ["one"]="1", ["two"]="2", ["three"]="3", ["four"]="4",
+                    ["five"]="5", ["six"]="6", ["seven"]="7", ["eight"]="8", ["nine"]="9"
+                };
+                var submitted = System.Text.RegularExpressions.Regex.Replace(input.Phone, @"\D", "");
+                foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(
+                    listingPublicText, mixedPattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                {
+                    if (!System.Text.RegularExpressions.Regex.IsMatch(match.Value, @"[a-z]", System.Text.RegularExpressions.RegexOptions.IgnoreCase)) continue;
+                    var preceding = listingPublicText.Substring(Math.Max(0, match.Index - 90), Math.Min(90, match.Index));
+                    if (!System.Text.RegularExpressions.Regex.IsMatch(preceding, @"\b(call|text|phone|contact|reach|telephone|tel)\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase)) continue;
+                    var converted = System.Text.RegularExpressions.Regex.Replace(match.Value,
+                        @"zero|one|two|three|four|five|six|seven|eight|nine|[0-9]",
+                        m => words.TryGetValue(m.Value, out var digit) ? digit : m.Value,
+                        System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                    var digits = System.Text.RegularExpressions.Regex.Replace(converted, @"\D", "");
+                    if (digits == submitted && System.Text.RegularExpressions.Regex.IsMatch(digits, @"^[2-9]\d{2}[2-9]\d{6}$"))
+                    {
+                        listedPhone = true;
+                        break;
+                    }
+                }
+            }
             var listedEmail = System.Text.RegularExpressions.Regex.IsMatch(listingPublicText,
                 @"[\w.+-]+@[\w-]+\.[a-z]{2,}", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
             if (!listedPhone && !listedEmail) return Results.BadRequest(new { error = "Listing contact must be visible upfront." });
@@ -99,7 +134,10 @@ public static class ProspectEndpoints
                 // must not be enriched or advanced by repeated submissions.
                 if (existing.Stage == "Excluded" || (string.IsNullOrWhiteSpace(existing.Phone) && string.IsNullOrWhiteSpace(existing.Email)))
                     return Results.Ok(new { id = existing.Id, existing = true, ignored = true, status = existing.Stage });
-                if (!hasEligibleTerritory && existing.Stage == "Review") {
+                // The absence of paying Realtors never promotes an incomplete identity.
+                // Only newly supplied genuine visible owner identity can move it to the bank.
+                if (nameComplete && existing.Stage == "Review") {
+                    existing.Name = publishedName!;
                     existing.Stage = "Banked";
                     await db.SaveChangesAsync();
                 }
@@ -118,16 +156,47 @@ public static class ProspectEndpoints
             }
             var item = new CrmContact {
                 UserId = owner.Id, AssignedToUserId = owner.Id, Name = string.IsNullOrWhiteSpace(input.OwnerName) ? "Name not provided" : input.OwnerName,
-                Phone = input.Phone, Email = input.Email, PropertyZipCode = zip, LeadType = "Seller", Stage = hasEligibleTerritory ? "Review" : "Banked",
+                Phone = input.Phone, Email = input.Email, PropertyZipCode = zip, LeadType = "Seller", Stage = nameComplete ? "Banked" : "Review",
                 Source = "Fsbo Prospect", ExternalLeadId = input.ExternalId, SourceUrl = input.SourceUrl, ExternalFsbo = true,
                 Notes = (!string.IsNullOrWhiteSpace(input.OwnerName) && !string.IsNullOrWhiteSpace(input.PropertyAddress) ? "BEST LEAD — published name, property address, and contact. " : "") + (string.IsNullOrWhiteSpace(input.PropertyAddress) ? "" : "PROPERTY ADDRESS (published): " + input.PropertyAddress + " | ") + (nonPropertyTitle ? "EXCLUDED — Classified is not a residential property listing. " : "") + (publishedDescription is null ? "" : "PUBLIC LISTING DESCRIPTION (unverified): " + publishedDescription + " | ") + (publishedPhone is null ? "" : "PUBLIC PHONE (unverified): " + publishedPhone + " | ") + "MASTER BANK — Listing title: " + input.Title + ". Source search territory is not a verified property ZIP. Contact verification, seller intent and recipient authorization required before any distribution. " + (input.DoNotContact ? "DO NOT CONTACT: listing rejects agent outreach. " : "") + "Status: " + (string.IsNullOrWhiteSpace(input.Phone ?? publishedPhone) && string.IsNullOrWhiteSpace(input.Email) ? "BONUS CANDIDATE — contact unavailable. " : "CONTACT CANDIDATE — unverified. "),
+                DiscoveredAt = DateTimeOffset.UtcNow,
                 UpdatedAt = DateTimeOffset.UtcNow
             };
             db.Contacts.Add(item);
             key.LastUsedAt = DateTimeOffset.UtcNow;
             await db.SaveChangesAsync();
-            return Results.Created($"/api/contacts/{item.Id}", new { id = item.Id, reviewRequired = hasEligibleTerritory, banked = !hasEligibleTerritory, status = item.Stage, classification = "ContactCandidate" });
+            return Results.Created($"/api/contacts/{item.Id}", new { id = item.Id, reviewRequired = !nameComplete, banked = nameComplete, status = item.Stage, classification = "ContactCandidate" });
         }).AllowAnonymous();
+
+        // Admin-only review queue: incomplete identities never go to a subscriber.
+        app.MapGet("/api/admin/prospect-review", async (HttpContext http, CrmDb db) => {
+            if (!long.TryParse(http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var userId))
+                return Results.Unauthorized();
+            if (!await db.Users.AnyAsync(u => u.Id == userId && u.Role == "Admin")) return Results.Forbid();
+            var review = await db.Contacts.Where(c => c.Source == "Fsbo Prospect" &&
+                    c.ArchivedAt == null && (c.Stage == "Review" || c.Stage == "Banked"))
+                .OrderByDescending(c => c.DiscoveredAt ?? c.UpdatedAt)
+                .Select(c => new { c.Id, c.Stage, c.Name, c.Phone, c.Email, c.PropertyZipCode,
+                    c.SourceUrl, c.DiscoveredAt, c.Notes }).Take(250).ToListAsync();
+            return Results.Ok(review);
+        }).RequireAuthorization();
+
+        // Soft-delete keeps exclusion evidence so repeated collection cannot resurrect a rejected prospect.
+        app.MapDelete("/api/admin/prospect-review/{id:long}", async (long id, HttpContext http, CrmDb db) => {
+            if (!long.TryParse(http.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var userId))
+                return Results.Unauthorized();
+            if (!await db.Users.AnyAsync(u => u.Id == userId && u.Role == "Admin")) return Results.Forbid();
+            var candidate = await db.Contacts.SingleOrDefaultAsync(c => c.Id == id && c.Source == "Fsbo Prospect");
+            if (candidate is null) return Results.NotFound();
+            if (candidate.Stage == "Dispatched" || candidate.DeliveredAt != null)
+                return Results.Conflict(new { error = "Already delivered; retain audit history." });
+            candidate.Stage = "Excluded";
+            candidate.ArchivedAt = DateTimeOffset.UtcNow;
+            candidate.Notes = "[Admin excluded] " + (candidate.Notes ?? "");
+            candidate.UpdatedAt = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync();
+            return Results.NoContent();
+        }).RequireAuthorization();
     }
 }
 public sealed record ProspectInput(string ExternalId, string Title, string? Phone, string? Email, string? ZipCode, string SourceUrl, bool DoNotContact, string? OwnerName = null, string? PropertyAddress = null, string? PublicDescription = null);

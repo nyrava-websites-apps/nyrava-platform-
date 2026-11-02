@@ -24,6 +24,7 @@ public sealed class InvitationAcceptanceTests : IClassFixture<CrmApplicationFact
         using var invited = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         var ownerEmail = $"invite-owner-{Guid.NewGuid():N}@example.test";
         Assert.Equal(HttpStatusCode.OK, (await subscriber.PostAsJsonAsync("/api/register", new { email = ownerEmail, password = "AuditCRM!2026Pass" })).StatusCode);
+        await _factory.GrantAuthorizedTestAccessAsync(ownerEmail);
         var identity = await subscriber.GetFromJsonAsync<JsonElement>("/api/me");
         var ownerId = identity.GetProperty("id").GetInt64();
 

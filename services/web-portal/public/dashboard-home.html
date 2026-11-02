@@ -277,6 +277,35 @@ header.top #identity {
   }
 }
 </style>
+
+<style id="nyrava-meet-container-fix">
+/* Resize the OUTER embedded meeting container */
+#panel-meet.active #meetVideoBox {
+    width: min(100%, 850px) !important;
+    max-width: 850px !important;
+    height: 560px !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 12px auto 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    border-radius: 14px !important;
+}
+
+#panel-meet.active #nyrava-meet-frame {
+    width: 100% !important;
+    height: 100% !important;
+    border: 0 !important;
+}
+
+@media (max-width: 900px) {
+    #panel-meet.active #meetVideoBox {
+        width: 100% !important;
+        height: min(70vh, 560px) !important;
+    }
+}
+</style>
+
 </head><body><div class="shell"><aside class="rail" id="rail"><div class="actions"><div class="brand">NYRAVA HOME<span>REALTOR WORKSPACE</span></div><button class="secondary" id="mobileMenu" aria-expanded="false" aria-controls="menu">Menu</button></div><nav class="menu" id="menu" aria-label="Realtor workspace"><button data-tab="overview" class="active">Overview</button><button data-tab="profile" type="button">My Profile</button><button data-tab="leads" id="leadsMenuToggle" type="button" aria-expanded="false" aria-controls="leadsSubmenu">My Leads <span class="crm-chevron" aria-hidden="true">▾</span></button><div id="leadsSubmenu" class="crm-submenu" hidden><button type="button" data-leads-view="all">All Leads</button><button type="button" data-leads-view="buyers">Buyer Leads</button><button type="button" data-leads-view="sellers">Seller Leads</button></div><button data-tab="crm" id="crmMenuToggle" type="button" aria-expanded="false" aria-controls="crmSubmenu">Contacts &amp; CRM <span class="crm-chevron" aria-hidden="true">▾</span></button><div id="crmSubmenu" class="crm-submenu" hidden>
 <button type="button" data-crm-view="today">Today &amp; Priorities</button><button type="button" data-crm-view="contacts">Leads &amp; Contacts</button>
 <button type="button" data-crm-view="calendar">Follow-ups &amp; Tasks</button>

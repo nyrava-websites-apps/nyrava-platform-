@@ -11,6 +11,7 @@ test('gateway preserves workbench failures, authentication, request body and rea
     seen.push({url:req.url,method:req.method,body,cookie:req.headers.cookie});
     res.setHeader('Content-Type','application/json');
     if(!req.headers.cookie){res.writeHead(401);return res.end('{"error":"Sign in"}');}
+    if(req.url==='/api/billing/identity')return res.end(JSON.stringify({canAccess:true}));
     if(req.url==='/api/auth/me')return res.end(JSON.stringify({id:7,role:'Employee',email:'actual@example.test',subscriptionPlan:'BASIC',subscriptionStatus:'Inactive',subscribedZipCodes:''}));
     if(req.url.includes('/action')){res.writeHead(409);return res.end('{"error":"Database rejected operation"}');}
     res.writeHead(404);res.end('{"error":"Contact not found"}');
