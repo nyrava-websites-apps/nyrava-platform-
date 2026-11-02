@@ -77,6 +77,17 @@ public sealed class CrmApplicationFactory : WebApplicationFactory<Program>
         return base.CreateHost(builder);
     }
 
+    // Test-only entitlement; never changes production access policy or existing accounts.
+    public async Task GrantAuthorizedTestAccessAsync(string email)
+    {
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CrmDb>();
+        var user = await db.Users.SingleAsync(u => u.Email == email);
+        user.SubscriptionNonBillingAccessGrantedAt = DateTimeOffset.UtcNow;
+        user.SubscriptionNonBillingAccessReason = "Automated isolated CRM test";
+        await db.SaveChangesAsync();
+    }
+
     private void SeedAdminRecord()
     {
         using var connection = new SqliteConnection($"Data Source={DatabasePath};Mode=ReadWriteCreate;Cache=Private");

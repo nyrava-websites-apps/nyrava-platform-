@@ -21,3 +21,16 @@ checkout-sessions.json
 *.db
 *.db-wal
 *.db-shm
+
+# Production snapshots, private configuration and generated evidence.
+*.backup*
+*.before-*
+*.new
+*.tar.gz
+*.dump
+*.trx
+TestResults/
+.env.*
+!.env.example
+!ops/launch.env.example
+lead-filter-backups/
