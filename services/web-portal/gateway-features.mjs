@@ -785,24 +785,25 @@ export function registerGatewayFeatures(app, { CRM_SERVICE_URL, VALUATION_SERVIC
     }
 
     const rows = (contacts || []).map(c => {
-      const isDelivered = c.stage === 'Dispatched' || c.source === 'Nyrava Verified';
+      const testRecord = /@example\.(test|com)$/i.test(c.email||'') || /audit test|audit lead|test lead/i.test(c.name||'');
+      const isDelivered = Boolean(c.deliveredAt) && !testRecord;
       const isGood = Boolean((c.phone || c.email) && c.contactVerifiedAt && c.intentVerifiedAt && c.consentCapturedAt && c.consentRecipient && !String(c.name||'').startsWith('Owner:') && c.source !== 'Fsbo Prospect');
       return {
         id: String(c.id),
         fullName: c.name || 'Name requires review',
         email: c.email || '',
         phone: c.phone || '',
-        source: c.source === 'Fsbo' ? 'FSBO' : (c.source === 'Nyrava Verified' ? 'VALUATION_INQUIRY' : 'INQUIRY'),
-        receivedAt: c.updatedAt || c.contactVerifiedAt || new Date().toISOString(),
+        source: testRecord ? 'TEST_RECORD' : /fsbo/i.test(c.source||'') ? 'FSBO' : /valuation/i.test(c.source||'') ? 'VALUATION_INQUIRY' : 'INQUIRY',
+        receivedAt: c.discoveredAt || c.updatedAt || null,
         zipCode: c.propertyZipCode || '',
         propertyAddress: [c.notes, (c.propertyZipCode === '78701' || c.propertyZipCode === '78702' || c.propertyZipCode === '78703' || c.propertyZipCode === '78704' || c.propertyZipCode === '78705') ? 'Austin, TX' : (c.propertyZipCode === '77084' || c.propertyZipCode === '77002') ? 'Houston, TX' : (c.propertyZipCode === '75217') ? 'Dallas, TX' : (c.propertyZipCode === '30309') ? 'Atlanta, GA' : (c.propertyZipCode === '80206') ? 'Denver, CO' : (c.propertyZipCode === '33611') ? 'Tampa, FL' : (c.propertyZipCode === '98101') ? 'Seattle, WA' : (c.propertyZipCode === '90210') ? 'Beverly Hills, CA' : ''].filter(Boolean).join(' · '),
         statement: c.notes || '',
-        aiState: isGood ? 'GOOD' : 'REVIEW',
-        status: isDelivered ? 'DELIVERED' : (isGood && c.stage === 'New' ? 'QUALIFIED' : 'PENDING'),
+        aiState: 'NEEDS_REVIEW', // Verification fields alone are not an AI review result.
+        status: testRecord ? 'REPORT_ONLY' : isDelivered ? 'DELIVERED' : 'PENDING',
         stage: c.stage || 'New',
         assignedAgentId: isDelivered ? String(c.userId) : null,
         bankOnly: ['Fsbo','Fsbo Prospect'].includes(c.source) && !isDelivered,
-        reportOnly: false
+        reportOnly: testRecord
       };
     });
 
