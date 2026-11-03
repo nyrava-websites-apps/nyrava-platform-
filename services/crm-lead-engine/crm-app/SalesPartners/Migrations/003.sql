@@ -1,0 +1,2 @@
+CREATE TABLE IF NOT EXISTS "SalesPartnerProspectAppointment" ("Id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,"ProspectId" INTEGER NOT NULL,"RepresentativeId" INTEGER NOT NULL,"Subject" TEXT NOT NULL,"StartsAt" TEXT NOT NULL,"MeetingUrl" TEXT NOT NULL,FOREIGN KEY("ProspectId") REFERENCES "SalesPartnerProspect"("Id") ON DELETE RESTRICT);
+CREATE INDEX IF NOT EXISTS "IX_SalesPartnerProspectAppointment_ProspectId" ON "SalesPartnerProspectAppointment"("ProspectId");

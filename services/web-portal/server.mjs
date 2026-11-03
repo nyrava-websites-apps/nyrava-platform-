@@ -1,3 +1,6 @@
+import { savePrivateSettings } from './private-settings.mjs';
+import { registerAdminSubscribers } from './admin-subscribers.mjs';
+import { registerSubscriberProfile } from './subscriber-profile.mjs';
 import { registerBillingIntegration, checkoutParameters } from './billing-integration.mjs';
 import express from 'express';
 import path from 'path';
@@ -53,14 +56,7 @@ function stripeCheckoutReady(settings) {
   } catch { return false; }
 }
 
-function saveStripeSettings(data) {
-  try {
-    fs.writeFileSync(STRIPE_SETTINGS_FILE, JSON.stringify(data, null, 2), { encoding: 'utf8', mode: 0o600 });
-    fs.chmodSync(STRIPE_SETTINGS_FILE, 0o600);
-  } catch (e) {
-    console.error('[Stripe Settings Save]', e.message);
-  }
-}
+function saveStripeSettings(data) { savePrivateSettings(STRIPE_SETTINGS_FILE, data); }
 
 function getRecentWebhookEvents() {
   try {
@@ -97,7 +93,8 @@ app.use(async (req, res, next) => {
     pathname === '/api/admin' ||
     pathname.startsWith('/api/admin/') ||
     pathname === '/api/ops' ||
-    pathname.startsWith('/api/ops/')
+    pathname.startsWith('/api/ops/') ||
+    pathname.startsWith('/api/professional-ai/admin/')
   )) return next();
 
   try {
@@ -123,6 +120,7 @@ app.use(async (req, res, next) => {
       return res.status(403).json({ error: 'Platform administrator access required.' });
     }
 
+    if(!['GET','HEAD','OPTIONS'].includes(req.method)){const origin=req.get('origin');if(req.get('sec-fetch-site')==='cross-site'||(origin&&origin!=='https://home.nyrava.com'&&origin!==req.protocol+'://'+req.get('host')))return res.status(403).json({error:'Use the website admin panel to make changes.'});}
     req.platformAdminUser = user;
     next();
   } catch (error) {
@@ -188,6 +186,8 @@ app.use(express.json({
     if (req.path === '/api/billing/stripe/webhook') req.rawBody = Buffer.from(buffer);
   }
 }));
+registerSubscriberProfile(app, { CRM_SERVICE_URL, dataDir: DATA_DIR });
+registerAdminSubscribers(app, { CRM_SERVICE_URL, dataDir: DATA_DIR });
 registerGatewayFeatures(app, { CRM_SERVICE_URL, VALUATION_SERVICE_URL, MEET_SERVICE_URL });
 
 // Proxy routes to CRM service
@@ -309,6 +309,7 @@ app.get('/find-a-realtor', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'intake.html'));
 });
 
+app.get('/sales-partners', (req,res)=>res.sendFile(path.join(__dirname,'public','sales-partners.html')));
 app.get('/subscriber-login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'subscriber-login.html'));
 });
@@ -338,6 +339,8 @@ app.get('/meet', (req, res) => {
 });
 
 // Admin direct access (never linked on front of site)
+app.get('/admin-profile.html', (req,res)=>res.sendFile(path.join(__dirname,'public','subscriber-profile.html')));
+
 app.get(['/admin', '/admin.html', '/ops-admin', '/platform-admin'], (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
@@ -633,8 +636,14 @@ function isValidStripeWebhookSignature(rawBody, signatureHeader, secret, nowSeco
 }
 
 // Admin Stripe Endpoints
-app.get('/api/admin/stripe/overview', (req, res) => {
+app.get('/api/admin/stripe/overview', async (req, res) => {
   const settings = getStripeSettings();
+  let billingAccounts;
+  try {
+    const response = await fetch(CRM_SERVICE_URL+'/api/admin/accounts',{headers:{Cookie:req.headers.cookie||'',Authorization:req.headers.authorization||''},signal:AbortSignal.timeout(10000)});
+    if(!response.ok) return res.status(502).json({error:'Subscriber billing records are unavailable.'});
+    billingAccounts=(await response.json()).filter(x=>x.isOwner&&!x.isAdmin&&x.role==='Owner').map(x=>({userId:x.email,plan:x.subscriptionPlan,state:x.nonBillingAccessGrantedAt?'Approved beta access':x.subscriptionStatus,includedUntil:null,lastError:'Access status is not proof of payment. See Subscribers for recorded payments.'}));
+  } catch {return res.status(502).json({error:'Subscriber billing records are unavailable.'});}
   res.json({
     checkoutEnabled: stripeCheckoutReady(settings),
     webhookPath: '/api/billing/stripe/webhook',
@@ -658,7 +667,7 @@ app.get('/api/admin/stripe/overview', (req, res) => {
       proCheckoutParameters: settings.proCheckoutParameters || {}
     },
     events: getRecentWebhookEvents(),
-    billingAccounts: []
+    billingAccounts
   });
 });
 
@@ -680,7 +689,7 @@ app.post('/api/admin/stripe/settings', (req, res) => {
     for (const plan of ['BASIC','PRO']) checkoutParameters(updated, {ownerId:1,email:'validation@example.test'}, plan);
     if (updated.checkoutEnabled && !stripeCheckoutReady(updated)) return res.status(400).json({error:'Complete the keys, signing secret, server sync secret and both checkout templates before enabling payments.'});
   } catch (error) { return res.status(400).json({error:error.message}); }
-  saveStripeSettings(updated);
+  try { saveStripeSettings(updated); } catch (error) { console.error('[Stripe Settings Save]',error.message); return res.status(503).json({error:'Billing settings could not be saved. Previous settings were preserved.'}); }
   res.json({
     secretConfigured: Boolean(updated.secretKey),
     webhookConfigured: Boolean(updated.webhookSecret),

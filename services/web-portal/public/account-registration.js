@@ -30,7 +30,7 @@ $('register').onsubmit = async e => {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({...payload,referralCode:new URLSearchParams(location.search).get("ref")||sessionStorage.getItem("nyrava_referral")||undefined})
     });
 
     if (!r.ok) {
@@ -38,7 +38,7 @@ $('register').onsubmit = async e => {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({...payload,referralCode:new URLSearchParams(location.search).get("ref")||sessionStorage.getItem("nyrava_referral")||undefined})
       });
     }
 

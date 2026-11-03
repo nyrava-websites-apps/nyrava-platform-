@@ -16,6 +16,8 @@ public sealed class CrmApplicationFactory : WebApplicationFactory<Program>
     private readonly string _databaseDirectory = Path.Combine(Path.GetTempPath(), $"NyravaCrmTest-{Guid.NewGuid():N}");
     private string DatabasePath => Path.Combine(_databaseDirectory, "crm.db");
 
+    public bool SalesPartnersEnabled { get; set; }
+    public string BillingSyncSecret {get;} = NewCredential()+NewCredential();
     public bool DemoMode { get; set; }
     public bool TeamInvitationsEnabled { get; set; } = true;
     public bool BootstrapAdminEnabled { get; set; }
@@ -58,6 +60,8 @@ public sealed class CrmApplicationFactory : WebApplicationFactory<Program>
             new Dictionary<string, string?>
             {
                 ["Database:Provider"] = "Sqlite",
+                ["SalesPartners:Enabled"] = SalesPartnersEnabled ? "true" : "false",
+                ["Crm:BillingSyncSecret"] = BillingSyncSecret,
                 ["ConnectionStrings:Crm"] = $"Data Source={DatabasePath};Mode=ReadWriteCreate;Cache=Private",
                 ["CRM_DEMO_MODE"] = DemoMode ? "true" : "false",
                 ["Crm:TeamInvitationsEnabled"] = TeamInvitationsEnabled ? "true" : "false",

@@ -22,4 +22,7 @@
   <ItemGroup>
     <Compile Remove="tests/**/*.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="SalesPartners/Migrations/*.sql" />
+  </ItemGroup>
 </Project>

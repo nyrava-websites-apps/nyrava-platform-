@@ -34,3 +34,8 @@ TestResults/
 !.env.example
 !ops/launch.env.example
 lead-filter-backups/
+
+.local-sales-demo/
+
+__pycache__/
+*.pyc

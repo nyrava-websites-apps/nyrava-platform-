@@ -1,7 +1,10 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.DataProtection;
 using NyravaCRM;
+using NyravaCRM.SalesPartners;
+using Microsoft.EntityFrameworkCore.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
 // An explicit directory supports persistent keys in containers and isolated local
@@ -39,6 +42,15 @@ builder.Services.AddDbContext<CrmDb>(options => {
         default: throw new InvalidOperationException("Database:Provider must be Sqlite, SqlServer, MySql, or PostgreSql.");
     }
 });
+var salesPartnersEnabled = builder.Configuration.GetValue<bool>("SalesPartners:Enabled");
+if (salesPartnersEnabled)
+{
+    if (!databaseProvider.Equals("Sqlite", StringComparison.OrdinalIgnoreCase))
+        throw new InvalidOperationException("Sales Partner schema v1 currently requires the existing SQLite provider.");
+    builder.Services.AddDbContext<SalesPartnerDb>(o=>o.UseSqlite(connectionString ?? $"Data Source={Path.Combine(dataDir, "nyrava-crm.db")}"));
+    builder.Services.AddScoped<PartnerCommissionService>();
+    builder.Services.AddHostedService<PartnerPayrollWorker>();
+}
 builder.Services.AddCors(options => {
     options.AddDefaultPolicy(policy => {
         policy.SetIsOriginAllowed(origin => true)
@@ -57,6 +69,11 @@ builder.Services.AddAuthentication("crm-cookie").AddCookie("crm-cookie", options
         options.Cookie.Domain = ".nyrava.com";
     }
     options.LoginPath = "/login.html";
+    options.Events.OnValidatePrincipal = async context => {
+        if(!long.TryParse(context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value,out var id)){context.RejectPrincipal();return;}
+        var db=context.HttpContext.RequestServices.GetRequiredService<CrmDb>();
+        if(!await db.Users.AnyAsync(x=>x.Id==id)){context.RejectPrincipal();await context.HttpContext.SignOutAsync("crm-cookie");}
+    };
     options.Events.OnRedirectToLogin = context => {
         if (context.Request.Path.StartsWithSegments("/api")) {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
@@ -199,6 +216,13 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
 app.UseMiddleware<WorkspaceAccessMiddleware>();
+if(salesPartnersEnabled)
+{
+    using var salesScope=app.Services.CreateScope();
+    await PartnerSchema.InstallAsync(salesScope.ServiceProvider.GetRequiredService<SalesPartnerDb>());
+    app.MapSalesPartners();
+    app.MapPartnerFinancialEvents();
+}
 app.MapBillingSync();
 app.MapProspectIntake();
 
@@ -206,6 +230,8 @@ app.MapGet("/api/eligibility", (string? country, string? postalCode, string? pla
     Results.Ok(GeographicService.GetPricing(country, postalCode, plan))).AllowAnonymous();
 
 var handleRegister = async (RegisterRequest request, CrmDb db, HttpContext http) => {
+    var referralDb=salesPartnersEnabled?http.RequestServices.GetRequiredService<SalesPartnerDb>():null;
+    if(referralDb!=null)db.Database.SetDbConnection(referralDb.Database.GetDbConnection());
     var email = request.Email?.Trim().ToLowerInvariant();
     if (email is null || !ValidEmail(email) || request.Password is null || request.Password.Length < 12 || request.Password.Length > 200)
         return Results.BadRequest(new { error = "Enter a valid email and a password of at least 12 characters." });
@@ -228,6 +254,7 @@ var handleRegister = async (RegisterRequest request, CrmDb db, HttpContext http)
     }
 
     await using var transaction=await db.Database.BeginTransactionAsync();
+    if(referralDb!=null)await referralDb.Database.UseTransactionAsync(transaction.GetDbTransaction());
     var user = new CrmUser {
         Email = email,
         PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
@@ -260,6 +287,16 @@ var handleRegister = async (RegisterRequest request, CrmDb db, HttpContext http)
     else invitation.AcceptedAt = DateTimeOffset.UtcNow;
     db.Memberships.Add(new CrmMembership { OwnerUserId = user.WorkspaceId, UserId = user.Id, Role = user.Role, Active = true });
     await db.SaveChangesAsync();
+    if(salesPartnersEnabled && user.Role=="Owner" && !string.IsNullOrWhiteSpace(request.ReferralCode))
+    {
+        var sales=http.RequestServices.GetRequiredService<SalesPartnerDb>();
+        var representative=await sales.Representatives.SingleOrDefaultAsync(x=>x.ReferralCode==request.ReferralCode && x.Active && x.Status=="Active");
+        if(representative is not null && !await sales.Set<RepresentativeReferral>().AnyAsync(x=>x.SubscriberUserId==user.Id))
+        {
+            sales.Add(new RepresentativeReferral{RepresentativeId=representative.Id,SubscriberUserId=user.Id,ReferralCode=representative.ReferralCode,RegisteredAt=DateTimeOffset.UtcNow});
+            await sales.SaveChangesAsync();
+        }
+    }
     await transaction.CommitAsync();
 
     if (isSubscriber) {
@@ -311,6 +348,7 @@ var handleLogin = async (LoginRequest request, CrmDb db, HttpContext http) => {
     if (user is null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
         return Results.Unauthorized();
     if(!await db.Memberships.AnyAsync(m=>m.OwnerUserId==user.WorkspaceId&&m.UserId==user.Id&&m.Active))return Results.Unauthorized();
+    if(salesPartnersEnabled && user.Role=="SalesRepresentative" && !await http.RequestServices.GetRequiredService<SalesPartnerDb>().Representatives.AnyAsync(x=>x.UserId==user.Id&&x.Active&&x.Status=="Active"))return Results.StatusCode(403);
     await SignIn(http, user);
     var logToken = Guid.NewGuid().ToString("N");
     oneTimeAuthTokens[logToken] = (user.Id, DateTimeOffset.UtcNow.AddMinutes(5));
@@ -1860,7 +1898,7 @@ static Task SignIn(HttpContext http, CrmUser user) {
     var principal = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(claims, "crm-cookie"));
     return http.SignInAsync("crm-cookie", principal);
 }
-record RegisterRequest(string? Email, string? Password, string? InvitationCode=null, string? Country="US", string? PostalCode="78701", string? SubscribedZipCodes=null, string? Plan="monthly", bool? AcceptTerms=true, string? FullName=null);
+record RegisterRequest(string? Email, string? Password, string? InvitationCode=null, string? Country="US", string? PostalCode="78701", string? SubscribedZipCodes=null, string? Plan="monthly", bool? AcceptTerms=true, string? FullName=null, string? ReferralCode=null);
 record TerritoryUpdateInput(string? ZipCodes);
 record LoginRequest(string? Email, string? Password);
 record ContactInput(string Name, string? Email, string? Phone, string? Company, string LeadType = "Other");

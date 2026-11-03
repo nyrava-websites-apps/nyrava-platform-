@@ -632,6 +632,16 @@
     const localVid = document.getElementById('localVideo');
     const localCanvas = document.getElementById('localCanvas');
 
+    // The share track may have ended while peers already received the camera.
+    // Always reconnect the local preview and canvas input to the live camera.
+    if (localVid && localVid.srcObject !== rawCameraStream) {
+      localVid.srcObject = rawCameraStream;
+      localVid.muted = true;
+      localVid.play().catch(err => console.warn('[Camera preview]', err));
+    }
+    document.getElementById('localCard')?.classList.remove('is-screen-sharing');
+    if (localVid) localVid.style.transform = '';
+
     if (currentBg === 'none' && currentFilter === 'none') {
       // Standard raw camera feed (zero overhead)
       if (localCanvas) localCanvas.style.display = 'none';
@@ -899,6 +909,11 @@
         });
         const screenTrack = screenStream.getVideoTracks()[0];
 
+        isScreenSharing = true;
+        if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
+        const previewCanvas = document.getElementById('localCanvas');
+        if (previewCanvas) previewCanvas.style.display = 'none';
+        document.getElementById('localCard')?.classList.add('is-screen-sharing');
         // Replace track on all peer senders
         broadcastVideoTrack(screenTrack);
 
@@ -906,6 +921,9 @@
         if (localVid) {
           localVid.style.filter = 'none';
           localVid.srcObject = screenStream;
+          localVid.style.display = 'block';
+          localVid.style.transform = 'none';
+          localVid.play().catch(err => console.warn('[Share preview]', err));
         }
 
         isScreenSharing = true;
@@ -928,8 +946,9 @@
   }
 
   function stopScreenShare() {
+    if (!isScreenSharing && !screenStream) return;
     if (screenStream) {
-      screenStream.getTracks().forEach(t => t.stop());
+      screenStream.getTracks().forEach(t => { t.onended = null; t.stop(); });
       screenStream = null;
     }
     isScreenSharing = false;

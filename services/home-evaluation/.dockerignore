@@ -1,0 +1,16 @@
+node_modules
+**/node_modules
+**/bin
+**/obj
+data
+crm-app/data
+crm-app/tests
+**/TestResults
+.env*
+*.backup*
+**/*.backup*
+**/*.db
+**/*.db-wal
+**/*.db-shm
+backups
+*.tar.gz

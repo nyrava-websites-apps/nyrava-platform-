@@ -394,4 +394,10 @@ public static class EmailService
         );
         return DispatchAsync(config, "support@nyrava.com", $"[Nyrava Support] {subject} (from {fromEmail})", html, "12_customer_support");
     }
+    public static Task<EmailDispatchResult> SendPartnerSupportAsync(IConfiguration config,string recipient,string subject,string body)
+    {
+        return DispatchAsync(config,recipient,"Nyrava Account Support: "+subject,
+            BuildBrandedLayout("Account representative support","Nyrava Home support", "<p>"+WebUtility.HtmlEncode(body).Replace("\n","<br>")+"</p>"),"sales_partner_support");
+    }
+
 }
