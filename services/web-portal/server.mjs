@@ -1,3 +1,5 @@
+import { registerAdminSubscribers } from './admin-subscribers.mjs';
+import { registerSubscriberProfile } from './subscriber-profile.mjs';
 import { registerBillingIntegration, checkoutParameters } from './billing-integration.mjs';
 import express from 'express';
 import path from 'path';
@@ -188,6 +190,8 @@ app.use(express.json({
     if (req.path === '/api/billing/stripe/webhook') req.rawBody = Buffer.from(buffer);
   }
 }));
+registerSubscriberProfile(app, { CRM_SERVICE_URL, dataDir: DATA_DIR });
+registerAdminSubscribers(app, { CRM_SERVICE_URL, dataDir: DATA_DIR });
 registerGatewayFeatures(app, { CRM_SERVICE_URL, VALUATION_SERVICE_URL, MEET_SERVICE_URL });
 
 // Proxy routes to CRM service
@@ -634,8 +638,14 @@ function isValidStripeWebhookSignature(rawBody, signatureHeader, secret, nowSeco
 }
 
 // Admin Stripe Endpoints
-app.get('/api/admin/stripe/overview', (req, res) => {
+app.get('/api/admin/stripe/overview', async (req, res) => {
   const settings = getStripeSettings();
+  let billingAccounts;
+  try {
+    const response = await fetch(CRM_SERVICE_URL+'/api/admin/accounts',{headers:{Cookie:req.headers.cookie||'',Authorization:req.headers.authorization||''},signal:AbortSignal.timeout(10000)});
+    if(!response.ok) return res.status(502).json({error:'Subscriber billing records are unavailable.'});
+    billingAccounts=(await response.json()).filter(x=>x.isOwner&&!x.isAdmin&&x.role==='Owner').map(x=>({userId:x.email,plan:x.subscriptionPlan,state:x.nonBillingAccessGrantedAt?'Approved beta access':x.subscriptionStatus,includedUntil:null,lastError:'Access status is not proof of payment. See Subscribers for recorded payments.'}));
+  } catch {return res.status(502).json({error:'Subscriber billing records are unavailable.'});}
   res.json({
     checkoutEnabled: stripeCheckoutReady(settings),
     webhookPath: '/api/billing/stripe/webhook',
@@ -659,7 +669,7 @@ app.get('/api/admin/stripe/overview', (req, res) => {
       proCheckoutParameters: settings.proCheckoutParameters || {}
     },
     events: getRecentWebhookEvents(),
-    billingAccounts: []
+    billingAccounts
   });
 });
 
