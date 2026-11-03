@@ -1260,3 +1260,15 @@ body.embed-mode .meet-header {
     overflow:visible;
   }
 }
+
+/* Each attendee can enlarge any camera or shared screen independently. */
+.video-card { cursor:pointer; }
+.tile-enlarge,.tile-back,.tile-fullscreen { position:absolute;top:10px;right:10px;z-index:15;padding:8px 12px;border:1px solid #9dc6ff;border-radius:7px;background:#03234e;color:white;cursor:pointer;font:600 14px system-ui; }
+.tile-back,.tile-fullscreen { display:none; }
+.video-card.is-focused { position:fixed!important;inset:12px 12px 100px!important;z-index:1000!important;width:calc(100vw - 24px)!important;height:calc(100dvh - 112px)!important;max-width:none!important;max-height:none!important;min-height:0!important;margin:0!important;transform:none!important;aspect-ratio:auto!important;background:#020712; }
+.video-card.is-focused video,.video-card.is-focused canvas,.video-card.is-screen-sharing video { object-fit:contain!important; }
+.video-card.is-focused .tile-enlarge { display:none; }
+.video-card.is-focused .tile-back { display:block;right:130px; }
+.video-card.is-focused .tile-fullscreen { display:block; }
+.video-card:fullscreen { inset:0!important;width:100vw!important;height:100vh!important; }
+@media(max-width:600px){.video-card.is-focused { inset:4px 4px 118px!important;width:calc(100vw - 8px)!important;height:calc(100dvh - 122px)!important; }.tile-enlarge,.tile-back,.tile-fullscreen{font-size:12px;padding:7px;} .video-card.is-focused .tile-back{right:108px;}}

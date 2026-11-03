@@ -37,7 +37,12 @@ export function registerAdminSubscribers(app,{CRM_SERVICE_URL,dataDir,fetchImpl=
  }));
  // The audit found fabricated rows and success-only handlers in these legacy
  // screens. Surface unavailable operations instead of displaying demo evidence.
- for(const route of ['/api/admin/quality-reports','/api/admin/complaints','/api/admin/complaints/:id/candidates','/api/admin/fsbo','/api/admin/ai/providers','/api/admin/meetings/settings'])
+ app.get('/api/admin/fsbo',wrap(async(req,res)=>{
+  if(req.query.inventory!=='1')return res.status(501).json({error:'Legacy collection controls are unavailable. Incoming prospects are visible in Prospects & leads.'});
+  const all=(await crm(req,'/api/v1/internal/contacts')).filter(p=>p.source==='Fsbo Prospect'&&['Review','Banked'].includes(p.stage)),page=Math.max(1,Number(req.query.page)||1);
+  res.json({prospects:all.slice((page-1)*25,page*25).map(p=>({id:String(p.id),title:p.name,ownerName:p.name,observedEmail:p.email,observedPhone:p.phone,zipCode:p.propertyZipCode,sourceUrl:p.sourceUrl,firstSeenAt:p.discoveredAt,description:p.notes,status:p.stage})),total:all.length});
+ }));
+ for(const route of ['/api/admin/quality-reports','/api/admin/complaints','/api/admin/complaints/:id/candidates','/api/admin/ai/providers','/api/admin/meetings/settings'])
   app.get(route,wrap((req,res)=>res.status(501).json({error:'This legacy admin view is not connected to verified persistent records. Use Sales Partner Center for its support and accounting records.'})));
  for(const route of ['/api/admin/meetings/settings','/api/admin/ai/providers','/api/admin/ai/providers/:provider/test','/api/admin/inquiries/:id/resend-confirmation'])
   app.post(route,wrap((req,res)=>res.status(501).json({error:'This legacy action is not connected to the live service. No change or message was sent.'})));
