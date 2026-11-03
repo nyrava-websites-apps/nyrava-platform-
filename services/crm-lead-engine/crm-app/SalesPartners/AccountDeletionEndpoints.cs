@@ -1,0 +1,31 @@
+using Microsoft.EntityFrameworkCore;using Microsoft.EntityFrameworkCore.Storage;using System.Security.Claims;using System.Text.Json;
+namespace NyravaCRM.SalesPartners;
+public static class AccountDeletionEndpoints
+{
+ private sealed record Plan(CrmUser Target,long[] UserIds,int Contacts,int Activities,int Messages,string[] Blockers);
+ private static async Task<Plan?> Review(long id,long actor,CrmDb crm,SalesPartnerDb db)
+ {
+  var target=await crm.Users.SingleOrDefaultAsync(x=>x.Id==id);if(target==null)return null;var blockers=new List<string>();if(id==actor)blockers.Add("You cannot permanently delete your signed-in administrator account.");if(target.Role is not "Owner" and not "Employee")blockers.Add("Website administrator and internal worker records are protected from subscriber deletion.");
+  var children=target.Role=="Owner"?await crm.Users.Where(x=>x.Role=="Employee"&&x.WorkspaceId==id).ToListAsync():[];var ids=children.Select(x=>x.Id).Append(id).ToArray();
+  if(await crm.Memberships.AnyAsync(x=>ids.Contains(x.UserId)&&x.OwnerUserId!=target.WorkspaceId))blockers.Add("A linked team member also belongs to another workspace. Reassign that member before deleting this workspace.");
+  if(new[]{target}.Concat(children).Any(x=>!string.IsNullOrWhiteSpace(x.StripeCustomerId)||!string.IsNullOrWhiteSpace(x.StripeSubscriptionId)))blockers.Add("A Stripe account/subscription is linked. Review its billing lifecycle before account deletion; deletion does not cancel external billing.");
+  if(await db.Relationships.AnyAsync(x=>ids.Contains(x.SubscriberUserId))||await db.BillingEvents.AnyAsync(x=>ids.Contains(x.SubscriberUserId))||await db.Set<PartnerSubscriptionSnapshot>().AnyAsync(x=>ids.Contains(x.SubscriberUserId)))blockers.Add("Permanent subscriber attribution or provider financial history exists. Those protected records cannot be erased through unused-account deletion.");
+  var contacts=target.Role=="Owner"?await crm.Contacts.CountAsync(x=>x.UserId==id):0;var activities=target.Role=="Owner"?await crm.Activities.CountAsync(x=>x.UserId==id):0;var messages=await crm.Messages.CountAsync(x=>ids.Contains(x.SenderUserId)||ids.Contains(x.RecipientUserId)||(target.Role=="Owner"&&x.WorkspaceOwnerId==id));
+  return new(target,ids,contacts,activities,messages,blockers.ToArray());
+ }
+ public static void MapAccountDeletion(this WebApplication app)
+ {
+  var group=app.MapGroup("/api/admin/accounts").RequireAuthorization();
+  group.AddEndpointFilter(async(c,next)=>{var crm=c.HttpContext.RequestServices.GetRequiredService<CrmDb>();if(!long.TryParse(c.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier),out var actor)||!await crm.Users.AnyAsync(x=>x.Id==actor&&x.Role=="Admin"))return Results.Forbid();c.HttpContext.Items["delete-account-actor"]=actor;return await next(c);});
+  group.MapGet("/{id:long}/deletion",async(long id,HttpContext h,CrmDb crm,SalesPartnerDb db)=>{var p=await Review(id,(long)h.Items["delete-account-actor"]!,crm,db);return p==null?Results.NotFound():Results.Ok(new{p.Target.Id,p.Target.Email,p.Target.Role,canDelete=p.Blockers.Length==0,blockers=p.Blockers,affectedUserIds=p.UserIds,contacts=p.Contacts,activities=p.Activities,messages=p.Messages,scope="Permanent removal from live account storage; existing restricted server backups are not modified."});});
+  group.MapDelete("/{id:long}",async(long id,[Microsoft.AspNetCore.Mvc.FromBody] JsonElement input,HttpContext h,CrmDb crm,SalesPartnerDb db)=>{
+   var actor=(long)h.Items["delete-account-actor"]!;crm.Database.SetDbConnection(db.Database.GetDbConnection());await using var tx=await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);await crm.Database.UseTransactionAsync(tx.GetDbTransaction());var p=await Review(id,actor,crm,db);if(p==null)return Results.NotFound();if(p.Blockers.Length>0)return Results.Conflict(new{error=string.Join(" ",p.Blockers)});if(!input.TryGetProperty("confirmed",out var confirmed)||confirmed.ValueKind!=JsonValueKind.True||!input.TryGetProperty("confirmedEmail",out var email)||!string.Equals(email.GetString()?.Trim(),p.Target.Email,StringComparison.OrdinalIgnoreCase))return Results.BadRequest(new{error="Confirm permanent deletion by entering the exact account email."});var ids=p.UserIds;var owner=p.Target.Role=="Owner";
+   await db.Set<RepresentativeReferral>().Where(x=>ids.Contains(x.SubscriberUserId)).ExecuteDeleteAsync();
+   await crm.Messages.Where(x=>ids.Contains(x.SenderUserId)||ids.Contains(x.RecipientUserId)||(owner&&x.WorkspaceOwnerId==id)).ExecuteDeleteAsync();
+   if(owner){await crm.Activities.Where(x=>x.UserId==id||crm.Contacts.Any(c=>c.Id==x.ContactId&&c.UserId==id)).ExecuteDeleteAsync();await crm.Contacts.Where(x=>x.UserId==id).ExecuteDeleteAsync();}
+   await crm.Contacts.Where(x=>x.AssignedToUserId!=null&&ids.Contains(x.AssignedToUserId.Value)).ExecuteUpdateAsync(s=>s.SetProperty(x=>x.AssignedToUserId,(long?)null));await crm.Activities.Where(x=>x.AssignedToUserId!=null&&ids.Contains(x.AssignedToUserId.Value)).ExecuteUpdateAsync(s=>s.SetProperty(x=>x.AssignedToUserId,(long?)null));await crm.Activities.Where(x=>ids.Contains(x.CreatedByUserId)).ExecuteUpdateAsync(s=>s.SetProperty(x=>x.CreatedByUserId,0));
+   await crm.Invitations.Where(x=>ids.Contains(x.OwnerUserId)||(x.Email!=null&&crm.Users.Any(u=>ids.Contains(u.Id)&&u.Email==x.Email))).ExecuteDeleteAsync();await crm.IntegrationKeys.Where(x=>ids.Contains(x.OwnerUserId)).ExecuteDeleteAsync();await crm.SubscriptionAuditEvents.Where(x=>ids.Contains(x.TargetUserId)).ExecuteDeleteAsync();await crm.Memberships.Where(x=>ids.Contains(x.UserId)||(owner&&x.OwnerUserId==id)).ExecuteDeleteAsync();
+   await crm.Users.Where(x=>ids.Contains(x.Id)).ExecuteDeleteAsync();db.Add(new PartnerAuditEvent{ActorUserId=actor,EntityType="DeletedAccount",EntityId=id,Action="PermanentlyDeletedUnusedAccount",EvidenceJson=JsonSerializer.Serialize(new{userCount=ids.Length,p.Contacts,p.Activities,p.Messages}),CreatedAt=DateTimeOffset.UtcNow});await db.SaveChangesAsync();await tx.CommitAsync();return Results.Ok(new{deleted=true,deletedUserIds=ids,deletedWorkspaceId=owner?(long?)id:null});
+  });
+ }
+}

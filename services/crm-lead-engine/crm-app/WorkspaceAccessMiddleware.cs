@@ -19,6 +19,7 @@ public sealed class WorkspaceAccessMiddleware(RequestDelegate next)
         { http.Response.StatusCode = 401; return; }
         var user = await db.Users.SingleOrDefaultAsync(u => u.Id == id);
         if (user?.Role == "Admin") { await next(http); return; }
+        if (path.StartsWith("/api/admin/accounts/")) { http.Response.StatusCode = 403; return; }
         if (user is null || !await db.Memberships.AnyAsync(m => m.UserId == id && m.OwnerUserId == user.WorkspaceId && m.Active))
         { http.Response.StatusCode = 403; return; }
         var owner = user.Role == "Owner" ? user : await db.Users.SingleOrDefaultAsync(u => u.Id == user.WorkspaceId && u.Role == "Owner");

@@ -4,6 +4,21 @@ import path from 'node:path';
 export function registerAdminSubscribers(app,{CRM_SERVICE_URL,dataDir,fetchImpl=fetch}){
  const wrap=fn=>async(req,res)=>{res.set('Cache-Control','private, no-store');try{if(!req.platformAdminUser?.isPlatformAdmin)return res.status(403).json({error:'Website administrator access required.'});await fn(req,res);}catch(e){res.status(e.status||502).json({error:e.message||'CRM records are unavailable.'});}};
  async function crm(req,url){const r=await fetchImpl(CRM_SERVICE_URL+url,{headers:{Cookie:req.headers.cookie||'',Authorization:req.headers.authorization||''},signal:AbortSignal.timeout(15000)});if(!r.ok)throw Object.assign(Error('CRM lookup failed ('+r.status+').'),{status:r.status});return r.json();}
+ app.get('/api/admin/accounts',wrap(async(req,res)=>res.json(await crm(req,'/api/admin/accounts'))));
+ app.get('/api/admin/accounts/:id/deletion',wrap(async(req,res)=>res.json(await crm(req,'/api/admin/accounts/'+encodeURIComponent(req.params.id)+'/deletion'))));
+ app.delete('/api/admin/accounts/:id',wrap(async(req,res)=>{
+  const response=await fetchImpl(CRM_SERVICE_URL+'/api/admin/accounts/'+encodeURIComponent(req.params.id),{method:'DELETE',headers:{'Content-Type':'application/json',Cookie:req.headers.cookie||'',Authorization:req.headers.authorization||''},body:JSON.stringify(req.body),signal:AbortSignal.timeout(15000)});
+  const result=await response.json();if(!response.ok)return res.status(response.status).json(result);
+  // Only canonical numeric IDs returned by the authoritative committed deletion
+  // may select files. Never accept paths or IDs from the client for cleanup.
+  const files=[];
+  for(const id of result.deletedUserIds||[])if(Number.isSafeInteger(id)&&id>0){files.push(['subscriber-profiles',String(id)+'.json'],['account-calendars','staff-'+id+'.json']);}
+  if(Number.isSafeInteger(result.deletedWorkspaceId)&&result.deletedWorkspaceId>0)files.push(['account-calendars','realtor-'+result.deletedWorkspaceId+'.json']);
+  const failures=[];for(const parts of files)try{fs.unlinkSync(path.join(dataDir,...parts));}catch(e){if(e.code!=='ENOENT')failures.push(parts.join('/'));}
+  res.json({...result,localDataRemoved:failures.length===0,...(failures.length?{error:'Account access was deleted, but local file cleanup requires administrator attention.',cleanupPending:failures}:{})});
+ }));
+ app.get('/api/admin/meetings/session',wrap((req,res)=>res.json({user:{email:req.platformAdminUser.email,role:'Admin'},settingsAvailable:false})));
+ app.all('/api/professional-ai/admin/search*',wrap((req,res)=>res.status(501).json({error:'Search-provider administration is not connected to persistent settings. No settings were saved and no provider test was performed.'})));
  async function rows(req){const accounts=await crm(req,'/api/admin/accounts');
   let billing=[],paymentEvidenceAvailable=true;try{billing=(await crm(req,'/api/sales-partners/accounting')).billing;}catch{paymentEvidenceAvailable=false;}
   if(!Array.isArray(billing)){billing=[];paymentEvidenceAvailable=false;}

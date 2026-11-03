@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.DataProtection;
@@ -68,6 +69,11 @@ builder.Services.AddAuthentication("crm-cookie").AddCookie("crm-cookie", options
         options.Cookie.Domain = ".nyrava.com";
     }
     options.LoginPath = "/login.html";
+    options.Events.OnValidatePrincipal = async context => {
+        if(!long.TryParse(context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value,out var id)){context.RejectPrincipal();return;}
+        var db=context.HttpContext.RequestServices.GetRequiredService<CrmDb>();
+        if(!await db.Users.AnyAsync(x=>x.Id==id)){context.RejectPrincipal();await context.HttpContext.SignOutAsync("crm-cookie");}
+    };
     options.Events.OnRedirectToLogin = context => {
         if (context.Request.Path.StartsWithSegments("/api")) {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;

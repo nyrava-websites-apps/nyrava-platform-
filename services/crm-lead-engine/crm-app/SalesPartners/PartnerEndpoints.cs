@@ -19,6 +19,7 @@ public static partial class PartnerEndpoints
     private static void Audit(SalesPartnerDb db,HttpContext h,string type,long id,string action,object evidence)=>db.Add(new PartnerAuditEvent{ActorUserId=Actor(h),EntityType=type,EntityId=id,Action=action,EvidenceJson=JsonSerializer.Serialize(evidence),CreatedAt=DateTimeOffset.UtcNow});
     public static void MapSalesPartners(this WebApplication app)
     {
+        app.MapAccountDeletion();
         var group=app.MapGroup("/api/sales-partners").RequireAuthorization();
         group.AddEndpointFilter(async(context,next)=>{
             try{return await next(context);}
